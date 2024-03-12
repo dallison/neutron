@@ -1,0 +1,62 @@
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "msglib",
+    srcs = [
+        "lex.cc",
+        "package.cc",
+        "syntax.cc",
+    ],
+    hdrs = [
+        "lex.h",
+        "package.h",
+        "syntax.h",
+    ],
+    deps = [
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_test(
+    name = "lex_test",
+    srcs = [
+        "lex_test.cc",
+    ],
+    deps = [
+        ":msglib",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_test(
+    name = "syntax_test",
+    srcs = [
+        "syntax_test.cc",
+    ],
+    deps = [
+        ":msglib",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_test(
+    name = "package_test",
+    srcs = [
+        "package_test.cc",
+    ],
+    data = [
+        ":msgs",
+    ],
+    deps = [
+        ":msglib",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+filegroup(
+    name = "msgs",
+    srcs = glob(["testdata/**"]),
+)

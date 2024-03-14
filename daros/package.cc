@@ -1,7 +1,5 @@
 #include "daros/package.h"
 #include "absl/strings/str_format.h"
-#include "daros/lex.h"
-#include "daros/syntax.h"
 #include <filesystem>
 #include <fstream>
 
@@ -37,19 +35,12 @@ absl::Status PackageScanner::ParseAllMessagesFrom(std::filesystem::path path) {
 
         for (auto &file : std::filesystem::directory_iterator(dir)) {
           if (file.path().extension() == ".msg") {
-            std::ifstream in(file.path());
-            if (!in) {
-              return absl::InternalError(
-                  absl::StrFormat("Unable to open message file %s", path));
+            absl::StatusOr<std::shared_ptr<Message>> msg =
+                package->ParseMessage(file.path());
+            if (!msg.ok()) {
+              return msg.status();
             }
-            LexicalAnalyzer lex(file.path().string(), in);
-            std::string msg_name = file.path().stem().string();
-            auto msg = std::make_shared<Message>(package, msg_name);
-
-            if (absl::Status status = msg->Parse(lex); !status.ok()) {
-              return status;
-            }
-            package->AddMessage(msg);
+            package->AddMessage(*msg);
           }
         }
       } else {
@@ -71,6 +62,23 @@ PackageScanner::FindMessage(const std::string package_name,
     return nullptr;
   }
   return it->second->FindMessage(msg_name);
+}
+
+absl::StatusOr<std::shared_ptr<Message>>
+Package::ParseMessage(std::filesystem::path file) {
+  std::ifstream in(file);
+  if (!in) {
+    return absl::InternalError(
+        absl::StrFormat("Unable to open message file %s", file.string()));
+  }
+  LexicalAnalyzer lex(file.string(), in);
+  std::string msg_name = file.stem().string();
+  auto msg = std::make_shared<Message>(shared_from_this(), msg_name);
+
+  if (absl::Status status = msg->Parse(lex); !status.ok()) {
+    return status;
+  }
+  return msg;
 }
 
 void Package::AddMessage(std::shared_ptr<Message> msg) {

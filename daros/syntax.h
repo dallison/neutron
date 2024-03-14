@@ -3,11 +3,11 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "daros/lex.h"
+#include <map>
 #include <memory>
 #include <string>
 #include <variant>
 #include <vector>
-#include <map>
 
 namespace daros {
 
@@ -41,11 +41,11 @@ public:
       : type_(type), name_(std::move(name)), value_(std::move(value)) {}
 
   void Dump(std::ostream &os) const;
+  std::string TypeName() const;
+  const std::string &Name() const { return name_; }
+  FieldType Type() const { return type_; }
 
 private:
-  friend class Message;
-  std::string TypeName() const;
-
   FieldType type_;
   std::string name_;
   std::variant<int64_t, double, std::string> value_;
@@ -61,14 +61,15 @@ public:
   virtual std::string TypeName() const;
   virtual void Dump(std::ostream &os) const;
 
-  virtual const std::string& Name() const { return name_; }
+  virtual const std::string &Name() const { return name_; }
   FieldType Type() const { return type_; }
 
+  virtual bool IsArray() const { return false; }
+
 private:
-  friend class Message;
   FieldType type_;
   std::string name_;
-  std::variant<int64_t, double, std::string> init_value_; // TODO: support this.
+  std::variant<int64_t, double, std::string> default_value_; // TODO: support this.
 };
 
 class MessageField : public Field {
@@ -79,13 +80,13 @@ public:
 
   const std::string &MsgPackage() const { return msg_package_; }
   const std::string &MsgName() const { return msg_name_; }
+  std::shared_ptr<Message> Msg() const { return msg_; }
 
   std::string TypeName() const override;
-  
-  void Resolved(std::shared_ptr<Message> msg) { msg_ = msg;  }
+
+  void Resolved(std::shared_ptr<Message> msg) { msg_ = msg; }
 
 private:
-  friend class Message;
   std::string msg_package_;
   std::string msg_name_;
   std::shared_ptr<Message> msg_;
@@ -99,19 +100,32 @@ public:
 
   std::shared_ptr<Field> Base() const { return base_; }
   int Size() const { return size_; }
-  bool IsFixedSize() const { return size_ == 0; }
+  bool IsFixedSize() const { return size_ != 0; }
 
   std::string TypeName() const override;
   void Dump(std::ostream &os) const override;
-   const std::string& Name() const override { return base_->Name(); }
+  const std::string &Name() const override { return base_->Name(); }
+
+  bool IsArray() const override { return true; }
 
 private:
-  friend class Message;
   std::shared_ptr<Field> base_;
   int size_;
 };
 
-struct GeneratorContext {};     // To be provided by specific generators.
+// This is a generic generator that does nothing.  A language specific
+// generator should derive from this class and provide the implemention
+// of the Generate function.
+class Generator {
+public:
+  Generator() = default;
+  virtual ~Generator() = default;
+
+  // Provide implementation in derived class.
+  virtual absl::Status Generate(const Message& msg) {
+    return absl::InternalError("No generator provided");
+  }
+};
 
 class Message {
 public:
@@ -119,30 +133,28 @@ public:
       : package_(std::move(package)), name_(std::move(name)) {}
 
   virtual ~Message() = default;
-  
+
   absl::Status Parse(LexicalAnalyzer &lex);
 
   void Dump(std::ostream &os) const;
 
   const std::shared_ptr<Package> Package() const { return package_; }
   const std::string Name() const { return name_; }
-  
+  const std::vector<std::shared_ptr<Field>>& Fields() const { return fields_; }
+  const std::map<std::string, std::shared_ptr<Constant>>& Constants() const { return constants_; }
+ 
   absl::Status Resolve(std::shared_ptr<PackageScanner> scanner);
 
-  // Override this in a derived class to provide generator specific
-  // behavior.
-  virtual absl::Status Generate(const GeneratorContext& ctx) {
-    return absl::InternalError("No generator provided");
-  }
+  absl::Status Generate(Generator &gen) const { return gen.Generate(*this); }
 
-protected:
+private:
   std::shared_ptr<class Package> package_;
   std::string name_;
   std::vector<std::shared_ptr<Field>> fields_;
   absl::flat_hash_map<std::string, std::shared_ptr<Field>> field_map_;
 
   // This is ordered alphabetically so we can compare against known values
-  // in unit tests. 
+  // in unit tests.
   std::map<std::string, std::shared_ptr<Constant>> constants_;
 
   static absl::flat_hash_map<Token, FieldType> field_types_;

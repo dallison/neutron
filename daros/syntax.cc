@@ -332,7 +332,6 @@ absl::Status Message::Resolve(std::shared_ptr<PackageScanner> scanner) {
       if (msg == nullptr) {
         return absl::InternalError(absl::StrFormat("Unable to resolve message %s/%s", msg_field->MsgPackage(), msg_field->MsgName()));
       } else {
-        std::cerr << "Resolved " << field->Name() << " to " << msg->Package()->Name() << "/" << msg->Name() << std::endl;
         msg_field->Resolved(msg);
       }
     }

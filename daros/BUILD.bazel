@@ -60,3 +60,30 @@ filegroup(
     name = "msgs",
     srcs = glob(["testdata/**"]),
 )
+
+cc_library(
+    name = "serdes",
+    srcs = [
+        "serdes/gen.cc",
+    ],
+    hdrs = [
+        "serdes/gen.h",
+    ],
+    deps = [
+        ":msglib",
+    ],
+)
+
+cc_test(
+    name = "gen_test",
+    srcs = [
+        "serdes/gen_test.cc",
+    ],
+    data = [
+        ":msgs",
+    ],
+    deps = [
+        ":serdes",
+        "@com_google_googletest//:gtest",
+    ],
+)

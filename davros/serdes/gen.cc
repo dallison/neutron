@@ -27,6 +27,7 @@ absl::Status Generator::Generate(const Message &msg) {
     if (absl::Status status = GenerateHeader(msg, out); !status.ok()) {
       return status;
     }
+    std::cout << "Generated header file " << header.string() << std::endl;
   }
   {
     std::ofstream out(source.string());
@@ -37,6 +38,7 @@ absl::Status Generator::Generate(const Message &msg) {
     if (absl::Status status = GenerateSource(msg, out); !status.ok()) {
       return status;
     }
+    std::cout << "Generated source file " << source.string() << std::endl;
   }
   return absl::OkStatus();
 }

@@ -87,3 +87,16 @@ cc_test(
         "@com_google_googletest//:gtest",
     ],
 )
+
+cc_binary(
+    name = "davros",
+    srcs = [
+        "main.cc",
+    ],
+    deps = [
+        ":msglib",
+        ":serdes",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
+    ],
+)

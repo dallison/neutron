@@ -3,11 +3,11 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "daros/syntax.h"
+#include "davros/syntax.h"
 #include <filesystem>
 #include <memory>
 
-namespace daros {
+namespace davros {
 
 class PackageScanner;
 
@@ -71,4 +71,4 @@ private:
   absl::flat_hash_map<std::string, std::shared_ptr<Package>> packages_;
 };
 
-} // namespace daros
+} // namespace davros

@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace daros {
+namespace davros {
 
 struct Time {
   uint32_t secs;
@@ -176,4 +176,4 @@ private:
   char *end_;
 };
 
-} // namespace daros
+} // namespace davros

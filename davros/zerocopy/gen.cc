@@ -1,8 +1,8 @@
 
-#include "daros/serdes/gen.h"
+#include "davros/serdes/gen.h"
 #include <fstream>
 
-namespace daros::zerocopy {
+namespace davros::zerocopy {
 
 absl::Status Generator::Generate(const Message &msg) {
   if (absl::Status status = GenerateHeader(msg, std::cout); !status.ok()) {
@@ -14,35 +14,35 @@ absl::Status Generator::Generate(const Message &msg) {
 static std::string FieldClass(FieldType type) {
   switch (type) {
   case FieldType::kInt8:
-    return "daros::Int8Field";
+    return "davros::Int8Field";
   case FieldType::kUint8:
-    return "daros::Uint8Field";
+    return "davros::Uint8Field";
   case FieldType::kInt16:
-    return "daros::Int16Field";
+    return "davros::Int16Field";
   case FieldType::kUint16:
-    return "daros::Uint16Field";
+    return "davros::Uint16Field";
   case FieldType::kInt32:
-    return "daros::Int32Field";
+    return "davros::Int32Field";
   case FieldType::kUint32:
-    return "daros::Uint32Field";
+    return "davros::Uint32Field";
   case FieldType::kInt64:
-    return "daros::Int4Field";
+    return "davros::Int4Field";
   case FieldType::kUint64:
-    return "daros::Uint64Field";
+    return "davros::Uint64Field";
   case FieldType::kFloat32:
-    return "daros::Float32Field";
+    return "davros::Float32Field";
   case FieldType::kFloat64:
-    return "daros::Float64Field";
+    return "davros::Float64Field";
   case FieldType::kTime:
-    return "daros::TimeField";
+    return "davros::TimeField";
   case FieldType::kDuration:
-    return "daros::DurationField";
+    return "davros::DurationField";
   case FieldType::kString:
-    return "daros::StringField";
+    return "davros::StringField";
   case FieldType::kMessage:
-    return "daros:MessageField";
+    return "davros:MessageField";
   case FieldType::kBool:
-    return "daros:BoolField";
+    return "davros:BoolField";
   case FieldType::kUnknown:
     abort();
   }
@@ -51,7 +51,7 @@ static std::string FieldClass(FieldType type) {
 static std::string SanitizeFieldName(const std::string &name) { return name; }
 
 absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
-  os << "#include \"daros/serdes/runtime.h\"\n";
+  os << "#include \"davros/serdes/runtime.h\"\n";
   os << "\n";
   os << "namespace " << msg.Package()->Name() << " {\n";
   os << "class " << msg.Name() << " {\n";
@@ -76,4 +76,4 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
 absl::Status Generator::Serialize(const Message &msg, std::ostream &os) {
   return absl::OkStatus();
 }
-} // namespace daros::zerocopy
+} // namespace davros::zerocopy

@@ -7,7 +7,7 @@
 #include <string>
 #include <functional>
 
-namespace daros {
+namespace davros {
 
 enum class Token {
   kInvalid,
@@ -89,4 +89,4 @@ private:
   std::function<void(const std::string&)> error_fn_ = {}; 
 };
 
-} // namespace daros
+} // namespace davros

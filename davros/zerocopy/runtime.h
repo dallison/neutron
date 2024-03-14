@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace daros {
+namespace davros {
 
 #define DEFINE_PRIMITIVE_FIELD(cname, type)                                    \
   class cname##Field {                                                         \

@@ -1,12 +1,12 @@
 #pragma once
 
-#include "daros/package.h"
+#include "davros/package.h"
 #include <filesystem>
 #include "absl/status/status.h"
 
-namespace daros::zerocopy {
+namespace davros::zerocopy {
 
-class Generator : public daros::Generator {
+class Generator : public davros::Generator {
 public:
   Generator(std::filesystem::path root) : root_(std::move(root)) {}
 

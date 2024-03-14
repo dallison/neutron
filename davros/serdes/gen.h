@@ -1,12 +1,12 @@
 #pragma once
 
 #include "absl/status/status.h"
-#include "daros/package.h"
+#include "davros/package.h"
 #include <filesystem>
 
-namespace daros::serdes {
+namespace davros::serdes {
 
-class Generator : public daros::Generator {
+class Generator : public davros::Generator {
 public:
   Generator(std::filesystem::path root, std::string runtime_path,
             std::string msg_path)
@@ -24,4 +24,4 @@ private:
   std::string msg_path_;
 };
 
-} // namespace daros::serdes
+} // namespace davros::serdes

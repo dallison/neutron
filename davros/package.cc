@@ -1,9 +1,9 @@
-#include "daros/package.h"
+#include "davros/package.h"
 #include "absl/strings/str_format.h"
 #include <filesystem>
 #include <fstream>
 
-namespace daros {
+namespace davros {
 
 absl::Status PackageScanner::ParseAllMessages() {
   for (auto &root : roots_) {
@@ -117,4 +117,4 @@ void PackageScanner::Dump(std::ostream &os) {
   }
 }
 
-} // namespace daros
+} // namespace davros

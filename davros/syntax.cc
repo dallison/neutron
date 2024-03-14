@@ -1,8 +1,8 @@
-#include "daros/syntax.h"
-#include "daros/package.h"
+#include "davros/syntax.h"
+#include "davros/package.h"
 #include "absl/strings/str_format.h"
 
-namespace daros {
+namespace davros {
 
 absl::flat_hash_map<Token, FieldType> Message::field_types_;
 
@@ -229,7 +229,7 @@ absl::Status Message::Parse(LexicalAnalyzer &lex) {
   return lex.NumErrors() == 0
              ? absl::OkStatus()
              : absl::InternalError("Parsing errors encountered");
-} // namespace daros
+} // namespace davros
 
 static std::string FieldTypeName(FieldType t) {
   switch (t) {
@@ -340,4 +340,4 @@ absl::Status Message::Resolve(std::shared_ptr<PackageScanner> scanner) {
 }
 
 
-} // namespace daros
+} // namespace davros

@@ -1,5 +1,5 @@
-#include "daros/lex.h"
-#include "daros/syntax.h"
+#include "davros/lex.h"
+#include "davros/syntax.h"
 #include <gtest/gtest.h>
 #include <sstream>
 
@@ -7,9 +7,9 @@ TEST(SyntaxTest, SingleField) {
   std::stringstream input;
   input << "# a comment\nint32 foo\n";
 
-  daros::LexicalAnalyzer lex("stdin", input,
+  davros::LexicalAnalyzer lex("stdin", input,
                               [](const std::string &error) { FAIL(); });
-  daros::Message msg(nullptr, "Foo");
+  davros::Message msg(nullptr, "Foo");
 
   absl::Status status = msg.Parse(lex);
   ASSERT_TRUE(status.ok());
@@ -37,9 +37,9 @@ time tm
 duration d
 )";
 
-  daros::LexicalAnalyzer lex("stdin", input,
+  davros::LexicalAnalyzer lex("stdin", input,
                               [](const std::string &error) { FAIL(); });
-  daros::Message msg(nullptr, "Foo");
+  davros::Message msg(nullptr, "Foo");
 
   absl::Status status = msg.Parse(lex);
   ASSERT_TRUE(status.ok());
@@ -54,9 +54,9 @@ TEST(SyntaxTest, CharAndByte) {
 byte b
 )";
 
-  daros::LexicalAnalyzer lex("stdin", input,
+  davros::LexicalAnalyzer lex("stdin", input,
                               [](const std::string &error) { FAIL(); });
-  daros::Message msg(nullptr, "Foo");
+  davros::Message msg(nullptr, "Foo");
 
   absl::Status status = msg.Parse(lex);
   ASSERT_TRUE(status.ok());
@@ -74,9 +74,9 @@ TEST(SyntaxTest, Messages) {
 foo/Msg msg
 )";
 
-  daros::LexicalAnalyzer lex("stdin", input,
+  davros::LexicalAnalyzer lex("stdin", input,
                               [](const std::string &error) { FAIL(); });
-  daros::Message msg(nullptr, "Foo");
+  davros::Message msg(nullptr, "Foo");
 
   absl::Status status = msg.Parse(lex);
   ASSERT_TRUE(status.ok());
@@ -93,9 +93,9 @@ float32 fop = 5
 string s = this is a string
 )";
 
-  daros::LexicalAnalyzer lex("stdin", input,
+  davros::LexicalAnalyzer lex("stdin", input,
                               [](const std::string &error) { FAIL(); });
-  daros::Message msg(nullptr, "Foo");
+  davros::Message msg(nullptr, "Foo");
 
   absl::Status status = msg.Parse(lex);
   ASSERT_TRUE(status.ok());
@@ -112,9 +112,9 @@ foo/Baz[] i3
 foo/baz[6] i4
 )";
 
-  daros::LexicalAnalyzer lex("stdin", input,
+  davros::LexicalAnalyzer lex("stdin", input,
                               [](const std::string &error) { FAIL(); });
-  daros::Message msg(nullptr, "Foo");
+  davros::Message msg(nullptr, "Foo");
 
   absl::Status status = msg.Parse(lex);
   ASSERT_TRUE(status.ok());
@@ -153,13 +153,13 @@ TEST(SyntaxTest, Errors) {
       "stdin: line 11: Duplicate field foobar",
       "stdin: line 12: Invalid message field type",
       nullptr};
-  daros::LexicalAnalyzer lex("stdin", input,
+  davros::LexicalAnalyzer lex("stdin", input,
                               [&num_errors, &errors](const std::string &error) {
                                 std::cerr << error << std::endl;
                                 ASSERT_NE(nullptr, errors[num_errors]);
                                 ASSERT_EQ(errors[num_errors++], error);
                               });
-  daros::Message msg(nullptr, "Foo");
+  davros::Message msg(nullptr, "Foo");
 
   absl::Status status = msg.Parse(lex);
   ASSERT_FALSE(status.ok());

@@ -1,8 +1,8 @@
-#include "daros/lex.h"
+#include "davros/lex.h"
 #include "absl/strings/str_format.h"
 #include <ctype.h>
 
-namespace daros {
+namespace davros {
 
 LexicalAnalyzer::LexicalAnalyzer(
     std::string filename, std::istream &in,
@@ -211,4 +211,4 @@ void LexicalAnalyzer::VError(int lineno, const char *error, va_list ap) {
   }
   num_errors_++;
 }
-} // namespace daros
+} // namespace davros

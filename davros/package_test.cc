@@ -1,11 +1,11 @@
-#include "daros/lex.h"
-#include "daros/package.h"
+#include "davros/lex.h"
+#include "davros/package.h"
 #include <gtest/gtest.h>
 #include <sstream>
 
 TEST(PackageTest, Scanner) {
-  std::shared_ptr<daros::PackageScanner> scanner(
-      new daros::PackageScanner({"./daros/testdata"}));
+  std::shared_ptr<davros::PackageScanner> scanner(
+      new davros::PackageScanner({"./davros/testdata"}));
   auto status = scanner->ParseAllMessages();
   std::cout << status << std::endl;
   ASSERT_TRUE(status.ok());
@@ -13,8 +13,8 @@ TEST(PackageTest, Scanner) {
 }
 
 TEST(PackageTest, OneMessageInScanner) {
-  std::shared_ptr<daros::PackageScanner> scanner(
-      new daros::PackageScanner({"./daros/testdata/std_msgs"}));
+  std::shared_ptr<davros::PackageScanner> scanner(
+      new davros::PackageScanner({"./davros/testdata/std_msgs"}));
   auto status = scanner->ParseAllMessages();
   const char *expected = R"(**** Message std_msgs/Header
 uint32 seq
@@ -31,9 +31,9 @@ string frame_id
 }
 
 TEST(PackageTest, SingleMessage) {
-  std::shared_ptr<daros::Package> pkg =
-      std::make_shared<daros::Package>(nullptr, "other_msgs");
-  auto msg = pkg->ParseMessage("./daros/testdata/other_msgs/msg/Other.msg");
+  std::shared_ptr<davros::Package> pkg =
+      std::make_shared<davros::Package>(nullptr, "other_msgs");
+  auto msg = pkg->ParseMessage("./davros/testdata/other_msgs/msg/Other.msg");
   ASSERT_TRUE(msg.ok());
 
   const char *expected = R"(std_msgs/Header header

@@ -1,9 +1,9 @@
 
-#include "daros/serdes/gen.h"
+#include "davros/serdes/gen.h"
 #include "absl/strings/str_format.h"
 #include <fstream>
 
-namespace daros::serdes {
+namespace davros::serdes {
 
 absl::Status Generator::Generate(const Message &msg) {
   std::filesystem::path dir =
@@ -64,9 +64,9 @@ static std::string FieldCType(FieldType type) {
   case FieldType::kFloat64:
     return "double";
   case FieldType::kTime:
-    return "daros::Time";
+    return "davros::Time";
   case FieldType::kDuration:
-    return "daros::Duration";
+    return "davros::Duration";
   case FieldType::kString:
     return "std::string";
   case FieldType::kBool:
@@ -82,7 +82,7 @@ static std::string SanitizeFieldName(const std::string &name) { return name; }
 
 absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
   os << "#include \"" << (runtime_path_.empty() ? "" : (runtime_path_ + "/"))
-     << "daros/serdes/runtime.h\"\n";
+     << "davros/serdes/runtime.h\"\n";
   os << "\n";
   // Include files for message fields
   os << "// Imported headers.\n";
@@ -122,9 +122,9 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
   }
   os << "\n";
   os << "  absl::Status SerializeToArray(char* addr, size_t len) const;\n";
-  os << "  absl::Status SerializeToBuffer(daros::Buffer& buffer) const;\n";
+  os << "  absl::Status SerializeToBuffer(davros::Buffer& buffer) const;\n";
   os << "  absl::Status DeserializeFromArray(const char* addr, size_t len);\n";
-  os << "  absl::Status DeserializeFromBuffer(daros::Buffer& buffer);\n";
+  os << "  absl::Status DeserializeFromBuffer(davros::Buffer& buffer);\n";
   os << "  size_t SerializedLength() const;\n";
   os << "};\n";
   os << "}    // namespace " << msg.Package()->Name() << "\n";
@@ -139,17 +139,17 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "namespace " << msg.Package()->Name() << " {\n";
   os << "absl::Status " << msg.Name()
      << "::SerializeToArray(char* addr, size_t len) const {\n";
-  os << "  daros::Buffer buffer(addr, len);\n";
+  os << "  davros::Buffer buffer(addr, len);\n";
   os << "  return SerializeToBuffer(buffer);\n";
   os << "}\n\n";
   os << "absl::Status " << msg.Name()
      << "::DeserializeFromArray(const char* addr, size_t len) {\n";
-  os << "  daros::Buffer buffer(addr, len);\n";
+  os << "  davros::Buffer buffer(addr, len);\n";
   os << "  return DeserializeFromBuffer(buffer);\n";
   os << "}\n\n";
 
   os << "absl::Status " << msg.Name()
-     << "::SerializeToBuffer(daros::Buffer& buffer) const {\n";
+     << "::SerializeToBuffer(davros::Buffer& buffer) const {\n";
   for (auto &field : msg.Fields()) {
     if (field->Type() == FieldType::kMessage) {
       auto msg_field = std::static_pointer_cast<MessageField>(field);
@@ -172,7 +172,7 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "}\n\n";
 
   os << "absl::Status " << msg.Name()
-     << "::DeserializeFromBuffer(daros::Buffer& buffer) {\n";
+     << "::DeserializeFromBuffer(davros::Buffer& buffer) {\n";
   for (auto &field : msg.Fields()) {
     if (field->Type() == FieldType::kMessage) {
       auto msg_field = std::static_pointer_cast<MessageField>(field);
@@ -228,6 +228,6 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "}    // namespace " << msg.Package()->Name() << "\n";
 
   return absl::OkStatus();
-} // namespace daros::serdes
+} // namespace davros::serdes
 
-} // namespace daros::serdes
+} // namespace davros::serdes

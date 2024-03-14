@@ -2,14 +2,14 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
-#include "daros/lex.h"
+#include "davros/lex.h"
 #include <map>
 #include <memory>
 #include <string>
 #include <variant>
 #include <vector>
 
-namespace daros {
+namespace davros {
 
 class Package;
 class PackageScanner;
@@ -160,4 +160,4 @@ private:
   static absl::flat_hash_map<Token, FieldType> field_types_;
 };
 
-} // namespace daros
+} // namespace davros

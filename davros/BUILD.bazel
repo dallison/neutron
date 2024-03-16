@@ -1,3 +1,5 @@
+load("//davros:davros_library.bzl", "davros_library")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -88,6 +90,39 @@ cc_test(
     ],
 )
 
+davros_library(
+    name = "std_msgs",
+    srcs = [
+        "testdata/std_msgs/msg/Header.msg",
+    ],
+)
+
+davros_library(
+    name = "other_msgs",
+    srcs = [
+        "testdata/other_msgs/msg/Other.msg",
+    ],
+    deps = [
+        ":std_msgs",
+    ],
+)
+
+cc_test(
+    name = "serdes_runtime_test",
+    srcs = [
+        "serdes_runtime_test.cc",
+    ],
+    data = [
+        ":msgs",
+    ],
+    deps = [
+        ":davros_serdes_runtime",
+        ":other_msgs",
+        "@com_google_googletest//:gtest",
+        "@toolbelt//toolbelt",
+    ],
+)
+
 cc_binary(
     name = "davros",
     srcs = [
@@ -98,5 +133,17 @@ cc_binary(
         ":serdes",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/flags:parse",
+    ],
+)
+
+cc_library(
+    name = "davros_serdes_runtime",
+    srcs = [
+        "serdes/runtime.h",
+    ],
+    deps = [
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/types:span",
     ],
 )

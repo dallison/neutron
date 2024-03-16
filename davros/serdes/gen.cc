@@ -6,6 +6,7 @@
 namespace davros::serdes {
 
 absl::Status Generator::Generate(const Message &msg) {
+  system("pwd");
   std::filesystem::path dir =
       root_ / std::filesystem::path(msg.Package()->Name());
   if (!std::filesystem::exists(dir) &&
@@ -120,7 +121,7 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
     } else {
       os << "  " << FieldCType(field->Type());
     }
-    os << " " << SanitizeFieldName(field->Name()) << ";\n";
+    os << " " << SanitizeFieldName(field->Name()) << " = {};\n";
   }
   os << "\n";
   os << "  absl::Status SerializeToArray(char* addr, size_t len) const;\n";
@@ -128,6 +129,10 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
   os << "  absl::Status DeserializeFromArray(const char* addr, size_t len);\n";
   os << "  absl::Status DeserializeFromBuffer(davros::Buffer& buffer);\n";
   os << "  size_t SerializedLength() const;\n";
+  os << "  bool operator==(const " << msg.Name() << "& m) const;\n";
+  os << "  bool operator!=(const " << msg.Name() << "& m) const {\n";
+  os << "    return !this->operator==(m);\n";
+  os << "  }\n";
   os << "};\n";
   os << "}    // namespace " << msg.Package()->Name() << "\n";
 
@@ -146,7 +151,7 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "}\n\n";
   os << "absl::Status " << msg.Name()
      << "::DeserializeFromArray(const char* addr, size_t len) {\n";
-  os << "  davros::Buffer buffer(addr, len);\n";
+  os << "  davros::Buffer buffer(const_cast<char*>(addr), len);\n";
   os << "  return DeserializeFromBuffer(buffer);\n";
   os << "}\n\n";
 
@@ -225,6 +230,15 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
     }
   }
   os << "  return length;\n";
+  os << "}\n\n";
+
+  os << "  bool " << msg.Name() << "::operator==(const " << msg.Name()
+     << "& m) const {";
+  for (auto &field : msg.Fields()) {
+    os << "  if (this->" << SanitizeFieldName(field->Name()) << " != m."
+       << SanitizeFieldName(field->Name()) << ") return false;\n";
+  }
+  os << "  return true;\n";
   os << "}\n";
 
   os << "}    // namespace " << msg.Package()->Name() << "\n";

@@ -79,3 +79,9 @@ http_archive(
 #     path = "../cpp_toolbelt",
 # )
 
+http_archive(
+  name = "coroutines",
+  urls = ["https://github.com/dallison/co/archive/refs/tags/1.3.7.tar.gz"],
+  strip_prefix = "co-1.3.7",
+  sha256 = "709ddaf3d55e6da6e34602e31cdb04b2321013e862fb9bddb6e021e117d35c22"
+)

@@ -85,6 +85,9 @@ _split_files = rule(
 )
 
 def davros_library(name, srcs = [], deps = []):
+    """
+    Generate a cc_libary for ROS messages specified in srcs.
+    """
   davros = name + "_davros"
   _davros_gen(
     name = davros,

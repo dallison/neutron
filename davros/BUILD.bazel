@@ -116,7 +116,7 @@ cc_test(
         ":msgs",
     ],
     deps = [
-        ":davros_serdes_runtime",
+        ":serdes_runtime",
         ":other_msgs",
         "@com_google_googletest//:gtest",
         "@toolbelt//toolbelt",
@@ -137,7 +137,7 @@ cc_binary(
 )
 
 cc_library(
-    name = "davros_serdes_runtime",
+    name = "serdes_runtime",
     srcs = [
         "serdes/runtime.h",
     ],

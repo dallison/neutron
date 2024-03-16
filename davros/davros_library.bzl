@@ -1,4 +1,3 @@
-
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
 def _davros_action(
@@ -6,22 +5,21 @@ def _davros_action(
         srcs,
         out_dir,
         outputs):
+    inputs = depset(direct = srcs)
+    davros_args = ["--out={}/davros".format(out_dir), "--runtime_path=", "--msg_path=davros"]
 
-  inputs = depset(direct = srcs) 
-  davros_args = ["--out={}/davros".format(out_dir), "--runtime_path=", "--msg_path=davros"]
+    args = ctx.actions.args()
+    args.add_all(davros_args)
+    args.add_all(inputs)
 
-  args = ctx.actions.args()
-  args.add_all(davros_args)
-  args.add_all(inputs)
-
-  ctx.actions.run(
-      inputs = inputs,
-      executable = ctx.executable.davros_exe,
-      outputs = outputs,
-      arguments = [args],
-      progress_message = "Generating Davros message files %s" % ctx.label,
-      mnemonic = "Davros",
-  )
+    ctx.actions.run(
+        inputs = inputs,
+        executable = ctx.executable.davros_exe,
+        outputs = outputs,
+        arguments = [args],
+        progress_message = "Generating Davros message files %s" % ctx.label,
+        mnemonic = "Davros",
+    )
 
 def _davros_impl(ctx):
     out_dir = ctx.bin_dir.path
@@ -29,28 +27,29 @@ def _davros_impl(ctx):
     srcs = ctx.files.srcs
     output_files = []
     for file in srcs:
-      outputs = []
-      # file is something like std_msgs/msg/Header.msg
-      filename = paths.basename(file.path)
-      dir = paths.basename(paths.dirname(paths.dirname(file.path)))
+        outputs = []
 
-      filename = paths.replace_extension(filename, ".cc")
-      cc_out = ctx.actions.declare_file(paths.join(dir,filename))
-      outputs.append(cc_out)
-      
-      filename = paths.replace_extension(filename, ".h")
-      h_out = ctx.actions.declare_file(paths.join(dir,filename))
-      outputs.append(h_out)
+        # file is something like std_msgs/msg/Header.msg
+        filename = paths.basename(file.path)
+        dir = paths.basename(paths.dirname(paths.dirname(file.path)))
 
-      output_files.append(cc_out)
-      output_files.append(h_out)
+        filename = paths.replace_extension(filename, ".cc")
+        cc_out = ctx.actions.declare_file(paths.join(dir, filename))
+        outputs.append(cc_out)
 
-      _davros_action(
-          ctx,
-          [file],
-          out_dir,
-          outputs,
-      )
+        filename = paths.replace_extension(filename, ".h")
+        h_out = ctx.actions.declare_file(paths.join(dir, filename))
+        outputs.append(h_out)
+
+        output_files.append(cc_out)
+        output_files.append(h_out)
+
+        _davros_action(
+            ctx,
+            [file],
+            out_dir,
+            outputs,
+        )
 
     return [DefaultInfo(files = depset(output_files))]
 
@@ -88,30 +87,30 @@ def davros_library(name, srcs = [], deps = []):
     """
     Generate a cc_libary for ROS messages specified in srcs.
     """
-  davros = name + "_davros"
-  _davros_gen(
-    name = davros,
-    srcs = srcs,
-    deps = deps,
+    davros = name + "_davros"
+    _davros_gen(
+        name = davros,
+        srcs = srcs,
+        deps = deps,
     )
 
-  srcs = name + "_srcs"
-  _split_files(
+    srcs = name + "_srcs"
+    _split_files(
         name = srcs,
         ext = "cc",
         deps = [davros],
     )
 
-  hdrs = name + "_hdrs"
-  _split_files(
-      name = hdrs,
-      ext = "h",
-      deps = [davros],
-  )
-  
-  native.cc_library(
-    name = name,
-    srcs = [srcs],
-    hdrs = [hdrs],
-    deps = deps + [":davros_serdes_runtime"]
-  )
+    hdrs = name + "_hdrs"
+    _split_files(
+        name = hdrs,
+        ext = "h",
+        deps = [davros],
+    )
+
+    native.cc_library(
+        name = name,
+        srcs = [srcs],
+        hdrs = [hdrs],
+        deps = deps + [":serdes_runtime"],
+    )

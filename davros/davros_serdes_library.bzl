@@ -4,9 +4,10 @@ def _davros_action(
         ctx,
         srcs,
         out_dir,
+        package_name,
         outputs):
     inputs = depset(direct = srcs)
-    davros_args = ["--out={}/davros".format(out_dir), "--runtime_path=", "--msg_path=davros"]
+    davros_args = ["--out={}/{}".format(out_dir, package_name), "--runtime_path=", "--msg_path={}".format(package_name)]
 
     args = ctx.actions.args()
     args.add_all(davros_args)
@@ -48,6 +49,7 @@ def _davros_impl(ctx):
             ctx,
             [file],
             out_dir,
+            ctx.attr.package_name,
             outputs,
         )
 
@@ -61,8 +63,8 @@ _davros_gen = rule(
             cfg = "exec",
         ),
         "srcs": attr.label_list(allow_files = [".msg"]),
-        "deps": attr.label_list(
-        ),
+        "deps": attr.label_list(),
+        "package_name": attr.string(),
     },
     implementation = _davros_impl,
 )
@@ -83,15 +85,22 @@ _split_files = rule(
     implementation = _split_files_impl,
 )
 
-def davros_library(name, srcs = [], deps = []):
+def davros_serdes_library(name, srcs = [], deps = [], runtime = "@davros//davros:serdes_runtime"):
     """
     Generate a cc_libary for ROS messages specified in srcs.
+
+    Args:
+        name: name
+        srcs: source .msg file
+        deps: dependencies
+        runtime: label for serdes runtime.
     """
     davros = name + "_davros"
     _davros_gen(
         name = davros,
         srcs = srcs,
         deps = deps,
+        package_name = native.package_name(),
     )
 
     srcs = name + "_srcs"
@@ -112,5 +121,5 @@ def davros_library(name, srcs = [], deps = []):
         name = name,
         srcs = [srcs],
         hdrs = [hdrs],
-        deps = deps + [":serdes_runtime"],
+        deps = deps + [runtime],
     )

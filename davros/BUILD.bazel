@@ -1,4 +1,4 @@
-load("//davros:davros_library.bzl", "davros_library")
+load("//davros:davros_serdes_library.bzl", "davros_serdes_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -90,14 +90,15 @@ cc_test(
     ],
 )
 
-davros_library(
+davros_serdes_library(
     name = "std_msgs",
     srcs = [
         "testdata/std_msgs/msg/Header.msg",
     ],
+    runtime = ":serdes_runtime",
 )
 
-davros_library(
+davros_serdes_library(
     name = "other_msgs",
     srcs = [
         "testdata/other_msgs/msg/Other.msg",
@@ -105,6 +106,7 @@ davros_library(
     deps = [
         ":std_msgs",
     ],
+    runtime = ":serdes_runtime",
 )
 
 cc_test(

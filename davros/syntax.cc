@@ -1,6 +1,6 @@
 #include "davros/syntax.h"
-#include "davros/package.h"
 #include "absl/strings/str_format.h"
+#include "davros/package.h"
 
 namespace davros {
 
@@ -54,7 +54,6 @@ absl::Status Message::Parse(LexicalAnalyzer &lex) {
     FieldType field_type = FieldType::kUnknown;
     std::string msg_package;
     std::string msg_name;
-
     switch (lex.CurrentToken()) {
     case Token::kIdentifier: {
       msg_package.clear();
@@ -76,7 +75,8 @@ absl::Status Message::Parse(LexicalAnalyzer &lex) {
 
       field_type = FieldType::kMessage;
 
-      // The unadorned type Header is special for the first field in the message.
+      // The unadorned type Header is special for the first field in the
+      // message.
       if (fields_.empty() && msg_package.empty() && msg_name == "Header") {
         msg_package = "std_msgs";
       }
@@ -323,14 +323,18 @@ absl::Status Message::Resolve(std::shared_ptr<PackageScanner> scanner) {
       if (msg_field->MsgPackage().empty()) {
         // No package, look in same package.
         if (package_ == nullptr) {
-          return absl::InternalError(absl::StrFormat("No package set for %s", Name()));
+          return absl::InternalError(
+              absl::StrFormat("No package set for %s", Name()));
         }
         msg = package_->FindMessage(msg_field->MsgName());
       } else {
-        msg = scanner->FindMessage(msg_field->MsgPackage(), msg_field->MsgName());
+        msg =
+            scanner->FindMessage(msg_field->MsgPackage(), msg_field->MsgName());
       }
       if (msg == nullptr) {
-        return absl::InternalError(absl::StrFormat("Unable to resolve message %s/%s", msg_field->MsgPackage(), msg_field->MsgName()));
+        return absl::InternalError(
+            absl::StrFormat("Unable to resolve message %s/%s",
+                            msg_field->MsgPackage(), msg_field->MsgName()));
       } else {
         msg_field->Resolved(msg);
       }
@@ -338,6 +342,4 @@ absl::Status Message::Resolve(std::shared_ptr<PackageScanner> scanner) {
   }
   return absl::OkStatus();
 }
-
-
 } // namespace davros

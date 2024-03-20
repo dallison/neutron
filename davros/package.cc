@@ -31,7 +31,7 @@ absl::Status PackageScanner::ParseAllMessagesFrom(std::filesystem::path path) {
       if (dir.path().filename().string() == "msg") {
         auto package = std::make_shared<Package>(shared_from_this(),
                                                  path.filename().string());
-        packages_[package->Name()] = package;
+        AddPackage(package);
 
         for (auto &file : std::filesystem::directory_iterator(dir)) {
           if (file.path().extension() == ".msg") {

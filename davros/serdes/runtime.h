@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string>
 #include <vector>
+#include <sstream>
 
 namespace davros {
 
@@ -22,6 +23,11 @@ struct Time {
   bool operator!=(const Time &t) const { return !this->operator==(t); }
 };
 
+inline std::ostream& operator<<(std::ostream& os, const Time& t) {
+  os << "secs: " << t.secs << " nsecs: " << t.nsecs;
+  return os;
+}
+
 // Same as ros::Duration.
 struct Duration {
   uint32_t secs;
@@ -32,6 +38,11 @@ struct Duration {
   }
   bool operator!=(const Duration &d) const { return !this->operator==(d); }
 };
+
+inline std::ostream& operator<<(std::ostream& os, const Duration& d) {
+  os << "secs: " << d.secs << " nsecs: " << d.nsecs;
+  return os;
+}
 
 // Provides a statically sized or dynamic buffer used for serialization
 // of messages.

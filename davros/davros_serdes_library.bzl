@@ -1,14 +1,23 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 
+MessageInfo = provider(fields = ["messages"])
+
 def _davros_action(
         ctx,
         srcs,
         out_dir,
         package_name,
+        imports,
         outputs):
-    inputs = depset(direct = srcs)
+    inputs = depset(direct = srcs, transitive = [depset(imports)])
     davros_args = ["--out={}/{}".format(out_dir, package_name), "--runtime_path=", "--msg_path={}".format(package_name)]
-
+    if imports:
+        imports_arg = "--imports="
+        sep = ""
+        for file in imports:
+            imports_arg += sep + file.path
+            sep = ","
+        davros_args.append(imports_arg)
     args = ctx.actions.args()
     args.add_all(davros_args)
     args.add_all(inputs)
@@ -24,6 +33,11 @@ def _davros_action(
 
 def _davros_impl(ctx):
     out_dir = ctx.bin_dir.path
+    imports = []
+    for dep in ctx.attr.deps:
+        if MessageInfo in dep:
+            for msg in dep[MessageInfo].messages:
+                imports.append(msg)
 
     srcs = ctx.files.srcs
     output_files = []
@@ -50,10 +64,11 @@ def _davros_impl(ctx):
             [file],
             out_dir,
             ctx.attr.package_name,
+            imports,
             outputs,
         )
 
-    return [DefaultInfo(files = depset(output_files))]
+    return [DefaultInfo(files = depset(output_files + srcs)), MessageInfo(messages = srcs)]
 
 _davros_gen = rule(
     attrs = {
@@ -63,7 +78,8 @@ _davros_gen = rule(
             cfg = "exec",
         ),
         "srcs": attr.label_list(allow_files = [".msg"]),
-        "deps": attr.label_list(),
+        "deps": attr.label_list(
+        ),
         "package_name": attr.string(),
     },
     implementation = _davros_impl,
@@ -96,10 +112,14 @@ def davros_serdes_library(name, srcs = [], deps = [], runtime = "@davros//davros
         runtime: label for serdes runtime.
     """
     davros = name + "_davros"
+    davros_deps = []
+    for d in deps:
+        davros_deps.append(d + "_davros")
+
     _davros_gen(
         name = davros,
         srcs = srcs,
-        deps = deps,
+        deps = deps + davros_deps,
         package_name = native.package_name(),
     )
 
@@ -117,9 +137,13 @@ def davros_serdes_library(name, srcs = [], deps = [], runtime = "@davros//davros
         deps = [davros],
     )
 
+    libdeps = deps
+    if runtime != "":
+        libdeps = libdeps + [runtime]
+
     native.cc_library(
         name = name,
         srcs = [srcs],
         hdrs = [hdrs],
-        deps = deps + [runtime],
+        deps = libdeps,
     )

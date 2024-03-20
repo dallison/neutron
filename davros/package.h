@@ -64,6 +64,10 @@ public:
     return it->second;
   }
 
+  void AddPackage(std::shared_ptr<Package> package) {
+    packages_[package->Name()] = package;
+  }
+  
 private:
   absl::Status ParseAllMessagesFrom(std::filesystem::path path);
 

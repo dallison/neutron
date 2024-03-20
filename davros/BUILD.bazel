@@ -72,12 +72,46 @@ cc_library(
         "serdes/gen.h",
     ],
     deps = [
+        ":descriptor",
+        ":msglib",
+    ],
+)
+
+cc_library(
+    name = "zeros",
+    srcs = [
+        "zeros/gen.cc",
+        "zeros/payload_buffer.cc",
+        # "zeros/message.cc",
+    ],
+    hdrs = [
+        "zeros/gen.h",
+        "zeros/payload_buffer.h",
+        "zeros/message.h",
+    ],
+    deps = [
+        ":descriptor",
         ":msglib",
     ],
 )
 
 cc_test(
-    name = "gen_test",
+    name = "zeros_buffer_test",
+    srcs = [
+        "zeros/buffer_test.cc",
+    ],
+    data = [
+        ":msgs",
+    ],
+    deps = [
+        ":zeros",
+        "@com_google_googletest//:gtest",
+        "@toolbelt//toolbelt",
+    ],
+)
+
+cc_test(
+    name = "serdes_gen_test",
     srcs = [
         "serdes/gen_test.cc",
     ],
@@ -103,10 +137,22 @@ davros_serdes_library(
     srcs = [
         "testdata/other_msgs/msg/Other.msg",
     ],
+    runtime = ":serdes_runtime",
     deps = [
         ":std_msgs",
     ],
+)
+
+davros_serdes_library(
+    name = "test_msgs",
+    srcs = [
+        "testdata/test_msgs/msg/Pose.msg",
+        "testdata/test_msgs/msg/Vector.msg",
+    ],
     runtime = ":serdes_runtime",
+    deps = [
+        ":other_msgs",
+    ],
 )
 
 cc_test(
@@ -118,8 +164,8 @@ cc_test(
         ":msgs",
     ],
     deps = [
-        ":serdes_runtime",
         ":other_msgs",
+        ":serdes_runtime",
         "@com_google_googletest//:gtest",
         "@toolbelt//toolbelt",
     ],
@@ -147,5 +193,53 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/types:span",
+    ],
+)
+
+davros_serdes_library(
+    name = "descriptor_msg",
+    srcs = [
+        "descriptor/msg/Descriptor.msg",
+        "descriptor/msg/Field.msg",
+    ],
+    runtime = ":serdes_runtime",
+)
+
+cc_library(
+    name = "descriptor",
+    srcs = [
+        "descriptor.cc",
+        "descriptor/Descriptor.cc",
+        "descriptor/Field.cc",
+    ],
+    hdrs = [
+        "descriptor.h",
+        "descriptor/Descriptor.h",
+        "descriptor/Field.h",
+    ],
+    deps = [
+        ":msglib",
+        ":serdes_runtime",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/types:span",
+        "@toolbelt//toolbelt",
+    ],
+)
+
+cc_test(
+    name = "descriptor_test",
+    srcs = [
+        "descriptor_test.cc",
+    ],
+    data = [
+        ":msgs",
+    ],
+    deps = [
+        ":descriptor",
+        ":other_msgs",
+        "@com_google_googletest//:gtest",
+        "@toolbelt//toolbelt",
     ],
 )

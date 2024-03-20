@@ -1,5 +1,5 @@
 
-#include "davros/serdes/gen.h"
+#include "davros/zeros/gen.h"
 #include <fstream>
 
 namespace davros::zerocopy {
@@ -51,7 +51,7 @@ static std::string FieldClass(FieldType type) {
 static std::string SanitizeFieldName(const std::string &name) { return name; }
 
 absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
-  os << "#include \"davros/serdes/runtime.h\"\n";
+  os << "#include \"davros/zeros/runtime.h\"\n";
   os << "\n";
   os << "namespace " << msg.Package()->Name() << " {\n";
   os << "class " << msg.Name() << " {\n";

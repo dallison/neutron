@@ -44,6 +44,7 @@ public:
   std::string TypeName() const;
   const std::string &Name() const { return name_; }
   FieldType Type() const { return type_; }
+std::variant<int64_t, double, std::string> Value() { return value_; }
 
 private:
   FieldType type_;
@@ -56,7 +57,7 @@ public:
   Field() = default;
   virtual ~Field() = default;
   Field(FieldType type, std::string name)
-      : type_(type), name_(std::move(name)) {}
+      : type_(type), name_(std::move(name)){}
 
   virtual std::string TypeName() const;
   virtual void Dump(std::ostream &os) const;

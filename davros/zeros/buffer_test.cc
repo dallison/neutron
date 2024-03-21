@@ -3,9 +3,11 @@
 #include "toolbelt/hexdump.h"
 #include <gtest/gtest.h>
 #include <sstream>
+#include "davros/zeros/runtime.h"
 
 using PayloadBuffer = davros::zeros::PayloadBuffer;
 using BufferOffset = davros::zeros::BufferOffset;
+using VectorHeader = davros::zeros::VectorHeader;
 
 TEST(BufferTest, Simple) {
   char *buffer = (char *)malloc(4096);
@@ -104,29 +106,99 @@ TEST(BufferTest, String) {
   toolbelt::Hexdump(pb, pb->hwm);
   BufferOffset offset = pb->ToOffset(addr);
 
-  uint32_t* oldp = reinterpret_cast<uint32_t*>(addr);
-  char *s = PayloadBuffer::AllocateString(&pb, "foobar", oldp);
-  std::cout << "String allocated at " << (void*)s << std::endl;
-
-  // Assign offset to string into the original address.
-  addr = pb->ToAddress(offset);
-  *reinterpret_cast<uint32_t*>(addr) = pb->ToOffset(s);
+  char *s = PayloadBuffer::SetString(&pb, "foobar", offset);
+  std::cout << "String allocated at " << (void *)s << std::endl;
 
   toolbelt::Hexdump(pb, pb->hwm);
 
   // Now put in a bigger string, replacing the old one.
-  oldp = reinterpret_cast<uint32_t*>(addr);
-  s = PayloadBuffer::AllocateString(&pb, "foobar has been replaced", oldp);
-  std::cout << "New string allocated at " << (void*)s << std::endl;
+  s = PayloadBuffer::SetString(&pb, "foobar has been replaced", offset);
+  std::cout << "New string allocated at " << (void *)s << std::endl;
 
-  // Assign offset to string into the original address.
-  addr = pb->ToAddress(offset);
-  *reinterpret_cast<uint32_t*>(addr) = pb->ToOffset(s);
   toolbelt::Hexdump(pb, pb->hwm);
+
+  std::string rs = pb->GetString(offset);
+  ASSERT_EQ("foobar has been replaced", rs);
+  free(buffer);
+}
+
+TEST(BufferTest, Vector) {
+  char *buffer = (char *)malloc(4096);
+  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+
+  // Allocate space for a message containing the VectorHeader.
+  PayloadBuffer::AllocateMainMessage(&pb, sizeof(VectorHeader));
+
+  VectorHeader *hdr = pb->ToAddress<VectorHeader>(pb->message);
+  std::cout << "Vector header: " << hdr << std::endl;
+  pb->Dump(std::cout);
+  toolbelt::Hexdump(pb, pb->hwm);
+
+  PayloadBuffer::VectorPush<uint32_t>(&pb, hdr, 0x12345678);
+  pb->Dump(std::cout);
+  toolbelt::Hexdump(pb, pb->hwm);
+
+  uint32_t v = pb->VectorGet<uint32_t>(hdr, 0);
+  ASSERT_EQ(0x12345678, v);
 
   free(buffer);
 }
 
+TEST(BufferTest, VectorExpand) {
+  char *buffer = (char *)malloc(4096);
+  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+
+  // Allocate space for a message containing the VectorHeader.
+  PayloadBuffer::AllocateMainMessage(&pb, sizeof(VectorHeader));
+
+  VectorHeader *hdr = pb->ToAddress<VectorHeader>(pb->message);
+  std::cout << "Vector header: " << hdr << std::endl;
+  toolbelt::Hexdump(pb, pb->hwm);
+
+  pb->Dump(std::cout);
+
+  for (int i = 0; i < 3; i++) {
+    PayloadBuffer::VectorPush<uint32_t>(&pb, hdr, i + 1);
+  }
+  toolbelt::Hexdump(pb, pb->hwm);
+
+  pb->Dump(std::cout);
+  for (int i = 0; i < 3; i++) {
+    uint32_t v = pb->VectorGet<uint32_t>(hdr, i);
+    ASSERT_EQ(i + 1, v);
+  }
+
+  free(buffer);
+}
+
+TEST(BufferTest, VectorExpandMore) {
+  char *buffer = (char *)malloc(4096);
+  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+
+  // Allocate space for a message containing the VectorHeader.
+  PayloadBuffer::AllocateMainMessage(&pb, sizeof(VectorHeader));
+
+  VectorHeader *hdr = pb->ToAddress<VectorHeader>(pb->message);
+  std::cout << "Vector header: " << hdr << std::endl;
+  toolbelt::Hexdump(pb, pb->hwm);
+
+  pb->Dump(std::cout);
+
+  for (int i = 0; i < 100; i++) {
+    PayloadBuffer::VectorPush<uint32_t>(&pb, hdr, i + 1);
+    uint32_t v = pb->VectorGet<uint32_t>(hdr, i);
+    ASSERT_EQ(i + 1, v);
+  }
+  toolbelt::Hexdump(pb, pb->hwm);
+
+ for (int i = 0; i < 100; i++) {
+    uint32_t v = pb->VectorGet<uint32_t>(hdr, i);
+    ASSERT_EQ(i + 1, v);
+  }
+  pb->Dump(std::cout);
+
+  free(buffer);
+}
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
 

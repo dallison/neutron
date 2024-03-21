@@ -1,26 +1,34 @@
 #pragma once
 
+#include "davros/zeros/message.h"
+#include "davros/zeros/payload_buffer.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <string>
+#include <string_view>
 #include <vector>
 
-namespace davros {
+namespace davros::zeros {
 
 #define DEFINE_PRIMITIVE_FIELD(cname, type)                                    \
   class cname##Field {                                                         \
   public:                                                                      \
-    explicit cname##Field(type *p) : ptr_(p) {}                                \
+    explicit cname##Field(uint32_t boff, uint32_t offset)                      \
+        : buffer_offset_(boff), field_offset_(offset) {}                       \
                                                                                \
-    operator type() { return *ptr_; }                                          \
+    operator type() { return GetBuffer()->Get<type>(field_offset_); }          \
                                                                                \
     cname##Field &operator=(type i) {                                          \
-      *ptr_ = i;                                                               \
+      GetBuffer()->Set(field_offset_, i);                                      \
       return *this;                                                            \
     }                                                                          \
                                                                                \
   private:                                                                     \
-    type *ptr_;                                                                \
+    PayloadBuffer *GetBuffer() {                                               \
+      return Message::GetBuffer(this, buffer_offset_);                         \
+    }                                                                          \
+    uint32_t buffer_offset_;                                                   \
+    BufferOffset field_offset_;                                                \
   };
 
 DEFINE_PRIMITIVE_FIELD(Int8, int8_t)
@@ -37,33 +45,51 @@ DEFINE_PRIMITIVE_FIELD(Bool, bool)
 
 class StringField {
 public:
-  explicit StringField(void *p) : ptr_(p) {}
+  explicit StringField(uint32_t boff, uint32_t offset)
+      : buffer_offset_(boff), field_offset_(offset) {}
 
-  operator std::string() {
-    uint32_t length = *reinterpret_cast<uint32_t *>(ptr_);
-    const char *data = reinterpret_cast<const char *>(ptr_) + 4;
-    return std::string(data, length);
-  }
+  operator std::string_view() { return GetBuffer()->GetStringView(field_offset_); }
 
   StringField &operator=(const std::string &s) {
-    *reinterpret_cast<uint32_t *>(ptr_) = static_cast<uint32_t>(s.size());
-    char *data = reinterpret_cast<char *>(ptr_) + 4;
-    memcpy(data, s.data(), s.size());
+    PayloadBuffer::SetString(GetBufferAddr(), s, field_offset_);
     return *this;
   }
 
 private:
-  void *ptr_;
+  PayloadBuffer *GetBuffer() {
+    return Message::GetBuffer(this, buffer_offset_);
+  }
+
+  PayloadBuffer **GetBufferAddr() {
+    return Message::GetBufferAddr(this, buffer_offset_);
+  }
+
+  uint32_t buffer_offset_;
+  BufferOffset field_offset_;
 };
 
+#if 0
 template <typename T> class ArrayField {
 public:
-  ArrayField(void *p)
-      : len_ptr_(reinterpret_cast<uint32_t *>(p)),
-        data_ptr(reinterpret_cast<T *>(len_ptr_ + 1)) {}
+  explicit ArrayField(uint32_t boff, uint32_t offset)
+      : buffer_offset_(boff), field_offset_(offset) {}
 
-private:
-  uint32_t *len_ptr_;
-  T *data_ptr_;
+  PayloadBuffer *GetBuffer() {
+    return *reinterpret_cast<PayloadBuffer **>(reinterpret_cast<char *>(this) -
+                                               buffer_offset_);
+  }
+  PayloadBuffer **GetBufferAddr() {
+    return reinterpret_cast<PayloadBuffer **>(reinterpret_cast<char *>(this) -
+                                              buffer_offset_);
+  }
+
+  BufferOffset *GetOffset() {
+    return reinterpret_cast<BufferOffset *>(reinterpret_cast<char *>(this) -
+                                            buffer_offset_ + field_offset_);
+  }
+
+  uint32_t buffer_offset_;
+  BufferOffset field_offset_;
 };
+#endif
 }

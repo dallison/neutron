@@ -15,20 +15,44 @@ void PayloadBuffer::AllocateMetadata(PayloadBuffer **self, void *md,
   (*self)->metadata = (*self)->ToOffset(m);
 }
 
-char *PayloadBuffer::AllocateString(PayloadBuffer **self, const std::string &s,
-                                    uint32_t *old) {
+char *PayloadBuffer::SetString(PayloadBuffer **self, const std::string &s,
+                                    BufferOffset old_offset) {
   void *str = nullptr;
-  uint32_t *oldp = (*self)->ToAddress<uint32_t>(*old);
-  if (*old != 0) {
-    str = Realloc(self, oldp, s.size() + 4, 4, false);
+
+  // Get address of 'pointer' to string data.
+  BufferOffset *old_addr = (*self)->ToAddress<BufferOffset>(old_offset);
+
+  // Load the pointer and convert to address.
+  BufferOffset str_ptr = *old_addr;
+  void* old_str = (*self)->ToAddress(str_ptr);
+
+  // If this contains a valid (non-zero) offset, reallocate the
+  // data it points to, otherwise allocate new data.
+  if (old_str != nullptr) {
+    str = Realloc(self, old_str, s.size() + 4, 4, false);
   } else {
     str = Allocate(self, s.size() + 4, 4, false);
   }
   uint32_t *p = reinterpret_cast<uint32_t *>(str);
   p[0] = uint32_t(s.size());
   memcpy(p + 1, s.data(), s.size());
-  // oldp might not be valid if the buffer has moved.  'str' is OK though.
+
+  // The buffer may have moved.  Reassign the address of the string
+  // back into the 'pointer'.
+  BufferOffset* oldp = (*self)->ToAddress<BufferOffset>(old_offset);
+  *oldp = (*self)->ToOffset(str);  
   return reinterpret_cast<char *>(str);
+}
+
+// 'addr' is the address of the pointer to the string data.
+std::string PayloadBuffer::GetString(const BufferOffset* addr) const {
+  const uint32_t *p = reinterpret_cast<const uint32_t*>(ToAddress(*addr));
+  return std::string(reinterpret_cast<const char *>(p + 1), *p);
+}
+
+std::string_view PayloadBuffer::GetStringView(const BufferOffset *addr) const {
+  const uint32_t *p = reinterpret_cast<const uint32_t*>(ToAddress(*addr));
+  return std::string_view(reinterpret_cast<const char *>(p + 1), *p);
 }
 
 void PayloadBuffer::Dump(std::ostream &os) {
@@ -259,7 +283,8 @@ void PayloadBuffer::ShrinkBlock(FreeBlockHeader *alloc_block,
 
 void PayloadBuffer::ExpandIntoFreeBlockAbove(
     FreeBlockHeader *free_block, uint32_t new_length, uint32_t len_diff,
-    uint32_t free_remaining, uint32_t *len_ptr, BufferOffset *next_ptr) {
+    uint32_t free_remaining, uint32_t *len_ptr, BufferOffset *next_ptr,
+    bool clear) {
   assert(free_remaining > sizeof(FreeBlockHeader));
   FreeBlockHeader *next = ToAddress<FreeBlockHeader>(free_block->next);
 
@@ -271,13 +296,14 @@ void PayloadBuffer::ExpandIntoFreeBlockAbove(
   new_block->next = ToOffset(next);
   *next_ptr = ToOffset(new_block);
   UpdateHWM(new_block);
+  if (clear) {
+    memset(free_block, 0, len_diff);
+  }
 }
 
-uint32_t *PayloadBuffer::MergeWithFreeBlockBelow(void *alloc_block,
-                                                 FreeBlockHeader *prev,
-                                                 FreeBlockHeader *free_block,
-                                                 uint32_t new_length,
-                                                 uint32_t orig_length) {
+uint32_t *PayloadBuffer::MergeWithFreeBlockBelow(
+    void *alloc_block, FreeBlockHeader *prev, FreeBlockHeader *free_block,
+    uint32_t new_length, uint32_t orig_length, bool clear) {
   uintptr_t free_addr = (uintptr_t)free_block;
 
   BufferOffset *next_ptr;
@@ -298,6 +324,10 @@ uint32_t *PayloadBuffer::MergeWithFreeBlockBelow(void *alloc_block,
   uint32_t *len_ptr = reinterpret_cast<uint32_t *>(free_block);
   *len_ptr = new_length;
   memmove(len_ptr + 1, alloc_block, orig_length);
+  if (clear) {
+    memset(reinterpret_cast<char *>(len_ptr) + 4 + orig_length, 0,
+           new_length - orig_length);
+  }
   return len_ptr + 1;
 }
 
@@ -346,8 +376,7 @@ void *PayloadBuffer::Realloc(PayloadBuffer **buffer, void *p, uint32_t n,
           ssize_t freelen = free_block->length - diff;
           if (freelen > sizeof(FreeBlockHeader)) {
             (*buffer)->ExpandIntoFreeBlockAbove(free_block, n, diff, freelen,
-                                                len_ptr, next_ptr);
-            // TODO: clear memory
+                                                len_ptr, next_ptr, clear);
             return p;
           }
         }
@@ -361,8 +390,7 @@ void *PayloadBuffer::Realloc(PayloadBuffer **buffer, void *p, uint32_t n,
           // Use start of new block as new address and place FreeBlockHeader
           // at newly free part.
           return (*buffer)->MergeWithFreeBlockBelow(p, prev_prev, prev, n,
-                                                    orig_length);
-          // TODO: clear memory
+                                                    orig_length, clear);
         }
         // Block doesn't have enough space.
         break;

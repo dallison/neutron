@@ -88,6 +88,7 @@ cc_library(
         "zeros/gen.h",
         "zeros/payload_buffer.h",
         "zeros/message.h",
+        "zeros/runtime.h",
     ],
     deps = [
         ":descriptor",
@@ -99,6 +100,21 @@ cc_test(
     name = "zeros_buffer_test",
     srcs = [
         "zeros/buffer_test.cc",
+    ],
+    data = [
+        ":msgs",
+    ],
+    deps = [
+        ":zeros",
+        "@com_google_googletest//:gtest",
+        "@toolbelt//toolbelt",
+    ],
+)
+
+cc_test(
+    name = "zeros_message_test",
+    srcs = [
+        "zeros/message_test.cc",
     ],
     data = [
         ":msgs",

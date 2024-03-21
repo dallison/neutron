@@ -10,22 +10,31 @@
 
 namespace davros::zeros {
 
+// All field offsets are relative to the start of the message in the buffer, not
+// the start of the buffer.  The Message contains the offset to the start
+// of the message, from the buffer.
+
 #define DEFINE_PRIMITIVE_FIELD(cname, type)                                    \
   class cname##Field {                                                         \
   public:                                                                      \
     explicit cname##Field(uint32_t boff, uint32_t offset)                      \
         : buffer_offset_(boff), field_offset_(offset) {}                       \
                                                                                \
-    operator type() { return GetBuffer()->Get<type>(field_offset_); }          \
+    operator type() {                                                          \
+      return GetBuffer()->Get<type>(GetMessageStart() + field_offset_);        \
+    }                                                                          \
                                                                                \
     cname##Field &operator=(type i) {                                          \
-      GetBuffer()->Set(field_offset_, i);                                      \
+      GetBuffer()->Set(GetMessageStart() + field_offset_, i);                  \
       return *this;                                                            \
     }                                                                          \
                                                                                \
   private:                                                                     \
     PayloadBuffer *GetBuffer() {                                               \
       return Message::GetBuffer(this, buffer_offset_);                         \
+    }                                                                          \
+    BufferOffset GetMessageStart() {                                           \
+      return Message::GetMessageStart(this, buffer_offset_);                   \
     }                                                                          \
     uint32_t buffer_offset_;                                                   \
     BufferOffset field_offset_;                                                \
@@ -48,10 +57,13 @@ public:
   explicit StringField(uint32_t boff, uint32_t offset)
       : buffer_offset_(boff), field_offset_(offset) {}
 
-  operator std::string_view() { return GetBuffer()->GetStringView(field_offset_); }
+  operator std::string_view() {
+    return GetBuffer()->GetStringView(GetMessageStart() + field_offset_);
+  }
 
   StringField &operator=(const std::string &s) {
-    PayloadBuffer::SetString(GetBufferAddr(), s, field_offset_);
+    PayloadBuffer::SetString(GetBufferAddr(), s,
+                             GetMessageStart() + field_offset_);
     return *this;
   }
 
@@ -63,9 +75,31 @@ private:
   PayloadBuffer **GetBufferAddr() {
     return Message::GetBufferAddr(this, buffer_offset_);
   }
+  BufferOffset GetMessageStart() {
+    return Message::GetMessageStart(this, buffer_offset_);
+  }
 
   uint32_t buffer_offset_;
   BufferOffset field_offset_;
+};
+
+template <typename MessageType> class MessageField {
+public:
+  MessageField(std::shared_ptr<PayloadBuffer*> buffer, BufferOffset msg_offset, BufferOffset field_offset)
+      : msg_(buffer, Message::GetMessageStart(this, msg_offset) + field_offset) {}
+
+  operator MessageType &() { return msg_; }
+
+  MessageType* operator->() {
+    return &msg_;
+  }
+
+private:
+  PayloadBuffer *GetBuffer() { return msg_.GetBuffer(); }
+
+  PayloadBuffer **GetBufferAddr() { return msg_.GetBufferAddr(); }
+
+  MessageType msg_;
 };
 
 #if 0

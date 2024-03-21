@@ -1,23 +1,68 @@
 #pragma once
 
 #include "davros/zeros/payload_buffer.h"
+#include <memory>
 #include <stdint.h>
 
 namespace davros::zeros {
 
+// Payload buffers can move. All messages in a message tree must all use the
+// same payload buffer. We hold a shared pointer to a pointer to the payload
+// buffer.
+//
+//            +-------+
+//            |       |
+//            V       |
+// +---------------+  |
+// |               |  |
+// | PayloadBuffer |  |
+// |               |  |
+// +---------------+  |
+//                    |
+//                    |
+// +---------------+  |
+// |     *         +--+
+// +---------------+
+//       ^ ^
+//       | |
+//       | +--------------------------+
+//       +------------+   +--------+  |
+//                    |   |        V  |
+// +---------------+  |   |      +---+--------+
+// |    buffer     +--+   |      |   buffer    |
+// +---------------+      |      +-------------+
+// |               |      |      |             |
+// |   Message     |      |      |  Message    |
+// |               |      |      |  Field      |
+// |               +------+      |             |
+// +---------------+             +-------------+
+
 struct Message {
-  Message(PayloadBuffer* pb) : buffer(pb) {}
-  PayloadBuffer *buffer;
+  Message(std::shared_ptr<PayloadBuffer *> pb, BufferOffset start) : buffer(pb), start_offset(start) {}
+  std::shared_ptr<PayloadBuffer *> buffer;
+  BufferOffset start_offset;
 
+  // 'field' is the offset from the start of the message to the field (positive)
+  // Subtract the field offset from the field to get the address of the
+  // std::shared_ptr to the pointer to the PayloadBuffer.
   static PayloadBuffer *GetBuffer(void *field, uint32_t offset) {
-    return *reinterpret_cast<PayloadBuffer **>(reinterpret_cast<char *>(field) -
-                                               offset);
-  }
-  static PayloadBuffer **GetBufferAddr(void *field,uint32_t offset) {
-    return reinterpret_cast<PayloadBuffer **>(reinterpret_cast<char *>(field) -
-                                              offset);
+    std::shared_ptr<PayloadBuffer *> *pb =
+        reinterpret_cast<std::shared_ptr<PayloadBuffer *> *>(
+            reinterpret_cast<char *>(field) - offset);
+    return *pb->get();
   }
 
+  static PayloadBuffer **GetBufferAddr(void *field, uint32_t offset) {
+    std::shared_ptr<PayloadBuffer *> *pb =
+        reinterpret_cast<std::shared_ptr<PayloadBuffer *> *>(
+            reinterpret_cast<char *>(field) - offset);
+    return pb->get();
+  }
+
+  static BufferOffset GetMessageStart(void* field, uint32_t offset) {
+    Message* msg = reinterpret_cast<Message*>(reinterpret_cast<char *>(field) - offset);
+    return msg->start_offset;
+  }
 };
 
 } // namespace davros::zeros

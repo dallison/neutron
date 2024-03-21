@@ -50,15 +50,24 @@ struct PayloadBuffer {
   // Allocate space for the message metadata and copy it in.
   static void AllocateMetadata(PayloadBuffer **self, void *md, size_t size);
 
-  // Allocate space for the string. 
+  template <typename MessageType>
+  static MessageType *NewMessage(PayloadBuffer **self, uint32_t size,
+                                 BufferOffset offset);
+
+  // Allocate space for the string.
   // 'old_offset' is the offset into the buffer of the 'pointer'
   // to the string data.
   // The string is copied in.
   static char *SetString(PayloadBuffer **self, const std::string &s,
-                              BufferOffset old_offset = 0);
+                         BufferOffset old_offset = 0);
+
+  bool IsNull(BufferOffset offset) {
+    BufferOffset *p = ToAddress<BufferOffset>(offset);
+    return *p == 0;
+  }
 
   template <typename T> void Set(BufferOffset offset, T v);
-  template <typename T> T Get(BufferOffset offset);
+  template <typename T> T &Get(BufferOffset offset);
 
   template <typename T>
   static void VectorPush(PayloadBuffer **self, VectorHeader *hdr, T v);
@@ -158,7 +167,7 @@ template <typename T> inline void PayloadBuffer::Set(BufferOffset offset, T v) {
   *addr = v;
 }
 
-template <typename T> inline T PayloadBuffer::Get(BufferOffset offset) {
+template <typename T> inline T &PayloadBuffer::Get(BufferOffset offset) {
   T *addr = ToAddress<T>(offset);
   return *addr;
 }
@@ -208,4 +217,13 @@ inline T PayloadBuffer::VectorGet(const VectorHeader *hdr, size_t index) const {
   return addr[index];
 }
 
+template <typename MessageType>
+inline MessageType *PayloadBuffer::NewMessage(PayloadBuffer **self,
+                                              uint32_t size,
+                                              BufferOffset offset) {
+  void *msg = Allocate(self, size, 8);
+  BufferOffset *p = (*self)->ToAddress<BufferOffset>(offset);
+  *p = (*self)->ToOffset(msg);
+  return reinterpret_cast<MessageType *>(msg);
+}
 } // namespace davros::zeros

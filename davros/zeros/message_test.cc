@@ -9,19 +9,28 @@ using PayloadBuffer = davros::zeros::PayloadBuffer;
 using BufferOffset = davros::zeros::BufferOffset;
 using Message = davros::zeros::Message;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Winvalid-offsetof"
+
+struct InnerMessage : public Message {
+  InnerMessage(std::shared_ptr<PayloadBuffer *> buffer, BufferOffset offset)
+      : Message(buffer, offset), str(offsetof(InnerMessage, str), 0) {}
+ davros::zeros::StringField str;
+};
+
 struct TestMessage : public Message {
-  TestMessage(PayloadBuffer *buffer)
-      : Message(buffer), x(sizeof(Message), buffer->message + 0),
-        y(sizeof(Message) + sizeof(davros::zeros::Uint32Field),
-          buffer->message + 8),
-        s(sizeof(Message) + sizeof(davros::zeros::Uint32Field) +
-              sizeof(davros::zeros::Uint64Field),
-          buffer->message + 16) {}
-  static uint32_t FixedSize() { return 20; }
+  TestMessage(std::shared_ptr<PayloadBuffer *> buffer, BufferOffset offset)
+      : Message(buffer, offset), x(offsetof(TestMessage, x), 0),
+        y(offsetof(TestMessage, y), 8), s(offsetof(TestMessage, s), 16),
+        m(buffer, offsetof(TestMessage, m), 20) {}
+  static uint32_t FixedSize() { return 24; }
   davros::zeros::Uint32Field x;
   davros::zeros::Uint64Field y;
   davros::zeros::StringField s;
+  davros::zeros::MessageField<InnerMessage> m;
 };
+#pragma clang diagnostic pop
+
 
 TEST(MessageTest, Basic) {
   char *buffer = (char *)malloc(4096);
@@ -30,7 +39,7 @@ TEST(MessageTest, Basic) {
   // Allocate space for a message containing an offset for the string.
   PayloadBuffer::AllocateMainMessage(&pb, TestMessage::FixedSize());
 
-  TestMessage msg(pb);
+  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
   msg.x = 1234;
   msg.y = 0xffff;
 
@@ -51,7 +60,7 @@ TEST(MessageTest, String) {
   // Allocate space for a message containing an offset for the string.
   PayloadBuffer::AllocateMainMessage(&pb, TestMessage::FixedSize());
 
-  TestMessage msg(pb);
+  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
   msg.x = 0xffffffff;
   msg.y = 0xeeeeeeeeeeeeeeee;
 
@@ -61,6 +70,26 @@ TEST(MessageTest, String) {
   toolbelt::Hexdump(pb, pb->hwm);
 
   std::string_view s = msg.s;
+  ASSERT_EQ("hello world", s);
+}
+
+TEST(MessageTest, Message) {
+  char *buffer = (char *)malloc(4096);
+  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+
+  // Allocate space for a message containing an offset for the string.
+  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::FixedSize());
+
+  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  msg.x = 0xffffffff;
+  msg.y = 0xeeeeeeeeeeeeeeee;
+
+  msg.m->str = "hello world";
+
+  pb->Dump(std::cout);
+  toolbelt::Hexdump(pb, pb->hwm);
+
+  std::string_view s = msg.m->str;
   ASSERT_EQ("hello world", s);
 }
 

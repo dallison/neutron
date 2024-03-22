@@ -38,29 +38,31 @@ namespace davros::zeros {
 // +---------------+             +-------------+
 
 struct Message {
-  Message(std::shared_ptr<PayloadBuffer *> pb, BufferOffset start) : buffer(pb), start_offset(start) {}
+  Message(std::shared_ptr<PayloadBuffer *> pb, BufferOffset start)
+      : buffer(pb), start_offset(start) {}
   std::shared_ptr<PayloadBuffer *> buffer;
   BufferOffset start_offset;
 
   // 'field' is the offset from the start of the message to the field (positive)
   // Subtract the field offset from the field to get the address of the
   // std::shared_ptr to the pointer to the PayloadBuffer.
-  static PayloadBuffer *GetBuffer(void *field, uint32_t offset) {
-    std::shared_ptr<PayloadBuffer *> *pb =
-        reinterpret_cast<std::shared_ptr<PayloadBuffer *> *>(
-            reinterpret_cast<char *>(field) - offset);
+  static PayloadBuffer *GetBuffer(const void *field, uint32_t offset) {
+    const std::shared_ptr<PayloadBuffer *> *pb =
+        reinterpret_cast<const std::shared_ptr<PayloadBuffer *> *>(
+            reinterpret_cast<const char *>(field) - offset);
     return *pb->get();
   }
 
-  static PayloadBuffer **GetBufferAddr(void *field, uint32_t offset) {
-    std::shared_ptr<PayloadBuffer *> *pb =
-        reinterpret_cast<std::shared_ptr<PayloadBuffer *> *>(
-            reinterpret_cast<char *>(field) - offset);
+  static PayloadBuffer **GetBufferAddr(const void *field, uint32_t offset) {
+    const std::shared_ptr<PayloadBuffer *> *pb =
+        reinterpret_cast<const std::shared_ptr<PayloadBuffer *> *>(
+            reinterpret_cast<const char *>(field) - offset);
     return pb->get();
   }
 
-  static BufferOffset GetMessageStart(void* field, uint32_t offset) {
-    Message* msg = reinterpret_cast<Message*>(reinterpret_cast<char *>(field) - offset);
+  static BufferOffset GetMessageStart(const void *field, uint32_t offset) {
+    const Message *msg = reinterpret_cast<const Message *>(
+        reinterpret_cast<const char *>(field) - offset);
     return msg->start_offset;
   }
 };

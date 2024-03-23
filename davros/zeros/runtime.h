@@ -2,6 +2,7 @@
 
 #include "davros/zeros/message.h"
 #include "davros/zeros/payload_buffer.h"
+#include "davros/common_runtime.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <string>
@@ -66,6 +67,8 @@ DEFINE_PRIMITIVE_FIELD(Uint64, uint64_t)
 DEFINE_PRIMITIVE_FIELD(Float32, float)
 DEFINE_PRIMITIVE_FIELD(Float64, double)
 DEFINE_PRIMITIVE_FIELD(Bool, bool)
+DEFINE_PRIMITIVE_FIELD(Duration, davros::Duration)
+DEFINE_PRIMITIVE_FIELD(Time, davros::Time)
 
 class StringField {
 public:
@@ -137,7 +140,7 @@ template <typename Field, typename T> struct FieldIterator {
   }
   T &operator*() const {
     T *addr = field->GetBuffer()->template ToAddress<T>(offset);
-    std::cout << "offset " << offset << " addr " << addr << " value " << *addr
+    std::cout << "offset " << offset << " addr " << addr 
               << std::endl;
     return *addr;
   }
@@ -190,6 +193,43 @@ private:
   BufferOffset binary_offset_;
 };
 
+// This is a fixed array of messages.  T must be derived from davros::Message.
+template <typename T, int N> class MessageArrayField  {
+public:
+  explicit MessageArrayField(uint32_t source_offset, uint32_t binary_offset)
+       {
+        std::shared_ptr<PayloadBuffer*> buffer = Message::GetSharedBuffer(this, source_offset);
+        // Construct the embedded messages.
+        size_t index = 0;
+        for (auto& msg : msgs_) {
+          msg.buffer = buffer;
+          BufferOffset offset = binary_offset + T::BinarySize()* index;
+          msg.start_offset = offset;
+          index++;
+        }
+      }
+
+  T &operator[](int index) {
+    return msgs_[index];
+  }
+
+  operator std::array<T,N>&() {
+    return msgs_;
+  }
+
+  using iterator = typename std::array<T,N>::iterator;
+
+  iterator begin() { return msgs_.begin(); }
+  iterator end() { return msgs_.end(); }
+
+  size_t size() const { return N; }
+  T *data() const { msgs_.data(); }
+
+private:
+  std::array<T, N> msgs_;
+};
+
+
 // This is a variable length vector of T.  It looks like a std::vector<T>.
 // The binary message contains a VectorHeader at the binary offset.  This
 // contains the number of elements and the base offset for the data.
@@ -200,6 +240,7 @@ public:
 
   T &operator[](int index) {
     T *base = GetBuffer()->template ToAddress<T>(BaseOffset());
+    std::cout << "base at " << base << std::endl;
     return base[index];
   }
 
@@ -212,6 +253,18 @@ public:
 
   void push_back(const T& v) {
     PayloadBuffer::VectorPush<T>(GetBufferAddr(), Header(), v);
+  }
+
+  void reserve(size_t n) {
+    PayloadBuffer::VectorReserve<T>(GetBufferAddr(), Header(), n);
+  }
+
+  void resize(size_t n) {
+    PayloadBuffer::VectorResize<T>(GetBufferAddr(), Header(), n);
+  }
+
+  void clear() {
+    Header()->num_elements = 0;
   }
 
   size_t size() const { return Header()->num_elements; }

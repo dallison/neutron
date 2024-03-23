@@ -72,6 +72,12 @@ struct PayloadBuffer {
   template <typename T>
   static void VectorPush(PayloadBuffer **self, VectorHeader *hdr, T v);
 
+  template <typename T>
+  static void VectorReserve(PayloadBuffer **self, VectorHeader *hdr, size_t n);
+
+  template <typename T>
+  static void VectorResize(PayloadBuffer **self, VectorHeader *hdr, size_t n);
+
   // 'offset' is the offset into the buffer of the 'pointer'
   // to the string data.
   std::string GetString(BufferOffset offset) const {
@@ -188,7 +194,7 @@ inline void PayloadBuffer::VectorPush(PayloadBuffer **self, VectorHeader *hdr,
     hdr->data = (*self)->ToOffset(vecp);
   } else {
     // Vector has some values in it.  Retrieve the total size from
-    // the alllcated block header (before the start of the memory)
+    // the allocated block header (before the start of the memory)
     uint32_t *block = (*self)->ToAddress<uint32_t>(hdr->data);
     uint32_t current_size = block[-1];
     if (current_size == total_size) {
@@ -203,6 +209,45 @@ inline void PayloadBuffer::VectorPush(PayloadBuffer **self, VectorHeader *hdr,
   *valuep = v;
   // Increment the number of elements.
   hdr->num_elements++;
+}
+
+template <typename T>
+inline void PayloadBuffer::VectorReserve(PayloadBuffer **self,
+                                         VectorHeader *hdr, size_t n) {
+  if (hdr->data == 0) {
+    void *vecp = Allocate(self, n * sizeof(T), 8);
+    hdr->data = (*self)->ToOffset(vecp);
+  } else {
+    // Vector has some values in it.  Retrieve the total size from
+    // the allocated block header (before the start of the memory)
+    uint32_t *block = (*self)->ToAddress<uint32_t>(hdr->data);
+    uint32_t current_size = block[-1];
+    if (current_size < n * sizeof(T)) {
+      // Need to expand the memory to the size given.
+      void *vecp = Realloc(self, block, n * sizeof(T), 8);
+      hdr->data = (*self)->ToOffset(vecp);
+    }
+  }
+}
+
+template <typename T>
+inline void PayloadBuffer::VectorResize(PayloadBuffer **self,
+                                         VectorHeader *hdr, size_t n) {
+  if (hdr->data == 0) {
+    void *vecp = Allocate(self, n * sizeof(T), 8);
+    hdr->data = (*self)->ToOffset(vecp);
+  } else {
+    // Vector has some values in it.  Retrieve the total size from
+    // the allocated block header (before the start of the memory)
+    uint32_t *block = (*self)->ToAddress<uint32_t>(hdr->data);
+    uint32_t current_size = block[-1];
+    if (current_size < n * sizeof(T)) {
+      // Need to expand the memory to the size given.
+      void *vecp = Realloc(self, block, n * sizeof(T), 8);
+      hdr->data = (*self)->ToOffset(vecp);
+    }
+  }
+  hdr->num_elements = n;
 }
 
 template <typename T>

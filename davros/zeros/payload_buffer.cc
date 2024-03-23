@@ -1,4 +1,5 @@
 #include "davros/zeros/payload_buffer.h"
+#include "davros/common_runtime.h"
 
 namespace davros::zeros {
 
@@ -84,11 +85,6 @@ void PayloadBuffer::InitFreeList() {
   f->length = full_size - sizeof(PayloadBuffer);
   f->next = 0;
   free_list = ToOffset(f);
-}
-
-static uint32_t AlignSize(uint32_t s,
-                          uint32_t alignment = uint32_t(sizeof(uint64_t))) {
-  return (s + (alignment - 1)) & ~(alignment - 1);
 }
 
 // Expand the heap if we can.

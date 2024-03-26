@@ -19,17 +19,16 @@ absl::Status Generator::Generate(const Message &msg) {
   std::filesystem::path source =
       dir / std::filesystem::path(msg.Name() + ".cc");
 
-  {
-    std::ofstream out(header.string());
-    if (!out) {
-      return absl::InternalError(
-          absl::StrFormat("Unable to create %s", header.string()));
-    }
-    if (absl::Status status = GenerateHeader(msg, out); !status.ok()) {
-      return status;
-    }
-    std::cout << "Generated header file " << header.string() << std::endl;
+  std::ofstream out(header.string());
+  if (!out) {
+    return absl::InternalError(
+        absl::StrFormat("Unable to create %s", header.string()));
   }
+  if (absl::Status status = GenerateHeader(msg, out); !status.ok()) {
+    return status;
+  }
+  std::cout << "Generated header file " << header.string() << std::endl;
+
   {
     std::ofstream out(source.string());
     if (!out) {
@@ -41,7 +40,55 @@ absl::Status Generator::Generate(const Message &msg) {
     }
     std::cout << "Generated source file " << source.string() << std::endl;
   }
+
   return absl::OkStatus();
+}
+
+static int EnumCSize(const Message &msg) {
+  // Look for the biggest constant type.
+
+  int size = 0;
+  for (auto & [ name, c ] : msg.Constants()) {
+    switch (c->Type()) {
+    case FieldType::kInt8:
+    case FieldType::kUint8:
+      size = std::max(size, 1);
+      break;
+    case FieldType::kInt16:
+    case FieldType::kUint16:
+      size = std::max(size, 2);
+      break;
+    case FieldType::kInt32:
+    case FieldType::kUint32:
+      size = std::max(size, 4);
+      break;
+    case FieldType::kInt64:
+    case FieldType::kUint64:
+      size = std::max(size, 8);
+      break;
+    default:
+      break;
+    }
+  }
+  return size;
+}
+
+static std::string EnumCType(const Message &msg) {
+  int size = EnumCSize(msg);
+
+  switch (size) {
+  case 0:
+  default:
+    return "uint8_t";
+  case 1:
+    return "uint8_t";
+  case 2:
+    return "uint16_t";
+  case 4:
+    return "uint32_t";
+  case 8:
+    return "uint64_t";
+  }
 }
 
 static std::string FieldCType(FieldType type) {
@@ -134,6 +181,33 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
   }
   os << "\n";
   os << "namespace " << msg.Package()->Name() << " {\n";
+
+  if (msg.IsEnum()) {
+    // Enumeration.
+    if (absl::Status status = GenerateEnum(msg, os); !status.ok()) {
+      return status;
+    }
+  } else {
+    if (absl::Status status = GenerateStruct(msg, os); !status.ok()) {
+      return status;
+    }
+  }
+
+  os << "}    // namespace " << msg.Package()->Name() << "\n";
+
+  return absl::OkStatus();
+}
+
+absl::Status Generator::GenerateEnum(const Message &msg, std::ostream &os) {
+  os << "enum class " << msg.Name() << " : int {\n";
+  for (auto & [ name, c ] : msg.Constants()) {
+    os << c->Name() << " = " << std::get<0>(c->Value()) << ",\n";
+  }
+  os << "};\n";
+  return absl::OkStatus();
+}
+
+absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
   os << "struct " << msg.Name() << " {\n";
 
   // Constants
@@ -205,24 +279,32 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
   os << "  };\n";
   os << "};\n";
 
-  os << "std::ostream& operator<<(std::ostream& os, const " << msg.Name()
+  os << "inline std::ostream& operator<<(std::ostream& os, const " << msg.Name()
      << "& msg) {\n";
   for (auto &field : msg.Fields()) {
     os << "  os << \"" << field->Name() << ": \";\n";
     if (field->Type() == FieldType::kMessage) {
       auto msg_field = std::static_pointer_cast<MessageField>(field);
-      os << "  os << msg." << SanitizeFieldName(field->Name())
-         << ".DebugString() << std::endl;\n";
+      if (msg_field->Msg()->IsEnum()) {
+        os << "  os << int64_t(msg." << SanitizeFieldName(field->Name())
+           << ") << std::endl;\n";
+      } else {
+        os << "  os << msg." << SanitizeFieldName(field->Name())
+           << ".DebugString() << std::endl;\n";
+      }
     } else if (field->IsArray()) {
       auto array = std::static_pointer_cast<ArrayField>(field);
       if (array->Base()->Type() == FieldType::kMessage) {
         auto msg_field = std::static_pointer_cast<MessageField>(array->Base());
         os << "  for (auto& m : msg." << SanitizeFieldName(field->Name())
            << ") {\n";
-        os << "    os << m.DebugString();\n";
+        if (msg_field->Msg()->IsEnum()) {
+          os << "  os << int64_t(m) << std::endl;\n";
+        } else {
+          os << "    os << m.DebugString();\n";
+        }
         os << "  }\n";
         os << "  os << std::endl;\n";
-
       } else {
         auto array = std::static_pointer_cast<ArrayField>(field);
         os << "  for (auto& m : msg." << SanitizeFieldName(array->Name())
@@ -237,8 +319,6 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
   }
   os << "  return os;\n";
   os << "}\n";
-  os << "}    // namespace " << msg.Package()->Name() << "\n";
-
   return absl::OkStatus();
 }
 
@@ -246,6 +326,9 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "#include \"" << (msg_path_.empty() ? "" : (msg_path_ + "/"))
      << msg.Package()->Name() << "/" << msg.Name() << ".h\"\n";
 
+  if (msg.IsEnum()) {
+    return absl::OkStatus();
+  }
   os << "namespace " << msg.Package()->Name() << " {\n";
   os << "absl::Status " << msg.Name()
      << "::SerializeToArray(char* addr, size_t len) const {\n";
@@ -258,117 +341,17 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "  return DeserializeFromBuffer(buffer);\n";
   os << "}\n\n";
 
-  os << "absl::Status " << msg.Name()
-     << "::SerializeToBuffer(davros::Buffer& buffer) const {\n";
-  for (auto &field : msg.Fields()) {
-    if (field->Type() == FieldType::kMessage) {
-      auto msg_field = std::static_pointer_cast<MessageField>(field);
-      os << "  if (absl::Status status = this->"
-         << SanitizeFieldName(field->Name()) << ".SerializeToBuffer(buffer)"
-         << "; !status.ok()) return status;\n";
-    } else if (field->IsArray()) {
-      auto array = std::static_pointer_cast<ArrayField>(field);
-      if (array->Base()->Type() == FieldType::kMessage) {
-        if (!array->IsFixedSize()) {
-          os << "  if (absl::Status status = buffer.Write(uint32_t(this->"
-             << SanitizeFieldName(field->Name())
-             << ".size())); !status.ok()) return status;\n";
-        }
-        auto msg_field = std::static_pointer_cast<MessageField>(array->Base());
-        os << "  for (auto& m : this->" << SanitizeFieldName(field->Name())
-           << ") {\n";
-        os << "    if (absl::Status status = m.SerializeToBuffer(buffer)"
-           << "; !status.ok()) return status;\n";
-        os << "  }\n";
-      } else {
-        auto array = std::static_pointer_cast<ArrayField>(field);
-        os << "  if (absl::Status status = buffer.Write(this->"
-           << SanitizeFieldName(field->Name())
-           << "); !status.ok()) return status;\n";
-      }
-    } else {
-      os << "  if (absl::Status status = buffer.Write(this->"
-         << SanitizeFieldName(field->Name())
-         << "); !status.ok()) return status;\n";
-    }
+  if (absl::Status status = GenerateSerializer(msg, os); !status.ok()) {
+    return status;
   }
-  os << "  return absl::OkStatus();\n";
-  os << "}\n\n";
 
-  os << "absl::Status " << msg.Name()
-     << "::DeserializeFromBuffer(davros::Buffer& buffer) {\n";
-  for (auto &field : msg.Fields()) {
-    if (field->Type() == FieldType::kMessage) {
-      auto msg_field = std::static_pointer_cast<MessageField>(field);
-      os << "  if (absl::Status status = this->"
-         << SanitizeFieldName(field->Name())
-         << ".DeserializeFromBuffer(buffer); !status.ok()) return status;\n";
-    } else if (field->IsArray()) {
-      auto array = std::static_pointer_cast<ArrayField>(field);
-      if (array->Base()->Type() == FieldType::kMessage) {
-        auto msg_field = std::static_pointer_cast<MessageField>(array->Base());
-        if (array->IsFixedSize()) {
-          os << "  int32_t size = " << array->Size() << ";\n";
-        } else {
-          os << "  int32_t size;\n";
-          os << "  if (absl::Status status = buffer.Read(size); "
-                "!status.ok()) "
-                "return status;\n";
-        }
-        os << "  for (int32_t i = 0; i < size; i++) {\n";
-        os << "    if (absl::Status status = this->"
-           << SanitizeFieldName(field->Name())
-           << "[i].DeserializeFromBuffer(buffer)"
-           << "; !status.ok()) return status;\n";
-        os << "  }\n";
-      } else {
-        auto array = std::static_pointer_cast<ArrayField>(field);
-        os << "  if (absl::Status status = buffer.Read(this->"
-           << SanitizeFieldName(field->Name())
-           << "); !status.ok()) return status;\n";
-      }
-
-    } else {
-      os << "  if (absl::Status status = buffer.Read(this->"
-         << SanitizeFieldName(field->Name())
-         << "); !status.ok()) return status;\n";
-    }
+  if (absl::Status status = GenerateDeserializer(msg, os); !status.ok()) {
+    return status;
   }
-  os << "  return absl::OkStatus();\n";
-  os << "}\n\n";
 
-  os << "size_t " << msg.Name() << "::SerializedLength() const {\n";
-  os << "  size_t length = 0;\n";
-  for (auto &field : msg.Fields()) {
-    if (field->Type() == FieldType::kMessage) {
-      auto msg_field = std::static_pointer_cast<MessageField>(field);
-      os << "  length += this->" << SanitizeFieldName(field->Name())
-         << ".SerializedLength();\n";
-    } else if (field->IsArray()) {
-      auto array = std::static_pointer_cast<ArrayField>(field);
-      if (array->Base()->Type() == FieldType::kMessage) {
-        auto msg_field = std::static_pointer_cast<MessageField>(array->Base());
-        os << "  length += " << (array->IsFixedSize() ? 0 : 4) << " + this->"
-           << SanitizeFieldName(field->Name()) << ".size() * sizeof("
-           << MessageFieldTypeName(msg, msg_field) << ");\n";
-
-      } else {
-        os << "  length += " << (array->IsFixedSize() ? 0 : 4) << " + this->"
-           << SanitizeFieldName(field->Name()) << ".size() * sizeof("
-           << FieldCType(array->Base()->Type()) << ");\n";
-      }
-    } else {
-      if (field->Type() == FieldType::kString) {
-        os << "  length += 4 + this->" << SanitizeFieldName(field->Name())
-           << ".size();\n";
-      } else {
-        os << "  length += sizeof(this->" << SanitizeFieldName(field->Name())
-           << ");\n";
-      }
-    }
+  if (absl::Status status = GenerateLength(msg, os); !status.ok()) {
+    return status;
   }
-  os << "  return length;\n";
-  os << "}\n\n";
 
   os << "  bool " << msg.Name() << "::operator==(const " << msg.Name()
      << "& m) const {\n";
@@ -387,6 +370,172 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "}    // namespace " << msg.Package()->Name() << "\n";
 
   return absl::OkStatus();
-} // namespace davros::serdes
+}
+
+absl::Status Generator::GenerateSerializer(const Message &msg,
+                                           std::ostream &os) {
+  os << "absl::Status " << msg.Name()
+     << "::SerializeToBuffer(davros::Buffer& buffer) const {\n";
+  for (auto &field : msg.Fields()) {
+    if (field->Type() == FieldType::kMessage) {
+      auto msg_field = std::static_pointer_cast<MessageField>(field);
+      if (msg_field->Msg() == nullptr) {
+        abort();
+      }
+      if (msg_field->Msg()->IsEnum()) {
+        os << "  if (absl::Status status = buffer.Write(" << EnumCType(*msg_field->Msg()) << "(this->"
+           << SanitizeFieldName(field->Name()) << "))"
+           << "; !status.ok()) return status;\n";
+      } else {
+        os << "  if (absl::Status status = this->"
+           << SanitizeFieldName(field->Name()) << ".SerializeToBuffer(buffer)"
+           << "; !status.ok()) return status;\n";
+      }
+    } else if (field->IsArray()) {
+      auto array = std::static_pointer_cast<ArrayField>(field);
+      if (array->Base()->Type() == FieldType::kMessage) {
+        if (!array->IsFixedSize()) {
+          os << "  if (absl::Status status = buffer.Write(uint32_t(this->"
+             << SanitizeFieldName(field->Name())
+             << ".size())); !status.ok()) return status;\n";
+        }
+        auto msg_field = std::static_pointer_cast<MessageField>(array->Base());
+        os << "  for (auto& m : this->" << SanitizeFieldName(field->Name())
+           << ") {\n";
+        if (msg_field->Msg()->IsEnum()) {
+          os << "  if (absl::Status status = buffer.Write(" << EnumCType(*msg_field->Msg()) << "(m)); "
+                "!status.ok()) return status;\n";
+        } else {
+          os << "    if (absl::Status status = m.SerializeToBuffer(buffer)"
+             << "; !status.ok()) return status;\n";
+        }
+        os << "  }\n";
+      } else {
+        auto array = std::static_pointer_cast<ArrayField>(field);
+        os << "  if (absl::Status status = buffer.Write(this->"
+           << SanitizeFieldName(field->Name())
+           << "); !status.ok()) return status;\n";
+      }
+    } else {
+      os << "  if (absl::Status status = buffer.Write(this->"
+         << SanitizeFieldName(field->Name())
+         << "); !status.ok()) return status;\n";
+    }
+  }
+  os << "  return absl::OkStatus();\n";
+  os << "}\n\n";
+  return absl::OkStatus();
+}
+
+absl::Status Generator::GenerateDeserializer(const Message &msg,
+                                             std::ostream &os) {
+  os << "absl::Status " << msg.Name()
+     << "::DeserializeFromBuffer(davros::Buffer& buffer) {\n";
+  for (auto &field : msg.Fields()) {
+    if (field->Type() == FieldType::kMessage) {
+      auto msg_field = std::static_pointer_cast<MessageField>(field);
+      if (msg_field->Msg()->IsEnum()) {
+        os << "  {\n  " << EnumCType(*msg_field->Msg())
+           << " v;\n  if (absl::Status status = buffer.Read(v);"
+              "!status.ok()) return status;\n";
+        os << "  this->" << SanitizeFieldName(field->Name())
+           << " = static_cast<" << MessageFieldTypeName(msg, msg_field)
+           << ">(v);\n";
+        os << "  }\n";
+      } else {
+        os << "  if (absl::Status status = this->"
+           << SanitizeFieldName(field->Name())
+           << ".DeserializeFromBuffer(buffer); !status.ok()) return status;\n";
+      }
+    } else if (field->IsArray()) {
+      auto array = std::static_pointer_cast<ArrayField>(field);
+      if (array->Base()->Type() == FieldType::kMessage) {
+        auto msg_field = std::static_pointer_cast<MessageField>(array->Base());
+        if (array->IsFixedSize()) {
+          os << "  {\n";
+          os << "  int32_t size = " << array->Size() << ";\n";
+        } else {
+          os << "  int32_t size;\n";
+          os << "  if (absl::Status status = buffer.Read(size); "
+                "!status.ok()) "
+                "return status;\n";
+        }
+        os << "  for (int32_t i = 0; i < size; i++) {\n";
+        if (msg_field->Msg()->IsEnum()) {
+          os << "    " << EnumCType(*msg_field->Msg()) << " v;\n";
+          os << "    if (absl::Status status = buffer.Read(v); !status.ok()) "
+                "return status;\n";
+          os << "    this->" << SanitizeFieldName(field->Name())
+             << " = static_cast<" << MessageFieldTypeName(msg, msg_field)
+             << "(v);\n";
+        } else {
+          os << "    if (absl::Status status = this->"
+             << SanitizeFieldName(field->Name())
+             << "[i].DeserializeFromBuffer(buffer)"
+             << "; !status.ok()) return status;\n";
+          os << "  }\n";
+        }
+        os << "  }\n";
+      } else {
+        auto array = std::static_pointer_cast<ArrayField>(field);
+        os << "  if (absl::Status status = buffer.Read(this->"
+           << SanitizeFieldName(field->Name())
+           << "); !status.ok()) return status;\n";
+      }
+
+    } else {
+      os << "  if (absl::Status status = buffer.Read(this->"
+         << SanitizeFieldName(field->Name())
+         << "); !status.ok()) return status;\n";
+    }
+  }
+  os << "  return absl::OkStatus();\n";
+  os << "}\n\n";
+  return absl::OkStatus();
+}
+
+absl::Status Generator::GenerateLength(const Message &msg, std::ostream &os) {
+  os << "size_t " << msg.Name() << "::SerializedLength() const {\n";
+  os << "  size_t length = 0;\n";
+  for (auto &field : msg.Fields()) {
+    if (field->Type() == FieldType::kMessage) {
+      auto msg_field = std::static_pointer_cast<MessageField>(field);
+      if (msg_field->Msg()->IsEnum()) {
+        os << "  length += " << EnumCSize(*msg_field->Msg()) << ";\n";
+      } else {
+        os << "  length += this->" << SanitizeFieldName(field->Name())
+           << ".SerializedLength();\n";
+      }
+    } else if (field->IsArray()) {
+      auto array = std::static_pointer_cast<ArrayField>(field);
+      if (array->Base()->Type() == FieldType::kMessage) {
+        auto msg_field = std::static_pointer_cast<MessageField>(array->Base());
+        if (msg_field->Msg()->IsEnum()) {
+          os << "  length += this->" << SanitizeFieldName(field->Name())
+             << ".size() * " << EnumCSize(*msg_field->Msg()) << ";\n";
+        } else {
+          os << "  length += " << (array->IsFixedSize() ? 0 : 4) << " + this->"
+             << SanitizeFieldName(field->Name()) << ".size() * sizeof("
+             << MessageFieldTypeName(msg, msg_field) << ");\n";
+        }
+      } else {
+        os << "  length += " << (array->IsFixedSize() ? 0 : 4) << " + this->"
+           << SanitizeFieldName(field->Name()) << ".size() * sizeof("
+           << FieldCType(array->Base()->Type()) << ");\n";
+      }
+    } else {
+      if (field->Type() == FieldType::kString) {
+        os << "  length += 4 + this->" << SanitizeFieldName(field->Name())
+           << ".size();\n";
+      } else {
+        os << "  length += sizeof(this->" << SanitizeFieldName(field->Name())
+           << ");\n";
+      }
+    }
+  }
+  os << "  return length;\n";
+  os << "}\n\n";
+  return absl::OkStatus();
+}
 
 } // namespace davros::serdes

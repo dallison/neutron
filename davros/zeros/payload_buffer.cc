@@ -17,14 +17,13 @@ void PayloadBuffer::AllocateMetadata(PayloadBuffer **self, void *md,
 }
 
 char *PayloadBuffer::SetString(PayloadBuffer **self, const std::string &s,
-                                    BufferOffset old_offset) {
+                                    BufferOffset header_offset) {
+                                        // Get address of the string header
+  BufferOffset *hdr = (*self)->ToAddress<BufferOffset>(header_offset);                              
   void *str = nullptr;
 
-  // Get address of 'pointer' to string data.
-  BufferOffset *old_addr = (*self)->ToAddress<BufferOffset>(old_offset);
-
   // Load the pointer and convert to address.
-  BufferOffset str_ptr = *old_addr;
+  BufferOffset str_ptr = *hdr;
   void* old_str = (*self)->ToAddress(str_ptr);
 
   // If this contains a valid (non-zero) offset, reallocate the
@@ -39,19 +38,19 @@ char *PayloadBuffer::SetString(PayloadBuffer **self, const std::string &s,
   memcpy(p + 1, s.data(), s.size());
 
   // The buffer may have moved.  Reassign the address of the string
-  // back into the 'pointer'.
-  BufferOffset* oldp = (*self)->ToAddress<BufferOffset>(old_offset);
+  // back into the header.
+  BufferOffset* oldp = (*self)->ToAddress<BufferOffset>(header_offset);
   *oldp = (*self)->ToOffset(str);  
   return reinterpret_cast<char *>(str);
 }
 
 // 'addr' is the address of the pointer to the string data.
-std::string PayloadBuffer::GetString(const BufferOffset* addr) const {
+std::string PayloadBuffer::GetString(const StringHeader* addr) const {
   const uint32_t *p = reinterpret_cast<const uint32_t*>(ToAddress(*addr));
   return std::string(reinterpret_cast<const char *>(p + 1), *p);
 }
 
-std::string_view PayloadBuffer::GetStringView(const BufferOffset *addr) const {
+std::string_view PayloadBuffer::GetStringView(const StringHeader *addr) const {
   const uint32_t *p = reinterpret_cast<const uint32_t*>(ToAddress(*addr));
   return std::string_view(reinterpret_cast<const char *>(p + 1), *p);
 }

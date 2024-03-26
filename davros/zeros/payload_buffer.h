@@ -23,6 +23,8 @@ struct VectorHeader {
   BufferOffset data;
 };
 
+using StringHeader = BufferOffset;
+
 // This is a buffer that holds the contents of a message.
 // It is located at the first address of the actual buffer with the
 // reset of the buffer memory following it.
@@ -55,11 +57,10 @@ struct PayloadBuffer {
                                  BufferOffset offset);
 
   // Allocate space for the string.
-  // 'old_offset' is the offset into the buffer of the 'pointer'
-  // to the string data.
+  // 'header_offset' is the offset into the buffer of the StringHeader.
   // The string is copied in.
   static char *SetString(PayloadBuffer **self, const std::string &s,
-                         BufferOffset old_offset = 0);
+                         BufferOffset header_offset);
 
   bool IsNull(BufferOffset offset) {
     BufferOffset *p = ToAddress<BufferOffset>(offset);
@@ -78,17 +79,16 @@ struct PayloadBuffer {
   template <typename T>
   static void VectorResize(PayloadBuffer **self, VectorHeader *hdr, size_t n);
 
-  // 'offset' is the offset into the buffer of the 'pointer'
-  // to the string data.
-  std::string GetString(BufferOffset offset) const {
-    return GetString(ToAddress<const BufferOffset>(offset));
+  // 'header_offset' is the offset into the buffer StringHeader.
+  std::string GetString(BufferOffset header_offset) const {
+    return GetString(ToAddress<const BufferOffset>(header_offset));
   }
-  std::string_view GetStringView(BufferOffset offset) const {
-    return GetStringView(ToAddress<const BufferOffset>(offset));
+  std::string_view GetStringView(BufferOffset header_offset) const {
+    return GetStringView(ToAddress<const BufferOffset>(header_offset));
   }
 
-  std::string GetString(const BufferOffset *addr) const;
-  std::string_view GetStringView(const BufferOffset *addr) const;
+  std::string GetString(const StringHeader *addr) const;
+  std::string_view GetStringView(const StringHeader *addr) const;
 
   template <typename T>
   T VectorGet(const VectorHeader *hdr, size_t index) const;

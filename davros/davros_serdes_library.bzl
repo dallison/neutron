@@ -8,14 +8,18 @@ def _davros_action(
         out_dir,
         package_name,
         imports,
+        other_srcs,
         outputs):
-    inputs = depset(direct = srcs, transitive = [depset(imports)])
+    inputs = depset(direct = srcs, transitive = [depset(imports + other_srcs)])
     davros_args = ["--out={}/{}".format(out_dir, package_name), "--runtime_path=", "--msg_path={}".format(package_name)]
     if imports:
         imports_arg = "--imports="
         sep = ""
         for file in imports:
-            imports_arg += sep + file.path
+            imports_arg += sep + paths.dirname(paths.dirname(file.path))
+            sep = ","
+        for file in srcs:
+            imports_arg += sep + paths.dirname(paths.dirname(file.path))
             sep = ","
         davros_args.append(imports_arg)
     args = ctx.actions.args()
@@ -65,6 +69,7 @@ def _davros_impl(ctx):
             out_dir,
             ctx.attr.package_name,
             imports,
+            srcs,
             outputs,
         )
 

@@ -48,12 +48,16 @@ struct TestMessage : public Message {
         mvec(offsetof(TestMessage, mvec),
              20 + InnerMessage::BinarySize() + 10 * sizeof(int32_t) +
                  +sizeof(VectorHeader) + InnerMessage::BinarySize() * 5 +
-                 sizeof(BufferOffset) * 20) {}
+                 sizeof(BufferOffset) * 20),
+        svec(offsetof(TestMessage, svec),
+             20 + InnerMessage::BinarySize() + 10 * sizeof(int32_t) +
+                 +sizeof(VectorHeader) + InnerMessage::BinarySize() * 5 +
+                 sizeof(BufferOffset) * 20 + sizeof(VectorHeader)) {}
   static uint32_t BinarySize() {
     return 4 + 4 + 8 + 4 + 4 + InnerMessage::BinarySize() +
            10 * sizeof(int32_t) + sizeof(VectorHeader) +
            InnerMessage::BinarySize() * 5 + sizeof(BufferOffset) * 20 +
-           sizeof(VectorHeader);
+           sizeof(VectorHeader) + sizeof(VectorHeader);
   }
   davros::zeros::Uint32Field x;
   davros::zeros::Uint64Field y;
@@ -64,6 +68,7 @@ struct TestMessage : public Message {
   davros::zeros::MessageArrayField<InnerMessage, 5> marr;
   davros::zeros::StringArrayField<20> sarr;
   davros::zeros::MessageVectorField<InnerMessage> mvec;
+  davros::zeros::StringVectorField svec;
 };
 
 #pragma clang diagnostic pop
@@ -269,7 +274,7 @@ TEST(MessageTest, VectorResize) {
   msg.vec.resize(10);
   ASSERT_EQ(10, msg.vec.size());
   for (int i = 0; i < 10; i++) {
-    msg.vec[i] = i+1;
+    msg.vec[i] = i + 1;
   }
 
   pb->Dump(std::cout);
@@ -366,6 +371,51 @@ TEST(MessageTest, MessageVectorReserve) {
     i++;
   }
 }
+
+TEST(MessageTest, BasicStringVector) {
+  char *buffer = (char *)malloc(4096);
+  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+
+  // Allocate space for a message containing an offset for the string.
+  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+
+  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+
+  msg.svec.push_back("foobar");
+
+  pb->Dump(std::cout);
+  toolbelt::Hexdump(pb, pb->hwm);
+
+  ASSERT_EQ(1, msg.svec.size());
+  std::string_view sv = msg.svec[0];
+  ASSERT_EQ("foobar", sv);
+}
+
+TEST(MessageTest, StringVectorExpansion) {
+  char *buffer = (char *)malloc(4096);
+  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+
+  // Allocate space for a message containing an offset for the string.
+  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+
+  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+
+  for (int i = 0; i < 20; i++) {
+    msg.svec.push_back(absl::StrFormat("foobar-%d", i));
+  }
+
+  pb->Dump(std::cout);
+  toolbelt::Hexdump(pb, pb->hwm);
+
+  ASSERT_EQ(20, msg.svec.size());
+  int index = 0;
+  for (std::string_view sv : msg.svec) {
+    auto s = absl::StrFormat("foobar-%d", index);
+    ASSERT_EQ(s, sv);
+    index++;
+  }
+}
+
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
 

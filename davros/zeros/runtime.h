@@ -320,16 +320,17 @@ public:
   size_t size() const { return Header()->num_elements; }
   T *data() const { GetBuffer()->template ToAddress<T>(BaseOffset()); }
 
- size_t capacity() const {
-    VectorHeader* hdr = Header();
-    BufferOffset* addr = GetBuffer()->template ToAddress<BufferOffset>(hdr->data);
+  size_t capacity() const {
+    VectorHeader *hdr = Header();
+    BufferOffset *addr =
+        GetBuffer()->template ToAddress<BufferOffset>(hdr->data);
     if (addr == nullptr) {
       return 0;
     }
     // Word before memory is size of memory in bytes.
     return addr[-1] / sizeof(T);
   }
-  
+
 private:
   friend FieldIterator<PrimitiveVectorField, T>;
   VectorHeader *Header() const {
@@ -356,6 +357,8 @@ private:
   BufferOffset binary_offset_;
 };
 
+// The vector contains a set of BufferOffsets, each of which contains the
+// offset of the message.
 template <typename T> class MessageVectorField {
 public:
   explicit MessageVectorField(uint32_t source_offset, uint32_t binary_offset)
@@ -363,8 +366,10 @@ public:
     // Populate the msgs vector with MessageField objects referring to the
     // binary messages.
     VectorHeader *hdr = Header();
+    BufferOffset *data =
+        GetBuffer()->template ToAddress<BufferOffset>(hdr->data);
     for (uint32_t i = 0; i < hdr->num_elements; i++) {
-      if (hdr->data == 0) {
+      if (data[i] == 0) {
         // If the vector says there's a message at this index but
         // the data is 0 it shows corruption in the binary message.
         // TODO: How do we deal with this?
@@ -374,7 +379,7 @@ public:
       }
       MessageField<T> field(
           GetSharedBuffer(),
-          source_offset + msgs_.size() * sizeof(MessageField<T>), hdr->data);
+          source_offset + msgs_.size() * sizeof(MessageField<T>), data[i]);
       msgs_.push_back(std::move(field));
     }
   }
@@ -397,8 +402,9 @@ public:
   }
 
   size_t capacity() const {
-    VectorHeader* hdr = Header();
-    BufferOffset* addr = GetBuffer()->template ToAddress<BufferOffset>(hdr->data);
+    VectorHeader *hdr = Header();
+    BufferOffset *addr =
+        GetBuffer()->template ToAddress<BufferOffset>(hdr->data);
     if (addr == nullptr) {
       return 0;
     }
@@ -436,7 +442,7 @@ public:
   void clear() { Header()->num_elements = 0; }
 
   size_t size() const { return Header()->num_elements; }
-  T *data() const { GetBuffer()->template ToAddress<T>(BaseOffset()); }
+  T *data() { GetBuffer()->template ToAddress<T>(BaseOffset()); }
 
 private:
   friend FieldIterator<MessageVectorField, T>;
@@ -467,5 +473,154 @@ private:
   uint32_t source_offset_;
   BufferOffset binary_offset_;
   std::vector<MessageField<T>> msgs_;
+};
+
+// This is a string field that is not embedded inside a message.  These will be
+// allocated from the heap, as is the case when used in a std::vector.  They
+// store the std::shared_ptr to the PayloadBuffer pointer instead of an offset
+// to the start of the message.
+class NonEmbeddedStringField {
+public:
+  NonEmbeddedStringField() = default;
+  explicit NonEmbeddedStringField(std::shared_ptr<PayloadBuffer *> buffer,
+                                  uint32_t binary_offset)
+      : buffer_(buffer), binary_offset_(binary_offset) {}
+
+  operator std::string_view() {
+    return GetBuffer()->GetStringView(binary_offset_);
+  }
+
+  NonEmbeddedStringField &operator=(const std::string &s) {
+    PayloadBuffer::SetString(GetBufferAddr(), s, binary_offset_);
+    return *this;
+  }
+
+private:
+  template <int N> friend class StringArrayField;
+
+  PayloadBuffer *GetBuffer() const { return *buffer_; }
+
+  PayloadBuffer **GetBufferAddr() const { return buffer_.get(); }
+
+  std::shared_ptr<PayloadBuffer *> buffer_;
+  BufferOffset binary_offset_; // Offset into PayloadBuffer of StringHeader
+};
+
+// This is a little more complex.  The binary vector contains a set of
+// BufferOffsets each of which contains the offset into the PayloadBuffer of a
+// StringHeader.  Each StringHeader contains the offset of the string data which
+// is a length followed by the string contents.
+//
+// +-----------+
+// |           |
+// +-----------+         +----------+
+// |           +-------->|    hdr   +------->+-------------+
+// +-----------+         +----------+        |   length    |
+// |    ...    |                             +-------------+
+// +-----------+                             |  "string"   |
+// |           |                             |   "data"    |
+// +-----------+                             +-------------+
+class StringVectorField {
+public:
+  explicit StringVectorField(uint32_t source_offset, uint32_t binary_offset)
+      : source_offset_(source_offset), binary_offset_(binary_offset) {
+    VectorHeader *hdr = Header();
+    BufferOffset *data = GetBuffer()->ToAddress<BufferOffset>(hdr->data);
+    for (uint32_t i = 0; i < hdr->num_elements; i++) {
+      if (data[i] == 0) {
+        // If the vector says there's a string at this index but
+        // the data is 0 it shows corruption in the binary message.
+        // TODO: How do we deal with this?
+        // abort for now
+        std::cerr << "Invalid string vector entry at index " << i << std::endl;
+        abort();
+      }
+      NonEmbeddedStringField field(
+          Message::GetSharedBuffer(this, source_offset), data[i]);
+      strings_.push_back(std::move(field));
+    }
+  }
+
+  NonEmbeddedStringField &operator[](int index) { return strings_[index]; }
+
+  using iterator = typename std::vector<NonEmbeddedStringField>::iterator;
+
+  iterator begin() { return strings_.begin(); }
+  iterator end() { return strings_.end(); }
+
+  size_t size() const { return strings_.size(); }
+  NonEmbeddedStringField *data() { return strings_.data(); }
+
+  void push_back(const std::string &s) {
+    // Allocate string header in buffer.
+    void *str_hdr =
+        PayloadBuffer::Allocate(GetBufferAddr(), sizeof(StringHeader), 4);
+    BufferOffset hdr_offset = GetBuffer()->ToOffset(str_hdr);
+    PayloadBuffer::SetString(GetBufferAddr(), s, hdr_offset);
+
+    // Add an offset for the new string to the binary.
+    PayloadBuffer::VectorPush<BufferOffset>(GetBufferAddr(), Header(),
+                                            hdr_offset);
+
+    // Add a source string field.
+    NonEmbeddedStringField field(Message::GetSharedBuffer(this, source_offset_),
+                                 hdr_offset);
+    strings_.push_back(std::move(field));
+  }
+
+  size_t capacity() const {
+    VectorHeader *hdr = Header();
+    BufferOffset *addr =
+        GetBuffer()->template ToAddress<BufferOffset>(hdr->data);
+    if (addr == nullptr) {
+      return 0;
+    }
+    // Word before memory is size of memory in bytes.
+    return addr[-1] / sizeof(BufferOffset);
+  }
+
+  void reserve(size_t n) {
+    PayloadBuffer::VectorReserve<BufferOffset>(GetBufferAddr(), Header(), n);
+    strings_.reserve(n);
+  }
+
+  void resize(size_t n) {
+    VectorHeader *hdr = Header();
+    uint32_t current_size = hdr->num_elements;
+
+    // Resize the vector data in the binary.  This contains BufferOffets.
+    PayloadBuffer::VectorResize<BufferOffset>(GetBufferAddr(), Header(), n);
+    strings_.resize(n);
+
+    // If the size has increased, allocate string headers for the new entries
+    if (n > current_size) {
+      for (uint32_t i = current_size; i < uint32_t(n); i++) {
+        void *str_hdr =
+            PayloadBuffer::Allocate(GetBufferAddr(), sizeof(StringHeader), 4);
+        BufferOffset hdr_offset = GetBuffer()->ToOffset(str_hdr);
+        NonEmbeddedStringField field(
+            Message::GetSharedBuffer(this, source_offset_), hdr_offset);
+        strings_[i] = std::move(field);
+      }
+    }
+  }
+
+  void clear() { Header()->num_elements = 0; }
+
+private:
+  VectorHeader *Header() const {
+    return GetBuffer()->template ToAddress<VectorHeader>(
+        Message::GetMessageStart(this, source_offset_) + binary_offset_);
+  }
+  PayloadBuffer *GetBuffer() const {
+    return Message::GetBuffer(this, source_offset_);
+  }
+
+  PayloadBuffer **GetBufferAddr() const {
+    return Message::GetBufferAddr(this, source_offset_);
+  }
+  uint32_t source_offset_;
+  BufferOffset binary_offset_;
+  std::vector<NonEmbeddedStringField> strings_;
 };
 }

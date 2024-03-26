@@ -148,6 +148,8 @@ public:
 
   absl::Status Generate(Generator &gen) const { return gen.Generate(*this); }
 
+  bool IsEnum() const;
+
 private:
   std::shared_ptr<class Package> package_;
   std::string name_;

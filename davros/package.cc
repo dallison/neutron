@@ -33,14 +33,15 @@ absl::Status PackageScanner::ParseAllMessagesFrom(std::filesystem::path path) {
                                                  path.filename().string());
         AddPackage(package);
 
+        std::cout << "parsing messages from " << dir.path().string() << std::endl;
         for (auto &file : std::filesystem::directory_iterator(dir)) {
           if (file.path().extension() == ".msg") {
+            std::cout << "parsing file " << file.path() << std::endl;
             absl::StatusOr<std::shared_ptr<Message>> msg =
                 package->ParseMessage(file.path());
             if (!msg.ok()) {
               return msg.status();
             }
-            package->AddMessage(*msg);
           }
         }
       } else {
@@ -78,6 +79,7 @@ Package::ParseMessage(std::filesystem::path file) {
   if (absl::Status status = msg->Parse(lex); !status.ok()) {
     return status;
   }
+  AddMessage(msg);
   return msg;
 }
 
@@ -104,6 +106,7 @@ void Package::Dump(std::ostream &os) {
 
 absl::Status Package::ResolveMessages(std::shared_ptr<PackageScanner> scanner) {
   for (auto & [ name, msg ] : messages_) {
+    std::cout << "resolving message " << msg->Name() << std::endl;
     if (absl::Status status = msg->Resolve(scanner); !status.ok()) {
       return status;
     }

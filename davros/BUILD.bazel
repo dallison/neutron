@@ -130,9 +130,9 @@ cc_test(
     ],
     deps = [
         ":zeros",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_googletest//:gtest",
         "@toolbelt//toolbelt",
-        "@com_google_absl//absl/strings:str_format",
     ],
 )
 
@@ -162,6 +162,7 @@ davros_serdes_library(
     name = "other_msgs",
     srcs = [
         "testdata/other_msgs/msg/Other.msg",
+        "testdata/other_msgs/msg/Enum.msg",
     ],
     runtime = ":serdes_runtime",
     deps = [
@@ -216,6 +217,7 @@ cc_library(
         "serdes/runtime.h",
     ],
     deps = [
+        ":common_runtime",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/types:span",

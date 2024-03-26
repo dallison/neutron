@@ -58,9 +58,15 @@ int main(int argc, char **argv) {
     exit(0);
   }
 
+  std::vector<std::string> imports = absl::GetFlag(FLAGS_imports);
+  std::vector<std::filesystem::path> roots;
+  for (auto &dir : imports) {
+    roots.push_back(dir);
+  }
+
   // Generate for particular set of message files.
   std::shared_ptr<davros::PackageScanner> scanner(
-      new davros::PackageScanner({}));
+      new davros::PackageScanner(roots));
 
   auto parse = [scanner](std::string file)
       -> absl::StatusOr<std::shared_ptr<davros::Message>> {
@@ -82,36 +88,38 @@ int main(int argc, char **argv) {
     return *msg;
   };
 
-  std::vector<std::string> imports = absl::GetFlag(FLAGS_imports);
-  // Parse all the imports.  These are passed in the -imports= flag and
-  // specify all the .msg files that are needed to parse this message
-  for (auto &file : imports) {
-    if (absl::StatusOr<std::shared_ptr<davros::Message>> msg = parse(file);
-        !msg.ok()) {
-      std::cerr << msg.status() << std::endl;
-      exit(1);
-    }
+  if (absl::Status status = scanner->ParseAllMessages(); !status.ok()) {
+    std::cerr << status << std::endl;
+    exit(1);
   }
 
+  std::vector<std::shared_ptr<davros::Message>> messages;
   for (auto &file : files) {
     absl::StatusOr<std::shared_ptr<davros::Message>> msg = parse(file);
     if (!msg.ok()) {
       std::cerr << msg.status() << std::endl;
       exit(1);
     }
-    davros::serdes::Generator gen(absl::GetFlag(FLAGS_out),
-                                  absl::GetFlag(FLAGS_runtime_path),
-                                  absl::GetFlag(FLAGS_msg_path));
-    absl::Status s = (*msg)->Generate(gen);
-    if (!s.ok()) {
-      std::cerr << s << std::endl;
+    messages.push_back(*msg);
+  }
+
+  std::cout << "resolving\n";
+  // Resolve the messages.
+  for (auto & [ name, package ] : scanner->Packages()) {
+    std::cout << "resolving package " << package->Name() << std::endl;
+    if (absl::Status status = package->ResolveMessages(scanner); !status.ok()) {
+      std::cerr << status << std::endl;
       exit(1);
     }
   }
-  // Resolve the messages.
-  for (auto & [ name, package ] : scanner->Packages()) {
-    if (absl::Status status = package->ResolveMessages(scanner); !status.ok()) {
-      std::cerr << status << std::endl;
+
+  for (auto &msg : messages) {
+    davros::serdes::Generator gen(absl::GetFlag(FLAGS_out),
+                                  absl::GetFlag(FLAGS_runtime_path),
+                                  absl::GetFlag(FLAGS_msg_path));
+    absl::Status s = msg->Generate(gen);
+    if (!s.ok()) {
+      std::cerr << s << std::endl;
       exit(1);
     }
   }

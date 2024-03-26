@@ -31,6 +31,23 @@ static bool IsIntField(FieldType t) {
   }
 }
 
+bool Message::IsEnum() const {
+  if (!Fields().empty()) {
+    return false;
+  }
+  if (Constants().empty()) {
+    return false;
+  }
+  // Enumeration constants must be all integers.
+  for (auto & [ name, c ] : Constants()) {
+    if (c->Type() == FieldType::kString || c->Type() == FieldType::kFloat32 ||
+        c->Type() == FieldType::kFloat64) {
+      return false;
+    }
+  }
+  return true;
+}
+
 absl::Status Message::Parse(LexicalAnalyzer &lex) {
   if (field_types_.empty()) {
     field_types_.insert({Token::kBool, FieldType::kBool});
@@ -316,6 +333,7 @@ void Message::Dump(std::ostream &os) const {
 }
 
 absl::Status Message::Resolve(std::shared_ptr<PackageScanner> scanner) {
+  std::cout << "resolving " << Name() << std::endl;
   for (auto &field : fields_) {
     if (field->Type() == FieldType::kMessage) {
       auto msg_field = std::static_pointer_cast<MessageField>(field);
@@ -336,6 +354,7 @@ absl::Status Message::Resolve(std::shared_ptr<PackageScanner> scanner) {
             absl::StrFormat("Unable to resolve message %s/%s",
                             msg_field->MsgPackage(), msg_field->MsgName()));
       } else {
+        std::cout << "Resolved " << msg_field->Name() << std::endl;
         msg_field->Resolved(msg);
       }
     }

@@ -45,6 +45,8 @@ public:
   PackageScanner(std::vector<std::filesystem::path> roots)
       : roots_(std::move(roots)) {}
 
+  absl::Status ScanForMessages();
+
   absl::Status ParseAllMessages();
   void Dump(std::ostream &os);
 
@@ -67,12 +69,17 @@ public:
   void AddPackage(std::shared_ptr<Package> package) {
     packages_[package->Name()] = package;
   }
-  
+
+  absl::StatusOr<std::shared_ptr<Message>> ResolveImport(const std::string& package_name,
+                                       const std::string &msg_name);
+
 private:
   absl::Status ParseAllMessagesFrom(std::filesystem::path path);
+  absl::Status ScanForMessagesFrom(std::filesystem::path path);
 
   std::vector<std::filesystem::path> roots_;
   absl::flat_hash_map<std::string, std::shared_ptr<Package>> packages_;
+  absl::flat_hash_map<std::string, std::filesystem::path> discovered_message_files_;
 };
 
 } // namespace davros

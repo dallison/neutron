@@ -40,9 +40,9 @@ namespace davros::zeros {
 struct Message {
   Message() = default;
   Message(std::shared_ptr<PayloadBuffer *> pb, BufferOffset start)
-      : buffer(pb), start_offset(start) {}
+      : buffer(pb), absolute_binary_offset(start) {}
   std::shared_ptr<PayloadBuffer *> buffer;
-  BufferOffset start_offset;
+  BufferOffset absolute_binary_offset;
 
   // 'field' is the offset from the start of the message to the field (positive)
   // Subtract the field offset from the field to get the address of the
@@ -68,10 +68,10 @@ struct Message {
     return *pb;
   }
   
-  static BufferOffset GetMessageStart(const void *field, uint32_t offset) {
+  static BufferOffset GetMessageBinaryStart(const void *field, uint32_t offset) {
     const Message *msg = reinterpret_cast<const Message *>(
         reinterpret_cast<const char *>(field) - offset);
-    return msg->start_offset;
+    return msg->absolute_binary_offset;
   }
 };
 

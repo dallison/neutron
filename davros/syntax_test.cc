@@ -70,7 +70,7 @@ int8 b
 
 TEST(SyntaxTest, Messages) {
   std::stringstream input;
-  input << R"(Header hdr
+  input << R"(std_msgs/Header hdr
 foo/Msg msg
 )";
 

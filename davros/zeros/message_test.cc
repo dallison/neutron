@@ -10,23 +10,33 @@ using PayloadBuffer = davros::zeros::PayloadBuffer;
 using BufferOffset = davros::zeros::BufferOffset;
 using Message = davros::zeros::Message;
 using VectorHeader = davros::zeros::VectorHeader;
+using StringHeader = davros::zeros::StringHeader;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Winvalid-offsetof"
 
+enum class EnumTest : uint16_t { FOO = 12, BAR = 50 };
+
 struct InnerMessage : public Message {
   InnerMessage()
-      : str(offsetof(InnerMessage, str), 0), f(offsetof(InnerMessage, f), 8) {}
-  InnerMessage(std::shared_ptr<PayloadBuffer *> buffer)
-      : str(offsetof(InnerMessage, str), 0), f(offsetof(InnerMessage, f), 8) {
+      : str(offsetof(InnerMessage, str), 0),
+        f(offsetof(InnerMessage, f),
+          davros::zeros::AlignedOffset<uint64_t>(str.BinaryEndOffset())) {}
+  explicit InnerMessage(std::shared_ptr<PayloadBuffer *> buffer)
+      : str(offsetof(InnerMessage, str), 0),
+        f(offsetof(InnerMessage, f),
+          davros::zeros::AlignedOffset<uint64_t>(str.BinaryEndOffset())) {
     this->buffer = buffer;
     void *data = PayloadBuffer::Allocate(buffer.get(), BinarySize(), 8);
-    this->start_offset = (*buffer)->ToOffset(data);
+    this->absolute_binary_offset = (*buffer)->ToOffset(data);
+    std::cout << "InnerMessage start: " << std::hex
+              << this->absolute_binary_offset << std::dec << std::endl;
   }
   InnerMessage(std::shared_ptr<PayloadBuffer *> buffer, BufferOffset offset)
       : Message(buffer, offset), str(offsetof(InnerMessage, str), 0),
-        f(offsetof(InnerMessage, f), 8) {}
-  static uint32_t BinarySize() { return 16; }
+        f(offsetof(InnerMessage, f),
+          davros::zeros::AlignedOffset<uint64_t>(str.BinaryEndOffset())) {}
+  static constexpr size_t BinarySize() { return 16; }
   davros::zeros::StringField str;
   davros::zeros::Uint64Field f;
 };
@@ -34,30 +44,113 @@ struct InnerMessage : public Message {
 struct TestMessage : public Message {
   TestMessage(std::shared_ptr<PayloadBuffer *> buffer, BufferOffset offset)
       : Message(buffer, offset), x(offsetof(TestMessage, x), 0),
-        y(offsetof(TestMessage, y), 8), s(offsetof(TestMessage, s), 16),
-        m(buffer, offsetof(TestMessage, m), 20),
-        arr(offsetof(TestMessage, arr), 20 + InnerMessage::BinarySize()),
+        y(offsetof(TestMessage, y),
+          davros::zeros::AlignedOffset<uint64_t>(x.BinaryEndOffset())),
+        s(offsetof(TestMessage, s),
+          davros::zeros::AlignedOffset<StringHeader>(y.BinaryEndOffset())),
+        m(buffer, offsetof(TestMessage, m),
+          davros::zeros::AlignedOffset<uint64_t>(s.BinaryEndOffset())),
+        arr(offsetof(TestMessage, arr),
+            davros::zeros::AlignedOffset<uint32_t>(m.BinaryEndOffset())),
         vec(offsetof(TestMessage, vec),
-            20 + InnerMessage::BinarySize() + 10 * sizeof(int32_t)),
-        marr(offsetof(TestMessage, marr), 20 + InnerMessage::BinarySize() +
-                                              10 * sizeof(int32_t) +
-                                              +sizeof(VectorHeader)),
+            davros::zeros::AlignedOffset<uint32_t>(arr.BinaryEndOffset())),
+        marr(offsetof(TestMessage, marr),
+             davros::zeros::AlignedOffset<uint32_t>(vec.BinaryEndOffset())),
         sarr(offsetof(TestMessage, sarr),
-             20 + InnerMessage::BinarySize() + 10 * sizeof(int32_t) +
-                 +sizeof(VectorHeader) + InnerMessage::BinarySize() * 5),
+             davros::zeros::AlignedOffset<uint32_t>(marr.BinaryEndOffset())),
         mvec(offsetof(TestMessage, mvec),
-             20 + InnerMessage::BinarySize() + 10 * sizeof(int32_t) +
-                 +sizeof(VectorHeader) + InnerMessage::BinarySize() * 5 +
-                 sizeof(BufferOffset) * 20),
+             davros::zeros::AlignedOffset<uint32_t>(sarr.BinaryEndOffset())),
         svec(offsetof(TestMessage, svec),
-             20 + InnerMessage::BinarySize() + 10 * sizeof(int32_t) +
-                 +sizeof(VectorHeader) + InnerMessage::BinarySize() * 5 +
-                 sizeof(BufferOffset) * 20 + sizeof(VectorHeader)) {}
-  static uint32_t BinarySize() {
-    return 4 + 4 + 8 + 4 + 4 + InnerMessage::BinarySize() +
-           10 * sizeof(int32_t) + sizeof(VectorHeader) +
-           InnerMessage::BinarySize() * 5 + sizeof(BufferOffset) * 20 +
-           sizeof(VectorHeader) + sizeof(VectorHeader);
+             davros::zeros::AlignedOffset<uint32_t>(mvec.BinaryEndOffset())),
+        e(offsetof(TestMessage, e),
+          davros::zeros::AlignedOffset<uint32_t>(svec.BinaryEndOffset())),
+        earr(offsetof(TestMessage, earr),
+             davros::zeros::AlignedOffset<uint32_t>(e.BinaryEndOffset())) {}
+  static constexpr size_t BinarySize() {
+    size_t offset = 0; // x
+    offset =
+        davros::zeros::AlignedOffset<uint64_t>(offset + sizeof(uint32_t)); // y
+    offset =
+        davros::zeros::AlignedOffset<uint32_t>(offset + sizeof(uint64_t)); // s
+    offset = davros::zeros::AlignedOffset<uint64_t>(offset +
+                                                    sizeof(StringHeader)); // m
+    offset = davros::zeros::AlignedOffset<uint32_t>(
+        offset + InnerMessage::BinarySize()); // arr
+    offset = davros::zeros::AlignedOffset<uint32_t>(offset + sizeof(uint32_t) *
+                                                                 10); // vec
+    offset = davros::zeros::AlignedOffset<uint32_t>(
+        offset + sizeof(VectorHeader)); // marr
+    offset = davros::zeros::AlignedOffset<uint32_t>(
+        offset + InnerMessage::BinarySize() * 5); // sarr
+    offset = davros::zeros::AlignedOffset<uint32_t>(
+        offset + sizeof(StringHeader) * 20); // mvec
+    offset = davros::zeros::AlignedOffset<uint32_t>(
+        offset + sizeof(VectorHeader)); // svec
+    offset = davros::zeros::AlignedOffset<uint32_t>(offset +
+                                                    sizeof(VectorHeader)); // e
+    offset = davros::zeros::AlignedOffset<uint32_t>(offset +
+                                                    sizeof(uint32_t)); // earr
+    offset = davros::zeros::AlignedOffset<uint16_t>(offset + sizeof(uint16_t) *
+                                                                 10); // END
+    return offset;
+
+    // return 4 + 4 + 8 + 4 + 4 + InnerMessage::BinarySize() +
+    //        10 * sizeof(int32_t) + sizeof(VectorHeader) +
+    //        InnerMessage::BinarySize() * 5 + sizeof(BufferOffset) * 20 +
+    //        sizeof(VectorHeader) + sizeof(VectorHeader) +
+    //        sizeof(std::underlying_type<EnumTest>::type);
+  }
+  size_t XBinarySize() {
+    size_t offset = 0; // x
+    offset =
+        davros::zeros::AlignedOffset<uint64_t>(offset + sizeof(uint32_t)); // y
+    std::cout << offset << std::endl;
+    std::cout << "y @" << y.BinaryOffset() << std::endl;
+    offset =
+        davros::zeros::AlignedOffset<uint32_t>(offset + sizeof(uint64_t)); // s
+    std::cout << offset << std::endl;
+    std::cout << "s @" << s.BinaryOffset() << " " << s.BinaryEndOffset()
+              << std::endl;
+    offset = davros::zeros::AlignedOffset<uint64_t>(offset +
+                                                    sizeof(StringHeader)); // m
+    std::cout << offset << std::endl;
+    std::cout << "m @" << m.BinaryOffset() << std::endl;
+    offset = davros::zeros::AlignedOffset<uint32_t>(
+        offset + InnerMessage::BinarySize()); // arr
+    std::cout << offset << std::endl;
+    std::cout << "arr @" << arr.BinaryOffset() << std::endl;
+    offset = davros::zeros::AlignedOffset<uint32_t>(offset + sizeof(uint32_t) *
+                                                                 10); // vec
+    std::cout << offset << std::endl;
+    std::cout << "vec @" << vec.BinaryOffset() << std::endl;
+    offset = davros::zeros::AlignedOffset<uint32_t>(
+        offset + sizeof(VectorHeader)); // marr
+    std::cout << offset << std::endl;
+    std::cout << "marr @" << marr.BinaryOffset() << std::endl;
+    offset = davros::zeros::AlignedOffset<uint32_t>(
+        offset + InnerMessage::BinarySize() * 5); // sarr
+    std::cout << offset << std::endl;
+    std::cout << "sarr @" << sarr.BinaryOffset() << std::endl;
+    offset = davros::zeros::AlignedOffset<uint32_t>(
+        offset + sizeof(StringHeader) * 20); // mvec
+    std::cout << offset << std::endl;
+    std::cout << "mvec @" << mvec.BinaryOffset() << std::endl;
+    offset = davros::zeros::AlignedOffset<uint32_t>(
+        offset + sizeof(VectorHeader)); // svec
+    std::cout << offset << std::endl;
+    std::cout << "svec @" << svec.BinaryOffset() << std::endl;
+    offset = davros::zeros::AlignedOffset<uint32_t>(offset +
+                                                    sizeof(VectorHeader)); // e
+    std::cout << offset << std::endl;
+    std::cout << "e @" << e.BinaryOffset() << std::endl;
+    offset = davros::zeros::AlignedOffset<uint32_t>(offset +
+                                                    sizeof(uint32_t)); // earr
+    std::cout << offset << std::endl;
+    std::cout << "e @" << e.BinaryOffset() << std::endl;
+    offset = davros::zeros::AlignedOffset<uint16_t>(offset + sizeof(uint16_t) *
+                                                                 10); // END
+    std::cout << offset << std::endl;
+    return offset;
   }
   davros::zeros::Uint32Field x;
   davros::zeros::Uint64Field y;
@@ -69,6 +162,8 @@ struct TestMessage : public Message {
   davros::zeros::StringArrayField<20> sarr;
   davros::zeros::MessageVectorField<InnerMessage> mvec;
   davros::zeros::StringVectorField svec;
+  davros::zeros::EnumField<EnumTest> e;
+  davros::zeros::EnumArrayField<EnumTest, 10> earr;
 };
 
 #pragma clang diagnostic pop
@@ -112,6 +207,23 @@ TEST(MessageTest, String) {
 
   std::string_view s = msg.s;
   ASSERT_EQ("hello world", s);
+}
+
+TEST(MessageTest, Enum) {
+  char *buffer = (char *)malloc(4096);
+  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+
+  // Allocate space for a message containing an offset for the string.
+  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+
+  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  msg.e = EnumTest::BAR;
+
+  pb->Dump(std::cout);
+  toolbelt::Hexdump(pb, pb->hwm);
+
+  EnumTest e = msg.e;
+  ASSERT_EQ(EnumTest::BAR, e);
 }
 
 TEST(MessageTest, Message) {
@@ -168,12 +280,16 @@ TEST(MessageTest, Array) {
 TEST(MessageTest, MessageArray) {
   char *buffer = (char *)malloc(4096);
   PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  std::cout << "message size " << std::dec << TestMessage::BinarySize()
+            << std::dec << std::endl;
 
   // Allocate space for a message containing an offset for the string.
   PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
   TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
   for (int i = 0; i < 5; i++) {
+    pb->Dump(std::cout);
+    toolbelt::Hexdump(pb, pb->hwm);
     auto &im = msg.marr[i];
     im.str = absl::StrFormat("dave-%d", i);
     im.f = i * 2;
@@ -200,8 +316,10 @@ TEST(MessageTest, StringArray) {
   PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
   TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+
   for (int i = 0; i < 20; i++) {
-    msg.sarr[i] = absl::StrFormat("dave-%d", i);
+    std::string ss = absl::StrFormat("dave-%d", i);
+    msg.sarr[i] = ss;
   }
 
   pb->Dump(std::cout);
@@ -213,6 +331,26 @@ TEST(MessageTest, StringArray) {
     std::string_view sv = ms;
     ASSERT_EQ(s, sv);
     x++;
+  }
+}
+
+TEST(MessageTest, EnumArray) {
+  char *buffer = (char *)malloc(4096);
+  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+
+  // Allocate space for a message containing an offset for the string.
+  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+
+  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  for (int i = 0; i < 10; i++) {
+    msg.earr[i] = EnumTest::BAR;
+  }
+
+  pb->Dump(std::cout);
+  toolbelt::Hexdump(pb, pb->hwm);
+
+  for (auto &i : msg.earr) {
+    ASSERT_EQ(EnumTest::BAR, i);
   }
 }
 
@@ -350,9 +488,25 @@ TEST(MessageTest, MessageVectorReserve) {
   // Allocate space for a message containing an offset for the string.
   PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
+  std::cout << "message size: " << TestMessage::BinarySize() << std::endl;
+  std::cout << "message end "
+            << (void *)(pb->ToAddress<char>(pb->message) +
+                        TestMessage::BinarySize())
+            << std::endl;
   TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  msg.XBinarySize();
+  std::cout << "sarr end: "
+            << (void *)(pb->ToAddress<char>(msg.sarr.BinaryEndOffset()) +
+                        pb->message)
+            << std::endl;
+
+  pb->Dump(std::cout);
+
+  toolbelt::Hexdump(pb, 400);
   msg.mvec.reserve(20);
   ASSERT_EQ(20, msg.mvec.capacity());
+
+  toolbelt::Hexdump(pb, pb->hwm);
 
   for (int i = 0; i < 10; i++) {
     InnerMessage m(msg.buffer);

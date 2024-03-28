@@ -36,11 +36,14 @@ TEST(PackageTest, SingleMessage) {
   auto msg = pkg->ParseMessage("./davros/testdata/other_msgs/msg/Other.msg");
   ASSERT_TRUE(msg.ok());
 
-  const char *expected = R"(std_msgs/Header header
+  const char *expected = R"(int32 CONST = 1234
+string SCONST = string constant
+std_msgs/Header header
 string bar
 int32 value
 int64[] arr
 int8[10] farr
+Enum en
 )";
   std::stringstream out;
   (*msg)->Dump(out);

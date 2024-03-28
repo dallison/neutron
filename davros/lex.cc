@@ -29,17 +29,23 @@ LexicalAnalyzer::LexicalAnalyzer(
 }
 
 void LexicalAnalyzer::NextToken() {
-  while (!Eof()) {
+  for(;;) {
     SkipSpaces();
     char ch = NextChar();
     if (ch_ >= line_.size()) {
       // End of line, read another
       ReadLine();
+      if (Eof()) {
+        break;
+      }
       continue;
     }
     if (ch == '#') {
       // Comment ends line.
       ReadLine();
+      if (Eof()) {
+        break;
+      }
       continue;
     }
 

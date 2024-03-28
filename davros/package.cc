@@ -20,6 +20,15 @@ absl::Status PackageScanner::ParseAllMessages() {
   return absl::OkStatus();
 }
 
+absl::Status PackageScanner::ScanForMessages() {
+  for (auto &root : roots_) {
+    if (absl::Status status = ScanForMessagesFrom(root); !status.ok()) {
+      return status;
+    }
+  }
+  return absl::OkStatus();
+}
+
 absl::Status PackageScanner::ParseAllMessagesFrom(std::filesystem::path path) {
   // The root points to the directory of the package.  Inside there will
   // be a directory called 'msg' (ROS convention for some reason)
@@ -33,10 +42,8 @@ absl::Status PackageScanner::ParseAllMessagesFrom(std::filesystem::path path) {
                                                  path.filename().string());
         AddPackage(package);
 
-        std::cout << "parsing messages from " << dir.path().string() << std::endl;
         for (auto &file : std::filesystem::directory_iterator(dir)) {
           if (file.path().extension() == ".msg") {
-            std::cout << "parsing file " << file.path() << std::endl;
             absl::StatusOr<std::shared_ptr<Message>> msg =
                 package->ParseMessage(file.path());
             if (!msg.ok()) {
@@ -55,6 +62,34 @@ absl::Status PackageScanner::ParseAllMessagesFrom(std::filesystem::path path) {
   return absl::OkStatus();
 }
 
+absl::Status PackageScanner::ScanForMessagesFrom(std::filesystem::path path) {
+  for (auto &dir : std::filesystem::directory_iterator(path)) {
+    if (std::filesystem::is_directory(dir)) {
+      // For a directory called "msg", parse all the files with the suffix
+      // ".msg".
+      if (dir.path().filename().string() == "msg") {
+        std::string package_name = path.filename().string();
+        auto package =
+            std::make_shared<Package>(shared_from_this(), package_name);
+        AddPackage(package);
+        for (auto &file : std::filesystem::directory_iterator(dir)) {
+          if (file.path().extension() == ".msg") {
+            std::string full_message_name =
+                package_name + "/" + file.path().stem().string();
+            discovered_message_files_[full_message_name] = file.path();
+          }
+        }
+      } else {
+        if (absl::Status status = ScanForMessagesFrom(dir.path());
+            !status.ok()) {
+          return status;
+        }
+      }
+    }
+  }
+  return absl::OkStatus();
+}
+
 std::shared_ptr<Message>
 PackageScanner::FindMessage(const std::string package_name,
                             const std::string &msg_name) {
@@ -63,6 +98,28 @@ PackageScanner::FindMessage(const std::string package_name,
     return nullptr;
   }
   return it->second->FindMessage(msg_name);
+}
+
+absl::StatusOr<std::shared_ptr<Message>>
+PackageScanner::ResolveImport(const std::string &package_name,
+                              const std::string &msg_name) {
+  auto package = FindPackage(package_name);
+  if (package == nullptr) {
+    return absl::InternalError(
+        absl::StrFormat("Cannot find package %s", package_name));
+  }
+
+  auto it = discovered_message_files_.find(package_name + "/" + msg_name);
+  if (it == discovered_message_files_.end()) {
+    return absl::InternalError(
+        absl::StrFormat("Cannot find message %s/%s", package_name, msg_name));
+  }
+  absl::StatusOr<std::shared_ptr<Message>> msg =
+      package->ParseMessage(it->second);
+  if (!msg.ok()) {
+    return msg.status();
+  }
+  return msg;
 }
 
 absl::StatusOr<std::shared_ptr<Message>>
@@ -105,8 +162,13 @@ void Package::Dump(std::ostream &os) {
 }
 
 absl::Status Package::ResolveMessages(std::shared_ptr<PackageScanner> scanner) {
+  // Copy the messages we know about as resolving a message will modify
+  // the messages_ map, invalidating the iterator.
+  std::vector<std::shared_ptr<Message>> messages;
   for (auto & [ name, msg ] : messages_) {
-    std::cout << "resolving message " << msg->Name() << std::endl;
+    messages.push_back(msg);
+  }
+  for (auto & msg : messages) {
     if (absl::Status status = msg->Resolve(scanner); !status.ok()) {
       return status;
     }

@@ -333,29 +333,57 @@ void Message::Dump(std::ostream &os) const {
 }
 
 absl::Status Message::Resolve(std::shared_ptr<PackageScanner> scanner) {
-  std::cout << "resolving " << Name() << std::endl;
+  auto resolve =
+      [this, scanner](std::shared_ptr<MessageField> msg_field) -> absl::Status {
+    std::shared_ptr<Message> msg;
+    if (msg_field->MsgPackage().empty()) {
+      // No package, look in same package.
+      if (package_ == nullptr) {
+        return absl::InternalError(
+            absl::StrFormat("No package set for %s", Name()));
+      }
+      msg = package_->FindMessage(msg_field->MsgName());
+      if (msg == nullptr) {
+        absl::StatusOr<std::shared_ptr<Message>> m =
+            scanner->ResolveImport(package_->Name(), msg_field->MsgName());
+        if (!m.ok()) {
+          return m.status();
+        }
+        msg = *m;
+      }
+    } else {
+      msg = scanner->FindMessage(msg_field->MsgPackage(), msg_field->MsgName());
+      if (msg == nullptr) {
+        absl::StatusOr<std::shared_ptr<Message>> m = scanner->ResolveImport(
+            msg_field->MsgPackage(), msg_field->MsgName());
+        if (!m.ok()) {
+          return m.status();
+        }
+        msg = *m;
+      }
+    }
+    if (msg == nullptr) {
+      return absl::InternalError(
+          absl::StrFormat("Unable to resolve message %s/%s",
+                          msg_field->MsgPackage(), msg_field->MsgName()));
+    }
+    msg_field->Resolved(msg);
+    return absl::OkStatus();
+  };
+
   for (auto &field : fields_) {
     if (field->Type() == FieldType::kMessage) {
       auto msg_field = std::static_pointer_cast<MessageField>(field);
-      std::shared_ptr<Message> msg;
-      if (msg_field->MsgPackage().empty()) {
-        // No package, look in same package.
-        if (package_ == nullptr) {
-          return absl::InternalError(
-              absl::StrFormat("No package set for %s", Name()));
-        }
-        msg = package_->FindMessage(msg_field->MsgName());
-      } else {
-        msg =
-            scanner->FindMessage(msg_field->MsgPackage(), msg_field->MsgName());
+      if (absl::Status status = resolve(msg_field); !status.ok()) {
+        return status;
       }
-      if (msg == nullptr) {
-        return absl::InternalError(
-            absl::StrFormat("Unable to resolve message %s/%s",
-                            msg_field->MsgPackage(), msg_field->MsgName()));
-      } else {
-        std::cout << "Resolved " << msg_field->Name() << std::endl;
-        msg_field->Resolved(msg);
+    } else if (field->IsArray()) {
+      auto array = std::static_pointer_cast<ArrayField>(field);
+      if (array->Base()->Type() == FieldType::kMessage) {
+        auto msg_field = std::static_pointer_cast<MessageField>(array->Base());
+        if (absl::Status status = resolve(msg_field); !status.ok()) {
+          return status;
+        }
       }
     }
   }

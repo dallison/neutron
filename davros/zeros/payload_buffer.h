@@ -216,7 +216,8 @@ inline void PayloadBuffer::VectorReserve(PayloadBuffer **self,
                                          VectorHeader *hdr, size_t n) {
   if (hdr->data == 0) {
     void *vecp = Allocate(self, n * sizeof(T), 8);
-    hdr->data = (*self)->ToOffset(vecp);
+     std::cout << "empty vector " << vecp << std::endl;
+   hdr->data = (*self)->ToOffset(vecp);
   } else {
     // Vector has some values in it.  Retrieve the total size from
     // the allocated block header (before the start of the memory)

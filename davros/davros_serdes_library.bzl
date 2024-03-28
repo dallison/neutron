@@ -11,14 +11,11 @@ def _davros_action(
         other_srcs,
         outputs):
     inputs = depset(direct = srcs, transitive = [depset(imports + other_srcs)])
-    davros_args = ["--out={}/{}".format(out_dir, package_name), "--runtime_path=", "--msg_path={}".format(package_name)]
+    davros_args = ["--ros --out={}/{}".format(out_dir, package_name), "--runtime_path=", "--msg_path={}".format(package_name)]
     if imports:
         imports_arg = "--imports="
         sep = ""
         for file in imports:
-            imports_arg += sep + paths.dirname(paths.dirname(file.path))
-            sep = ","
-        for file in srcs:
             imports_arg += sep + paths.dirname(paths.dirname(file.path))
             sep = ","
         davros_args.append(imports_arg)
@@ -73,7 +70,7 @@ def _davros_impl(ctx):
             outputs,
         )
 
-    return [DefaultInfo(files = depset(output_files + srcs)), MessageInfo(messages = srcs)]
+    return [DefaultInfo(files = depset(output_files + srcs)), MessageInfo(messages = srcs + imports)]
 
 _davros_gen = rule(
     attrs = {

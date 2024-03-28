@@ -18,14 +18,13 @@ public:
 private:
   absl::Status GenerateHeader(const Message &msg, std::ostream &os);
   absl::Status GenerateSource(const Message &msg, std::ostream &os);
-    absl::Status GenerateEnum(const Message &msg, std::ostream &os);
-
+  absl::Status GenerateEnum(const Message &msg, std::ostream &os);
   absl::Status GenerateStruct(const Message &msg, std::ostream &os);
 
   absl::Status GenerateSerializer(const Message &msg, std::ostream &os);
   absl::Status GenerateDeserializer(const Message &msg, std::ostream &os);
   absl::Status GenerateLength(const Message &msg, std::ostream &os);
-  
+
   std::filesystem::path root_;
   std::string runtime_path_;
   std::string msg_path_;

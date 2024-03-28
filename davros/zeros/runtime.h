@@ -30,30 +30,40 @@ namespace davros::zeros {
 // The binary offset in the field is the offset from the start of the
 // enclosing binary message to the field in the PayloadBuffer.
 
+template <typename T> constexpr size_t AlignedOffset(size_t offset) {
+  return (offset + sizeof(T) - 1) & ~(sizeof(T) - 1);
+}
+
 #define DEFINE_PRIMITIVE_FIELD(cname, type)                                    \
   class cname##Field {                                                         \
   public:                                                                      \
     explicit cname##Field(uint32_t boff, uint32_t offset)                      \
-        : source_offset_(boff), binary_offset_(offset) {}                      \
+        : source_offset_(boff), relative_binary_offset_(offset) {}             \
                                                                                \
     operator type() {                                                          \
-      return GetBuffer()->Get<type>(GetMessageStart() + binary_offset_);       \
+      return GetBuffer()->Get<type>(GetMessageBinaryStart() +                  \
+                                    relative_binary_offset_);                  \
     }                                                                          \
                                                                                \
     cname##Field &operator=(type i) {                                          \
-      GetBuffer()->Set(GetMessageStart() + binary_offset_, i);                 \
+      GetBuffer()->Set(GetMessageBinaryStart() + relative_binary_offset_, i);  \
       return *this;                                                            \
     }                                                                          \
+                                                                               \
+    BufferOffset BinaryEndOffset() const {                                     \
+      return relative_binary_offset_ + sizeof(type);                           \
+    }                                                                          \
+    BufferOffset BinaryOffset() const { return relative_binary_offset_; }      \
                                                                                \
   private:                                                                     \
     PayloadBuffer *GetBuffer() const {                                         \
       return Message::GetBuffer(this, source_offset_);                         \
     }                                                                          \
-    BufferOffset GetMessageStart() const {                                     \
-      return Message::GetMessageStart(this, source_offset_);                   \
+    BufferOffset GetMessageBinaryStart() const {                               \
+      return Message::GetMessageBinaryStart(this, source_offset_);             \
     }                                                                          \
     uint32_t source_offset_;                                                   \
-    BufferOffset binary_offset_;                                               \
+    BufferOffset relative_binary_offset_;                                      \
   };
 
 DEFINE_PRIMITIVE_FIELD(Int8, int8_t)
@@ -73,18 +83,26 @@ DEFINE_PRIMITIVE_FIELD(Time, davros::Time)
 class StringField {
 public:
   StringField() = default;
-  explicit StringField(uint32_t source_offset, uint32_t binary_offset)
-      : source_offset_(source_offset), binary_offset_(binary_offset) {}
+  explicit StringField(uint32_t source_offset, uint32_t relative_binary_offset)
+      : source_offset_(source_offset),
+        relative_binary_offset_(relative_binary_offset) {}
 
   operator std::string_view() {
-    return GetBuffer()->GetStringView(GetMessageStart() + binary_offset_);
+    return GetBuffer()->GetStringView(GetMessageBinaryStart() +
+                                      relative_binary_offset_);
   }
 
   StringField &operator=(const std::string &s) {
     PayloadBuffer::SetString(GetBufferAddr(), s,
-                             GetMessageStart() + binary_offset_);
+                             GetMessageBinaryStart() + relative_binary_offset_);
     return *this;
   }
+
+  BufferOffset BinaryEndOffset() const {
+    return relative_binary_offset_ + sizeof(BufferOffset);
+  }
+
+  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
 
 private:
   template <int N> friend class StringArrayField;
@@ -96,31 +114,77 @@ private:
   PayloadBuffer **GetBufferAddr() const {
     return Message::GetBufferAddr(this, source_offset_);
   }
-  BufferOffset GetMessageStart() const {
-    return Message::GetMessageStart(this, source_offset_);
+  BufferOffset GetMessageBinaryStart() const {
+    return Message::GetMessageBinaryStart(this, source_offset_);
   }
 
   uint32_t source_offset_;
-  BufferOffset binary_offset_;
+  BufferOffset relative_binary_offset_;
+};
+
+template <typename Enum> class EnumField {
+public:
+  explicit EnumField(uint32_t boff, uint32_t offset)
+      : source_offset_(boff), relative_binary_offset_(offset) {}
+
+  operator Enum() {
+    return static_cast<Enum>(
+        GetBuffer()->template Get<typename std::underlying_type<Enum>::type>(
+            GetMessageBinaryStart() + relative_binary_offset_));
+  }
+
+  EnumField &operator=(Enum e) {
+    GetBuffer()->Set(GetMessageBinaryStart() + relative_binary_offset_,
+                     static_cast<typename std::underlying_type<Enum>::type>(e));
+    return *this;
+  }
+
+  BufferOffset BinaryEndOffset() const {
+    return relative_binary_offset_ + sizeof(typename std::underlying_type<Enum>::type);
+  }
+  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+
+private:
+  PayloadBuffer *GetBuffer() const {
+    return Message::GetBuffer(this, source_offset_);
+  }
+  BufferOffset GetMessageBinaryStart() const {
+    return Message::GetMessageBinaryStart(this, source_offset_);
+  }
+  uint32_t source_offset_;
+  BufferOffset relative_binary_offset_;
 };
 
 // A message field enapsulates a message that is held inline in the
 // parent message, both in the source message and the
 // binary message.
+//
+// The embedded message has its absolute_binary_offset set to the absolute offet
+// into the payload buffer.
 template <typename MessageType> class MessageField {
 public:
   MessageField() = default;
   MessageField(std::shared_ptr<PayloadBuffer *> buffer,
-               BufferOffset source_offset, BufferOffset binary_offset)
-      : msg_(buffer,
-             Message::GetMessageStart(this, source_offset) + binary_offset) {}
+               BufferOffset source_offset, BufferOffset relative_binary_offset)
+      : relative_binary_offset_(relative_binary_offset),
+        msg_(buffer, Message::GetMessageBinaryStart(this, source_offset) +
+                         relative_binary_offset) {
+    std::cout << "MessageField relative_binary_offset: "
+              << relative_binary_offset << std::endl;
+  }
 
   operator MessageType &() { return msg_; }
   MessageType &operator*() { return msg_; }
   MessageType *operator->() { return &msg_; }
 
+  BufferOffset BinaryEndOffset() const {
+    return relative_binary_offset_ + MessageType::BinarySize();
+  }
+  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+
 private:
   template <typename T> friend class MessageVectorField;
+  BufferOffset relative_binary_offset_;
   MessageType msg_;
 };
 
@@ -187,11 +251,45 @@ template <typename Field> struct StringFieldIterator {
   BufferOffset offset;
 };
 
+template <typename Field, typename T> struct EnumFieldIterator {
+  EnumFieldIterator(Field *f, BufferOffset o) : field(f), offset(o) {}
+
+  EnumFieldIterator &operator++() {
+    offset += sizeof(T);
+    return *this;
+  }
+  EnumFieldIterator &operator--() {
+    offset -= sizeof(T);
+    return *this;
+  }
+  EnumFieldIterator operator+(size_t i) {
+    return iterator(field, field->BaseOffset() + i * sizeof(std::underlying_type<T>::type));
+  }
+  EnumFieldIterator operator-(size_t i) {
+    return iterator(field, field->BaseOffset() - i * sizeof(std::underlying_type<T>::type));
+  }
+  T &operator*() const {
+    using U = typename std::underlying_type<T>::type;
+    U* addr = field->GetBuffer()->template ToAddress<U>(offset);
+    return *reinterpret_cast<T*>(addr);
+  }
+
+  bool operator==(const EnumFieldIterator &it) const {
+    return field == it.field && offset == it.offset;
+  }
+  bool operator!=(const EnumFieldIterator &it) const { return !operator==(it); }
+
+  Field *field;
+  BufferOffset offset;
+};
+
 // This is a fixed length array of T.  It looks like a std::array<T,N>.
 template <typename T, int N> class PrimitiveArrayField {
 public:
-  explicit PrimitiveArrayField(uint32_t source_offset, uint32_t binary_offset)
-      : source_offset_(source_offset), binary_offset_(binary_offset) {}
+  explicit PrimitiveArrayField(uint32_t source_offset,
+                               uint32_t relative_binary_offset)
+      : source_offset_(source_offset),
+        relative_binary_offset_(relative_binary_offset) {}
 
   T &operator[](int index) {
     T *base = GetBuffer()->template ToAddress<T>(BaseOffset());
@@ -206,10 +304,17 @@ public:
   size_t size() const { return N; }
   T *data() const { GetBuffer()->template ToAddress<T>(BaseOffset()); }
 
+  BufferOffset BinaryEndOffset() const {
+    return relative_binary_offset_ + sizeof(T) * N;
+  }
+
+  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+
 private:
   friend FieldIterator<PrimitiveArrayField, T>;
   BufferOffset BaseOffset() const {
-    return Message::GetMessageStart(this, source_offset_) + binary_offset_;
+    return Message::GetMessageBinaryStart(this, source_offset_) +
+           relative_binary_offset_;
   }
   PayloadBuffer *GetBuffer() const {
     return Message::GetBuffer(this, source_offset_);
@@ -218,26 +323,81 @@ private:
   PayloadBuffer **GetBufferAddr() const {
     return Message::GetBufferAddr(this, source_offset_);
   }
-  BufferOffset GetMessageStart() const {
-    return Message::GetMessageStart(this, source_offset_);
+  BufferOffset GetMessageBinaryStart() const {
+    return Message::GetMessageBinaryStart(this, source_offset_);
   }
 
   uint32_t source_offset_;
-  BufferOffset binary_offset_;
+  BufferOffset relative_binary_offset_;
+};
+
+// This is a fixed length array of T.  It looks like a std::array<T,N>.
+template <typename Enum, int N> class EnumArrayField {
+public:
+  using T = typename std::underlying_type<Enum>::type;
+
+  explicit EnumArrayField(uint32_t source_offset,
+                               uint32_t relative_binary_offset)
+      : source_offset_(source_offset),
+        relative_binary_offset_(relative_binary_offset) {}
+
+
+  Enum &operator[](int index) {
+    T *base = GetBuffer()->template ToAddress<T>(BaseOffset());
+    return *reinterpret_cast<Enum*>(&base[index]);
+  }
+
+  using iterator = EnumFieldIterator<EnumArrayField, Enum>;
+
+  iterator begin() { return iterator(this, BaseOffset()); }
+  iterator end() { return iterator(this, BaseOffset() + N * sizeof(T)); }
+
+  size_t size() const { return N; }
+  Enum *data() const { GetBuffer()->template ToAddress<Enum>(BaseOffset()); }
+
+  BufferOffset BinaryEndOffset() const {
+    return relative_binary_offset_ + sizeof(T) * N;
+  }
+
+  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+
+private:
+  friend EnumFieldIterator<EnumArrayField, Enum>;
+  BufferOffset BaseOffset() const {
+    return Message::GetMessageBinaryStart(this, source_offset_) +
+           relative_binary_offset_;
+  }
+  PayloadBuffer *GetBuffer() const {
+    return Message::GetBuffer(this, source_offset_);
+  }
+
+  PayloadBuffer **GetBufferAddr() const {
+    return Message::GetBufferAddr(this, source_offset_);
+  }
+  BufferOffset GetMessageBinaryStart() const {
+    return Message::GetMessageBinaryStart(this, source_offset_);
+  }
+
+  uint32_t source_offset_;
+  BufferOffset relative_binary_offset_;
 };
 
 // This is a fixed array of messages.  T must be derived from davros::Message.
 template <typename T, int N> class MessageArrayField {
 public:
-  explicit MessageArrayField(uint32_t source_offset, uint32_t binary_offset) {
+  explicit MessageArrayField(uint32_t source_offset,
+                             uint32_t relative_binary_offset)
+      : relative_binary_offset_(relative_binary_offset) {
     std::shared_ptr<PayloadBuffer *> buffer =
         Message::GetSharedBuffer(this, source_offset);
     // Construct the embedded messages.
     size_t index = 0;
     for (auto &msg : msgs_) {
       msg.buffer = buffer;
-      BufferOffset offset = binary_offset + T::BinarySize() * index;
-      msg.start_offset = offset;
+      BufferOffset offset =
+          Message::GetMessageBinaryStart(this, source_offset) +
+          relative_binary_offset + T::BinarySize() * index;
+      msg.absolute_binary_offset = offset;
       index++;
     }
   }
@@ -254,7 +414,13 @@ public:
   size_t size() const { return N; }
   T *data() const { msgs_.data(); }
 
+  BufferOffset BinaryEndOffset() const {
+    return relative_binary_offset_ + T::BinarySize() * N;
+  }
+  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+
 private:
+  BufferOffset relative_binary_offset_;
   std::array<T, N> msgs_;
 };
 
@@ -262,10 +428,19 @@ private:
 // It looks like a std::array<StringField,N>.
 template <int N> class StringArrayField {
 public:
-  explicit StringArrayField(uint32_t source_offset, uint32_t binary_offset) {
+  explicit StringArrayField(uint32_t source_offset,
+                            uint32_t relative_binary_offset)
+      : source_offset_(source_offset),
+        relative_binary_offset_(relative_binary_offset) {
     for (size_t i = 0; i < N; i++) {
-      strings_[i].source_offset_ = source_offset + sizeof(StringField) * i;
-      strings_[i].binary_offset_ = binary_offset + sizeof(BufferOffset) * i;
+      strings_[i].source_offset_ = source_offset + sizeof(uint32_t) +
+                                   sizeof(BufferOffset) +
+                                   sizeof(StringField) * i;
+      // Binary offset in the StringField is relative to the start of the
+      // message, not the buffer start.
+      strings_[i].relative_binary_offset_ = relative_binary_offset +
+                                            sizeof(BufferOffset) * i -
+                                            GetMessageBinaryStart();
     }
   }
 
@@ -279,7 +454,18 @@ public:
   size_t size() const { return N; }
   StringField *data() const { return strings_.data(); }
 
+  BufferOffset BinaryEndOffset() const {
+    return relative_binary_offset_ + sizeof(BufferOffset) * N;
+  }
+  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+
 private:
+  BufferOffset GetMessageBinaryStart() const {
+    return Message::GetMessageBinaryStart(this, source_offset_);
+  }
+
+  uint32_t source_offset_;
+  BufferOffset relative_binary_offset_;
   std::array<StringField, N> strings_;
 };
 
@@ -288,8 +474,10 @@ private:
 // contains the number of elements and the base offset for the data.
 template <typename T> class PrimitiveVectorField {
 public:
-  explicit PrimitiveVectorField(uint32_t source_offset, uint32_t binary_offset)
-      : source_offset_(source_offset), binary_offset_(binary_offset) {}
+  explicit PrimitiveVectorField(uint32_t source_offset,
+                                uint32_t relative_binary_offset)
+      : source_offset_(source_offset),
+        relative_binary_offset_(relative_binary_offset) {}
 
   T &operator[](int index) {
     T *base = GetBuffer()->template ToAddress<T>(BaseOffset());
@@ -331,11 +519,17 @@ public:
     return addr[-1] / sizeof(T);
   }
 
+  BufferOffset BinaryEndOffset() const {
+    return relative_binary_offset_ + sizeof(VectorHeader);
+  }
+  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+
 private:
   friend FieldIterator<PrimitiveVectorField, T>;
   VectorHeader *Header() const {
     return GetBuffer()->template ToAddress<VectorHeader>(
-        Message::GetMessageStart(this, source_offset_) + binary_offset_);
+        Message::GetMessageBinaryStart(this, source_offset_) +
+        relative_binary_offset_);
   }
 
   BufferOffset BaseOffset() const { return Header()->data; }
@@ -349,22 +543,130 @@ private:
   PayloadBuffer **GetBufferAddr() const {
     return Message::GetBufferAddr(this, source_offset_);
   }
-  BufferOffset GetMessageStart() const {
-    return Message::GetMessageStart(this, source_offset_);
+  BufferOffset GetMessageBinaryStart() const {
+    return Message::GetMessageBinaryStart(this, source_offset_);
   }
 
   uint32_t source_offset_;
-  BufferOffset binary_offset_;
+  BufferOffset relative_binary_offset_;
 };
 
-// The vector contains a set of BufferOffsets, each of which contains the
-// offset of the message.
+template <typename Enum> class EnumVectorField {
+public:
+  explicit EnumVectorField(uint32_t source_offset,
+                                uint32_t relative_binary_offset)
+      : source_offset_(source_offset),
+        relative_binary_offset_(relative_binary_offset) {}
+
+  using T = typename std::underlying_type<Enum>::type;
+
+  Enum &operator[](int index) {
+    T *base = GetBuffer()->template ToAddress<T>(BaseOffset());
+    return *reinterpret_cast<Enum*>(&base[index]);
+  }
+
+  using iterator = EnumFieldIterator<EnumVectorField, Enum>;
+
+  iterator begin() { return iterator(this, BaseOffset()); }
+  iterator end() {
+    return iterator(this, BaseOffset() + NumElements() * sizeof(T));
+  }
+
+  void push_back(const Enum &v) {
+    PayloadBuffer::VectorPush<T>(GetBufferAddr(), Header(), v);
+  }
+
+  void reserve(size_t n) {
+    PayloadBuffer::VectorReserve<T>(GetBufferAddr(), Header(), n);
+  }
+
+  void resize(size_t n) {
+    PayloadBuffer::VectorResize<T>(GetBufferAddr(), Header(), n);
+  }
+
+  void clear() { Header()->num_elements = 0; }
+
+  size_t size() const { return Header()->num_elements; }
+  Enum *data() const { GetBuffer()->template ToAddress<Enum>(BaseOffset()); }
+
+  size_t capacity() const {
+    VectorHeader *hdr = Header();
+    BufferOffset *addr =
+        GetBuffer()->template ToAddress<BufferOffset>(hdr->data);
+    if (addr == nullptr) {
+      return 0;
+    }
+    // Word before memory is size of memory in bytes.
+    return addr[-1] / sizeof(T);
+  }
+
+  BufferOffset BinaryEndOffset() const {
+    return relative_binary_offset_ + sizeof(VectorHeader);
+  }
+  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+
+private:
+  friend EnumFieldIterator<EnumVectorField, Enum>;
+  VectorHeader *Header() const {
+    return GetBuffer()->template ToAddress<VectorHeader>(
+        Message::GetMessageBinaryStart(this, source_offset_) +
+        relative_binary_offset_);
+  }
+
+  BufferOffset BaseOffset() const { return Header()->data; }
+
+  size_t NumElements() const { return Header()->num_elements; }
+
+  PayloadBuffer *GetBuffer() const {
+    return Message::GetBuffer(this, source_offset_);
+  }
+
+  PayloadBuffer **GetBufferAddr() const {
+    return Message::GetBufferAddr(this, source_offset_);
+  }
+  BufferOffset GetMessageBinaryStart() const {
+    return Message::GetMessageBinaryStart(this, source_offset_);
+  }
+
+  uint32_t source_offset_;
+  BufferOffset relative_binary_offset_;
+};
+
+// A message field enapsulates a message that is inline in the
+// source message but at a fixed location in the binary.
+template <typename MessageType> class NonEmbeddedMessageField {
+public:
+  NonEmbeddedMessageField() = default;
+  NonEmbeddedMessageField(std::shared_ptr<PayloadBuffer *> buffer,
+                          BufferOffset absolute_binary_offset)
+      : msg_(buffer, absolute_binary_offset) {}
+
+  operator MessageType &() { return msg_; }
+  MessageType &operator*() { return msg_; }
+  MessageType *operator->() { return &msg_; }
+
+  BufferOffset BinaryEndOffset() const {
+    return msg_.absolute_binary_offset + MessageType::BinarySize();
+  }
+  BufferOffset BinaryOffset() const { return msg_.absolute_binary_offset; }
+
+private:
+  template <typename T> friend class MessageVectorField;
+  MessageType msg_;
+};
+
+// The vector contains a set of BufferOffsets allocated in the buffer,
+// each of which contains the absolute offset of the message.
 template <typename T> class MessageVectorField {
 public:
-  explicit MessageVectorField(uint32_t source_offset, uint32_t binary_offset)
-      : source_offset_(source_offset), binary_offset_(binary_offset) {
+  explicit MessageVectorField(uint32_t source_offset,
+                              uint32_t relative_binary_offset)
+      : source_offset_(source_offset),
+        relative_binary_offset_(relative_binary_offset) {
     // Populate the msgs vector with MessageField objects referring to the
     // binary messages.
+    std::cout << "message vector at " << Header() << " at offet " << std::hex
+              << relative_binary_offset << std::dec << std::endl;
     VectorHeader *hdr = Header();
     BufferOffset *data =
         GetBuffer()->template ToAddress<BufferOffset>(hdr->data);
@@ -377,28 +679,24 @@ public:
         std::cerr << "Invalid message vector entry at index " << i << std::endl;
         abort();
       }
-      MessageField<T> field(
-          GetSharedBuffer(),
-          source_offset + msgs_.size() * sizeof(MessageField<T>), data[i]);
+      NonEmbeddedMessageField<T> field(GetSharedBuffer(), data[i]);
       msgs_.push_back(std::move(field));
     }
   }
 
-  MessageField<T> &operator[](int index) { return msgs_[index]; }
+  NonEmbeddedMessageField<T> &operator[](int index) { return msgs_[index]; }
 
-  using iterator = typename std::vector<MessageField<T>>::iterator;
+  using iterator = typename std::vector<NonEmbeddedMessageField<T>>::iterator;
 
   iterator begin() { return msgs_.begin(); }
   iterator end() { return msgs_.end(); }
 
   void push_back(const T &v) {
-    BufferOffset offset = v.start_offset;
-    MessageField<T> field(GetSharedBuffer(),
-                          msgs_.size() * sizeof(MessageField<T>),
-                          binary_offset_ + msgs_.size() * sizeof(BufferOffset));
+    BufferOffset offset = v.absolute_binary_offset;
+    PayloadBuffer::VectorPush<BufferOffset>(GetBufferAddr(), Header(), offset);
+    NonEmbeddedMessageField<T> field(GetSharedBuffer(), offset);
     field.msg_ = v;
     msgs_.push_back(std::move(field));
-    PayloadBuffer::VectorPush<BufferOffset>(GetBufferAddr(), Header(), offset);
   }
 
   size_t capacity() const {
@@ -431,10 +729,10 @@ public:
       for (uint32_t i = current_size; i < uint32_t(n); i++) {
         void *binary =
             PayloadBuffer::Allocate(GetBufferAddr(), T::BinarySize(), 8, true);
-        BufferOffset binary_offset = GetBuffer()->ToOffset(binary);
+        BufferOffset absolute_binary_offset = GetBuffer()->ToOffset(binary);
         auto &m = msgs_[i];
         m.msg_.buffer = GetSharedBuffer();
-        m.msg_.start_offset = binary_offset;
+        m.msg_.absolute_binary_offset = absolute_binary_offset;
       }
     }
   }
@@ -444,11 +742,17 @@ public:
   size_t size() const { return Header()->num_elements; }
   T *data() { GetBuffer()->template ToAddress<T>(BaseOffset()); }
 
+  BufferOffset BinaryEndOffset() const {
+    return relative_binary_offset_ + sizeof(VectorHeader);
+  }
+  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+
 private:
   friend FieldIterator<MessageVectorField, T>;
   VectorHeader *Header() const {
     return GetBuffer()->template ToAddress<VectorHeader>(
-        Message::GetMessageStart(this, source_offset_) + binary_offset_);
+        Message::GetMessageBinaryStart(this, source_offset_) +
+        relative_binary_offset_);
   }
 
   BufferOffset BaseOffset() const { return Header()->data; }
@@ -462,8 +766,8 @@ private:
   PayloadBuffer **GetBufferAddr() const {
     return Message::GetBufferAddr(this, source_offset_);
   }
-  BufferOffset GetMessageStart() const {
-    return Message::GetMessageStart(this, source_offset_);
+  BufferOffset GetMessageBinaryStart() const {
+    return Message::GetMessageBinaryStart(this, source_offset_);
   }
 
   std::shared_ptr<PayloadBuffer *> GetSharedBuffer() {
@@ -471,8 +775,8 @@ private:
   }
 
   uint32_t source_offset_;
-  BufferOffset binary_offset_;
-  std::vector<MessageField<T>> msgs_;
+  BufferOffset relative_binary_offset_;
+  std::vector<NonEmbeddedMessageField<T>> msgs_;
 };
 
 // This is a string field that is not embedded inside a message.  These will be
@@ -483,17 +787,22 @@ class NonEmbeddedStringField {
 public:
   NonEmbeddedStringField() = default;
   explicit NonEmbeddedStringField(std::shared_ptr<PayloadBuffer *> buffer,
-                                  uint32_t binary_offset)
-      : buffer_(buffer), binary_offset_(binary_offset) {}
+                                  uint32_t relative_binary_offset)
+      : buffer_(buffer), relative_binary_offset_(relative_binary_offset) {}
 
   operator std::string_view() {
-    return GetBuffer()->GetStringView(binary_offset_);
+    return GetBuffer()->GetStringView(relative_binary_offset_);
   }
 
   NonEmbeddedStringField &operator=(const std::string &s) {
-    PayloadBuffer::SetString(GetBufferAddr(), s, binary_offset_);
+    PayloadBuffer::SetString(GetBufferAddr(), s, relative_binary_offset_);
     return *this;
   }
+
+  BufferOffset BinaryEndOffset() const {
+    return relative_binary_offset_ + sizeof(BufferOffset);
+  }
+  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
 
 private:
   template <int N> friend class StringArrayField;
@@ -503,7 +812,8 @@ private:
   PayloadBuffer **GetBufferAddr() const { return buffer_.get(); }
 
   std::shared_ptr<PayloadBuffer *> buffer_;
-  BufferOffset binary_offset_; // Offset into PayloadBuffer of StringHeader
+  BufferOffset
+      relative_binary_offset_; // Offset into PayloadBuffer of StringHeader
 };
 
 // This is a little more complex.  The binary vector contains a set of
@@ -522,8 +832,10 @@ private:
 // +-----------+                             +-------------+
 class StringVectorField {
 public:
-  explicit StringVectorField(uint32_t source_offset, uint32_t binary_offset)
-      : source_offset_(source_offset), binary_offset_(binary_offset) {
+  explicit StringVectorField(uint32_t source_offset,
+                             uint32_t relative_binary_offset)
+      : source_offset_(source_offset),
+        relative_binary_offset_(relative_binary_offset) {
     VectorHeader *hdr = Header();
     BufferOffset *data = GetBuffer()->ToAddress<BufferOffset>(hdr->data);
     for (uint32_t i = 0; i < hdr->num_elements; i++) {
@@ -607,10 +919,16 @@ public:
 
   void clear() { Header()->num_elements = 0; }
 
+  BufferOffset BinaryEndOffset() const {
+    return relative_binary_offset_ + sizeof(VectorHeader);
+  }
+  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+
 private:
   VectorHeader *Header() const {
     return GetBuffer()->template ToAddress<VectorHeader>(
-        Message::GetMessageStart(this, source_offset_) + binary_offset_);
+        Message::GetMessageBinaryStart(this, source_offset_) +
+        relative_binary_offset_);
   }
   PayloadBuffer *GetBuffer() const {
     return Message::GetBuffer(this, source_offset_);
@@ -620,7 +938,7 @@ private:
     return Message::GetBufferAddr(this, source_offset_);
   }
   uint32_t source_offset_;
-  BufferOffset binary_offset_;
+  BufferOffset relative_binary_offset_;
   std::vector<NonEmbeddedStringField> strings_;
 };
-}
+} // namespace davros::zeros

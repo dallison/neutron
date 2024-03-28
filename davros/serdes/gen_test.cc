@@ -33,18 +33,6 @@ TEST(GenTest, OtherMessage) {
   }
 }
 
-TEST(GenTest, SingleOtherMessage) {
-  std::shared_ptr<davros::Package> pkg =
-      std::make_shared<davros::Package>(nullptr, "other_msgs");
-  auto msg = pkg->ParseMessage("./davros/testdata/other_msgs/msg/Other.msg");
-  ASSERT_TRUE(msg.ok());
-
-  davros::serdes::Generator gen("/tmp", "", "");
-
-  absl::Status s = (*msg)->Generate(gen);
-  ASSERT_TRUE(s.ok());
-}
-
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
 

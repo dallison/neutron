@@ -2,7 +2,7 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 
 MessageInfo = provider(fields = ["messages"])
 
-def _davros_serdes_action(
+def _davros_action(
         ctx,
         srcs,
         out_dir,
@@ -11,7 +11,7 @@ def _davros_serdes_action(
         other_srcs,
         outputs):
     inputs = depset(direct = srcs, transitive = [depset(imports + other_srcs)])
-    davros_args = ["--ros", "--out={}/{}/serdes".format(out_dir, package_name), "--runtime_path=", "--msg_path={}".format(package_name)]
+    davros_args = ["--zeros", "--out={}/{}/zeros".format(out_dir, package_name), "--runtime_path=", "--msg_path={}".format(package_name)]
     if imports:
         imports_arg = "--imports="
         sep = ""
@@ -28,11 +28,11 @@ def _davros_serdes_action(
         executable = ctx.executable.davros_exe,
         outputs = outputs,
         arguments = [args],
-        progress_message = "Generating Davros message files %s" % ctx.label,
+        progress_message = "Generating Davros zeros message files %s" % ctx.label,
         mnemonic = "Davros",
     )
 
-def _davros_serdes_impl(ctx):
+def _davros_impl(ctx):
     out_dir = ctx.bin_dir.path
     imports = []
     for dep in ctx.attr.deps:
@@ -47,8 +47,8 @@ def _davros_serdes_impl(ctx):
 
         # file is something like std_msgs/msg/Header.msg
         filename = paths.basename(file.path)
-        dir = paths.join("serdes", paths.basename(paths.dirname(paths.dirname(file.path))))
-        
+        dir = paths.join("zeros", paths.basename(paths.dirname(paths.dirname(file.path))))
+
         filename = paths.replace_extension(filename, ".cc")
         cc_out = ctx.actions.declare_file(paths.join(dir, filename))
         outputs.append(cc_out)
@@ -60,7 +60,7 @@ def _davros_serdes_impl(ctx):
         output_files.append(cc_out)
         output_files.append(h_out)
 
-        _davros_serdes_action(
+        _davros_action(
             ctx,
             [file],
             out_dir,
@@ -72,7 +72,7 @@ def _davros_serdes_impl(ctx):
 
     return [DefaultInfo(files = depset(output_files + srcs)), MessageInfo(messages = srcs + imports)]
 
-_davros_serdes_gen = rule(
+_davros_gen = rule(
     attrs = {
         "davros_exe": attr.label(
             executable = True,
@@ -84,7 +84,7 @@ _davros_serdes_gen = rule(
         ),
         "package_name": attr.string(),
     },
-    implementation = _davros_serdes_impl,
+    implementation = _davros_impl,
 )
 
 def _split_files_impl(ctx):
@@ -103,7 +103,7 @@ _split_files = rule(
     implementation = _split_files_impl,
 )
 
-def davros_serdes_library(name, srcs = [], deps = [], runtime = "@davros//davros:serdes_runtime"):
+def davros_zeros_library(name, srcs = [], deps = [], runtime = "@davros//davros:zeros_runtime"):
     """
     Generate a cc_libary for ROS messages specified in srcs.
 
@@ -111,14 +111,14 @@ def davros_serdes_library(name, srcs = [], deps = [], runtime = "@davros//davros
         name: name
         srcs: source .msg file
         deps: dependencies
-        runtime: label for serdes runtime.
+        runtime: label for zeros runtime.
     """
-    davros = name + "_davros_serdes"
+    davros = name + "_davros_zeros"
     davros_deps = []
     for d in deps:
-        davros_deps.append(d + "_davros_serdes")
+        davros_deps.append(d + "_davros_zeros")
 
-    _davros_serdes_gen(
+    _davros_gen(
         name = davros,
         srcs = srcs,
         deps = deps + davros_deps,

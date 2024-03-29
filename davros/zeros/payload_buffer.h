@@ -31,18 +31,22 @@ using StringHeader = BufferOffset;
 //
 struct PayloadBuffer {
   uint32_t magic;         // Magic to identify wireformat.
+  BufferOffset message;   // Offset for the message.
   uint32_t hwm;           // Offset one beyond the highest used.
   uint32_t full_size;     // Full size of buffer.
-  BufferOffset metadata;  // Offset to message metadata.
   BufferOffset free_list; // Heap free list.
-  BufferOffset message;   // Offset for the message.
+  BufferOffset metadata;  // Offset to message metadata.
 
   // Initialize a new PayloadBuffer at this with a message of the
   // given size.
   PayloadBuffer(uint32_t size, bool is_fixed = true)
       : magic(is_fixed ? kFixedBufferMagic : kMovableBufferMagic), hwm(0),
-        full_size(size), metadata(0) {
+        full_size(size) {
     InitFreeList();
+  }
+
+  size_t Size() const {
+    return size_t(hwm);
   }
 
   // Allocate space for the main message in the buffer and set the
@@ -86,9 +90,13 @@ struct PayloadBuffer {
   std::string_view GetStringView(BufferOffset header_offset) const {
     return GetStringView(ToAddress<const BufferOffset>(header_offset));
   }
+  size_t StringSize(BufferOffset header_offset) const {
+    return StringSize(ToAddress<const BufferOffset>(header_offset));
+  }
 
   std::string GetString(const StringHeader *addr) const;
   std::string_view GetStringView(const StringHeader *addr) const;
+  size_t StringSize(const StringHeader *addr) const;
 
   template <typename T>
   T VectorGet(const VectorHeader *hdr, size_t index) const;
@@ -216,8 +224,8 @@ inline void PayloadBuffer::VectorReserve(PayloadBuffer **self,
                                          VectorHeader *hdr, size_t n) {
   if (hdr->data == 0) {
     void *vecp = Allocate(self, n * sizeof(T), 8);
-     std::cout << "empty vector " << vecp << std::endl;
-   hdr->data = (*self)->ToOffset(vecp);
+    std::cout << "empty vector " << vecp << std::endl;
+    hdr->data = (*self)->ToOffset(vecp);
   } else {
     // Vector has some values in it.  Retrieve the total size from
     // the allocated block header (before the start of the memory)
@@ -232,8 +240,8 @@ inline void PayloadBuffer::VectorReserve(PayloadBuffer **self,
 }
 
 template <typename T>
-inline void PayloadBuffer::VectorResize(PayloadBuffer **self,
-                                         VectorHeader *hdr, size_t n) {
+inline void PayloadBuffer::VectorResize(PayloadBuffer **self, VectorHeader *hdr,
+                                        size_t n) {
   if (hdr->data == 0) {
     void *vecp = Allocate(self, n * sizeof(T), 8);
     hdr->data = (*self)->ToOffset(vecp);

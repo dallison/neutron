@@ -1,4 +1,5 @@
 load("//davros:davros_serdes_library.bzl", "davros_serdes_library")
+load("//davros:davros_zeros_library.bzl", "davros_zeros_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -82,6 +83,25 @@ cc_library(
         ":common_runtime",
         ":descriptor",
         ":msglib",
+        "@com_google_absl//absl/container:flat_hash_set",
+    ],
+)
+
+cc_library(
+    name = "zeros_runtime",
+    srcs = [
+        "zeros/payload_buffer.cc",
+    ],
+    hdrs = [
+        "zeros/message.h",
+        "zeros/payload_buffer.h",
+        "zeros/runtime.h",
+    ],
+    deps = [
+        ":serdes_runtime",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -89,19 +109,14 @@ cc_library(
     name = "zeros",
     srcs = [
         "zeros/gen.cc",
-        "zeros/payload_buffer.cc",
-        # "zeros/message.cc",
     ],
     hdrs = [
         "zeros/gen.h",
-        "zeros/message.h",
-        "zeros/payload_buffer.h",
-        "zeros/runtime.h",
     ],
     deps = [
-        ":common_runtime",
-        ":descriptor",
         ":msglib",
+        ":zeros_runtime",
+        "@com_google_absl//absl/container:flat_hash_set",
     ],
 )
 
@@ -151,34 +166,53 @@ cc_test(
 )
 
 davros_serdes_library(
-    name = "std_msgs",
+    name = "serdes_std_msgs",
     srcs = [
         "testdata/std_msgs/msg/Header.msg",
     ],
     runtime = ":serdes_runtime",
 )
 
-davros_serdes_library(
-    name = "other_msgs",
+davros_zeros_library(
+    name = "zeros_std_msgs",
     srcs = [
-        "testdata/other_msgs/msg/Other.msg",
-        "testdata/other_msgs/msg/Enum.msg",
+        "testdata/std_msgs/msg/Header.msg",
     ],
-    runtime = ":serdes_runtime",
-    deps = [
-        ":std_msgs",
-    ],
+    runtime = ":zeros_runtime",
 )
 
 davros_serdes_library(
-    name = "test_msgs",
+    name = "serdes_other_msgs",
+    srcs = [
+        "testdata/other_msgs/msg/Enum.msg",
+        "testdata/other_msgs/msg/Other.msg",
+    ],
+    runtime = ":serdes_runtime",
+    deps = [
+        ":serdes_std_msgs",
+    ],
+)
+
+davros_zeros_library(
+    name = "zeros_other_msgs",
+    srcs = [
+        "testdata/other_msgs/msg/Enum.msg",
+        "testdata/other_msgs/msg/Other.msg",
+    ],
+    runtime = ":zeros_runtime",
+    deps = [
+        ":zeros_std_msgs",
+    ],
+)
+davros_serdes_library(
+    name = "serdes_test_msgs",
     srcs = [
         "testdata/test_msgs/msg/Pose.msg",
         "testdata/test_msgs/msg/Vector.msg",
     ],
     runtime = ":serdes_runtime",
     deps = [
-        ":other_msgs",
+        ":serdes_other_msgs",
     ],
 )
 
@@ -191,13 +225,28 @@ cc_test(
         ":msgs",
     ],
     deps = [
-        ":other_msgs",
+        ":serdes_other_msgs",
         ":serdes_runtime",
         "@com_google_googletest//:gtest",
         "@toolbelt//toolbelt",
     ],
 )
 
+cc_test(
+    name = "zeros_runtime_test",
+    srcs = [
+        "zeros_runtime_test.cc",
+    ],
+    data = [
+        ":msgs",
+    ],
+    deps = [
+        ":zeros_other_msgs",
+        ":zeros_runtime",
+        "@com_google_googletest//:gtest",
+        "@toolbelt//toolbelt",
+    ],
+)
 cc_binary(
     name = "davros",
     srcs = [
@@ -268,7 +317,7 @@ cc_test(
     ],
     deps = [
         ":descriptor",
-        ":other_msgs",
+        ":serdes_other_msgs",
         "@com_google_googletest//:gtest",
         "@toolbelt//toolbelt",
     ],

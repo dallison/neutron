@@ -55,6 +55,11 @@ std::string_view PayloadBuffer::GetStringView(const StringHeader *addr) const {
   return std::string_view(reinterpret_cast<const char *>(p + 1), *p);
 }
 
+size_t PayloadBuffer::StringSize(const StringHeader *addr) const {
+  const uint32_t *p = reinterpret_cast<const uint32_t*>(ToAddress(*addr));
+  return size_t(*p);
+}
+
 void PayloadBuffer::Dump(std::ostream &os) {
   os << "PayloadBuffer: " << this << std::endl;
   os << "  magic: " << (magic == kFixedBufferMagic ? "fixed" : "variable")

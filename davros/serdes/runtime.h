@@ -12,7 +12,7 @@
 #include <sstream>
 #include "davros/common_runtime.h"
 
-namespace davros {
+namespace davros::serdes {
 
 // Provides a statically sized or dynamic buffer used for serialization
 // of messages.
@@ -243,4 +243,4 @@ private:
   char *end_ = nullptr;
 };
 
-} // namespace davros
+} // namespace davros::serdes

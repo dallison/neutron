@@ -1,5 +1,6 @@
 
 #include "davros/serdes/gen.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_format.h"
 #include "davros/descriptor.h"
 #include <fstream>
@@ -145,9 +146,17 @@ static std::string
 MessageFieldIncludeFile(const Message &msg,
                         std::shared_ptr<MessageField> field) {
   if (field->MsgPackage().empty()) {
-    return msg.Package()->Name() + "/" + field->MsgName() + ".h";
+    return "serdes/" + msg.Package()->Name() + "/" + field->MsgName() + ".h";
   }
-  return field->MsgPackage() + "/" + field->MsgName() + ".h";
+  return "serdes/" + field->MsgPackage() + "/" + field->MsgName() + ".h";
+}
+
+std::shared_ptr<Field> Generator::ResolveField(std::shared_ptr<Field> field) {
+  if (field->IsArray()) {
+    auto array = std::static_pointer_cast<ArrayField>(field);
+    return array->Base();
+  }
+  return field;
 }
 
 // Magic helper templates for std::visit.
@@ -164,19 +173,18 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
      << "davros/serdes/runtime.h\"\n";
   os << "\n";
   // Include files for message fields
-  os << "// Message field definitions.\n";
-  for (auto &field : msg.Fields()) {
+  absl::flat_hash_set<std::string> hdrs;
+  for (auto field : msg.Fields()) {
+    field = ResolveField(field);
     if (field->Type() == FieldType::kMessage) {
       auto msg_field = std::static_pointer_cast<MessageField>(field);
-      os << "#include \"" << (msg_path_.empty() ? "" : (msg_path_ + "/"))
-         << MessageFieldIncludeFile(msg, msg_field) << "\"\n";
-    } else if (field->IsArray()) {
-      auto array = std::static_pointer_cast<ArrayField>(field);
-      if (array->Base()->Type() == FieldType::kMessage) {
-        auto msg_field = std::static_pointer_cast<MessageField>(array->Base());
-        os << "#include \"" << (msg_path_.empty() ? "" : (msg_path_ + "/"))
-           << MessageFieldIncludeFile(msg, msg_field) << "\"\n";
+      std::string hdr = MessageFieldIncludeFile(msg, msg_field);
+      if (hdrs.contains(hdr)) {
+        continue;
       }
+      hdrs.insert(hdr);
+      os << "#include \"" << (msg_path_.empty() ? "" : (msg_path_ + "/")) << hdr
+         << "\"\n";
     }
   }
   os << "\n";
@@ -199,7 +207,7 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
 }
 
 absl::Status Generator::GenerateEnum(const Message &msg, std::ostream &os) {
-  os << "enum class " << msg.Name() << " : " << EnumCType(msg) << ") {\n";
+  os << "enum class " << msg.Name() << " : " << EnumCType(msg) << " {\n";
   for (auto & [ name, c ] : msg.Constants()) {
     os << c->Name() << " = " << std::get<0>(c->Value()) << ",\n";
   }
@@ -257,10 +265,10 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
   os << "  static const char* FullName() { return \"" << msg.Package()->Name()
      << "/" << msg.Name() << "\"; }\n";
   os << "  absl::Status SerializeToArray(char* addr, size_t len) const;\n";
-  os << "  absl::Status SerializeToBuffer(davros::Buffer& buffer) const;\n";
+  os << "  absl::Status SerializeToBuffer(davros::serdes::Buffer& buffer) const;\n";
   os << "  absl::Status DeserializeFromArray(const char* addr, size_t "
         "len);\n";
-  os << "  absl::Status DeserializeFromBuffer(davros::Buffer& buffer);\n";
+  os << "  absl::Status DeserializeFromBuffer(davros::serdes::Buffer& buffer);\n";
   os << "  size_t SerializedLength() const;\n";
   os << "  bool operator==(const " << msg.Name() << "& m) const;\n";
   os << "  bool operator!=(const " << msg.Name() << "& m) const {\n";
@@ -298,9 +306,8 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
         auto msg_field = std::static_pointer_cast<MessageField>(array->Base());
         os << "  for (auto& m : msg." << SanitizeFieldName(field->Name())
            << ") {\n";
-        std::cout << "message field " << msg_field->Name() << std::endl;
         if (msg_field->Msg()->IsEnum()) {
-          os << "  os << int64_t(m) << std::endl;\n";
+          os << "  os << " << EnumCType(*msg_field->Msg()) << "(m) << std::endl;\n";
         } else {
           os << "    os << m.DebugString();\n";
         }
@@ -325,7 +332,7 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
 
 absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "#include \"" << (msg_path_.empty() ? "" : (msg_path_ + "/"))
-     << msg.Package()->Name() << "/" << msg.Name() << ".h\"\n";
+     << "serdes/" << msg.Package()->Name() << "/" << msg.Name() << ".h\"\n";
 
   if (msg.IsEnum()) {
     return absl::OkStatus();
@@ -333,12 +340,12 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "namespace " << msg.Package()->Name() << " {\n";
   os << "absl::Status " << msg.Name()
      << "::SerializeToArray(char* addr, size_t len) const {\n";
-  os << "  davros::Buffer buffer(addr, len);\n";
+  os << "  davros::serdes::Buffer buffer(addr, len);\n";
   os << "  return SerializeToBuffer(buffer);\n";
   os << "}\n\n";
   os << "absl::Status " << msg.Name()
      << "::DeserializeFromArray(const char* addr, size_t len) {\n";
-  os << "  davros::Buffer buffer(const_cast<char*>(addr), len);\n";
+  os << "  davros::serdes::Buffer buffer(const_cast<char*>(addr), len);\n";
   os << "  return DeserializeFromBuffer(buffer);\n";
   os << "}\n\n";
 
@@ -376,7 +383,7 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
 absl::Status Generator::GenerateSerializer(const Message &msg,
                                            std::ostream &os) {
   os << "absl::Status " << msg.Name()
-     << "::SerializeToBuffer(davros::Buffer& buffer) const {\n";
+     << "::SerializeToBuffer(davros::serdes::Buffer& buffer) const {\n";
   for (auto &field : msg.Fields()) {
     if (field->Type() == FieldType::kMessage) {
       auto msg_field = std::static_pointer_cast<MessageField>(field);
@@ -434,7 +441,7 @@ absl::Status Generator::GenerateSerializer(const Message &msg,
 absl::Status Generator::GenerateDeserializer(const Message &msg,
                                              std::ostream &os) {
   os << "absl::Status " << msg.Name()
-     << "::DeserializeFromBuffer(davros::Buffer& buffer) {\n";
+     << "::DeserializeFromBuffer(davros::serdes::Buffer& buffer) {\n";
   for (auto &field : msg.Fields()) {
     if (field->Type() == FieldType::kMessage) {
       auto msg_field = std::static_pointer_cast<MessageField>(field);
@@ -449,7 +456,8 @@ absl::Status Generator::GenerateDeserializer(const Message &msg,
       } else {
         os << "  if (absl::Status status = this->"
            << SanitizeFieldName(field->Name())
-           << ".DeserializeFromBuffer(buffer); !status.ok()) return status;\n";
+           << ".DeserializeFromBuffer(buffer); !status.ok()) return "
+              "status;\n";
       }
     } else if (field->IsArray()) {
       auto array = std::static_pointer_cast<ArrayField>(field);

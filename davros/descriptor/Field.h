@@ -34,9 +34,9 @@ struct Field {
   static const char* Name() { return "Field"; }
   static const char* FullName() { return "descriptor/Field"; }
   absl::Status SerializeToArray(char* addr, size_t len) const;
-  absl::Status SerializeToBuffer(davros::Buffer& buffer) const;
+  absl::Status SerializeToBuffer(davros::serdes::Buffer& buffer) const;
   absl::Status DeserializeFromArray(const char* addr, size_t len);
-  absl::Status DeserializeFromBuffer(davros::Buffer& buffer);
+  absl::Status DeserializeFromBuffer(davros::serdes::Buffer& buffer);
   size_t SerializedLength() const;
   bool operator==(const Field& m) const;
   bool operator!=(const Field& m) const {

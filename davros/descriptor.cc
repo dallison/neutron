@@ -97,7 +97,7 @@ absl::StatusOr<descriptor::Descriptor> MakeDescriptor(const Message &msg) {
 absl::Status EncodeDescriptorAsHex(const descriptor::Descriptor &desc,
                                    int max_width, bool with_0x_prefix,
                                    std::ostream &os) {
-  Buffer buffer;
+  davros::serdes::Buffer buffer;
   if (absl::Status status = desc.SerializeToBuffer(buffer); !status.ok()) {
     return status;
   }

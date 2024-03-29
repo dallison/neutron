@@ -1,16 +1,16 @@
 #include "davros/descriptor/Field.h"
 namespace descriptor {
 absl::Status Field::SerializeToArray(char* addr, size_t len) const {
-  davros::Buffer buffer(addr, len);
+  davros::serdes::Buffer buffer(addr, len);
   return SerializeToBuffer(buffer);
 }
 
 absl::Status Field::DeserializeFromArray(const char* addr, size_t len) {
-  davros::Buffer buffer(const_cast<char*>(addr), len);
+  davros::serdes::Buffer buffer(const_cast<char*>(addr), len);
   return DeserializeFromBuffer(buffer);
 }
 
-absl::Status Field::SerializeToBuffer(davros::Buffer& buffer) const {
+absl::Status Field::SerializeToBuffer(davros::serdes::Buffer& buffer) const {
   if (absl::Status status = buffer.Write(this->index); !status.ok()) return status;
   if (absl::Status status = buffer.Write(this->name); !status.ok()) return status;
   if (absl::Status status = buffer.Write(this->type); !status.ok()) return status;
@@ -20,7 +20,7 @@ absl::Status Field::SerializeToBuffer(davros::Buffer& buffer) const {
   return absl::OkStatus();
 }
 
-absl::Status Field::DeserializeFromBuffer(davros::Buffer& buffer) {
+absl::Status Field::DeserializeFromBuffer(davros::serdes::Buffer& buffer) {
   if (absl::Status status = buffer.Read(this->index); !status.ok()) return status;
   if (absl::Status status = buffer.Read(this->name); !status.ok()) return status;
   if (absl::Status status = buffer.Read(this->type); !status.ok()) return status;

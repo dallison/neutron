@@ -25,6 +25,13 @@ private:
   absl::Status GenerateNonEmbeddedConstructor(const Message& msg, std::ostream& os);
   absl::Status GenerateBinarySize(const Message& msg, std::ostream& os);
 
+  absl::Status GenerateSource(const Message& msg, std::ostream& os);
+  absl::Status GenerateSerializer(const Message &msg, std::ostream &os);
+  absl::Status GenerateDeserializer(const Message &msg, std::ostream &os);
+  absl::Status GenerateLength(const Message &msg, std::ostream &os);
+  
+  static std::shared_ptr<Field> ResolveField(std::shared_ptr<Field> field);
+
   std::filesystem::path root_;
   std::string runtime_path_;
   std::string msg_path_;

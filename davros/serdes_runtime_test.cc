@@ -1,5 +1,5 @@
 #include "davros/serdes/runtime.h"
-#include "davros/other_msgs/Other.h"
+#include "davros/serdes/other_msgs/Other.h"
 #include <gtest/gtest.h>
 #include "toolbelt/hexdump.h"
 
@@ -39,13 +39,13 @@ TEST(Runtime, DynamicBuffer) {
 
   size_t size = other.SerializedLength();
   std::cerr << "length " << size << std::endl;
-  davros::Buffer buffer;
+  davros::serdes::Buffer buffer;
   auto status = other.SerializeToBuffer(buffer);
   std::cerr << "serialize " << status << std::endl;
   ASSERT_TRUE(status.ok());
   toolbelt::Hexdump(buffer.data(), size);
 
-  davros::Buffer buffer2(buffer.data(), buffer.size());
+  davros::serdes::Buffer buffer2(buffer.data(), buffer.size());
   other_msgs::Other read;
   status = read.DeserializeFromBuffer(buffer2);
   std::cerr << "deserialize " << status << std::endl;

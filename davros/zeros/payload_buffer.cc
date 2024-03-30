@@ -60,6 +60,11 @@ size_t PayloadBuffer::StringSize(const StringHeader *addr) const {
   return size_t(*p);
 }
 
+const char* PayloadBuffer::StringData(const StringHeader *addr) const {
+  const uint32_t *p = reinterpret_cast<const uint32_t*>(ToAddress(*addr));
+  return reinterpret_cast<const char *>(p + 1);
+}
+
 void PayloadBuffer::Dump(std::ostream &os) {
   os << "PayloadBuffer: " << this << std::endl;
   os << "  magic: " << (magic == kFixedBufferMagic ? "fixed" : "variable")

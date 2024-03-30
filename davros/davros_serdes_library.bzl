@@ -9,9 +9,12 @@ def _davros_serdes_action(
         package_name,
         imports,
         other_srcs,
-        outputs):
+        outputs,
+        add_namespace):
     inputs = depset(direct = srcs, transitive = [depset(imports + other_srcs)])
     davros_args = ["--ros", "--out={}/{}/serdes".format(out_dir, package_name), "--runtime_path=", "--msg_path={}".format(package_name)]
+    if add_namespace:
+        davros_args.append("--add_namespace=" + add_namespace)
     if imports:
         imports_arg = "--imports="
         sep = ""
@@ -19,6 +22,7 @@ def _davros_serdes_action(
             imports_arg += sep + paths.dirname(paths.dirname(file.path))
             sep = ","
         davros_args.append(imports_arg)
+
     args = ctx.actions.args()
     args.add_all(davros_args)
     args.add_all(inputs)
@@ -68,6 +72,7 @@ def _davros_serdes_impl(ctx):
             imports,
             srcs,
             outputs,
+            ctx.attr.add_namespace,
         )
 
     return [DefaultInfo(files = depset(output_files + srcs)), MessageInfo(messages = srcs + imports)]
@@ -83,6 +88,7 @@ _davros_serdes_gen = rule(
         "deps": attr.label_list(
         ),
         "package_name": attr.string(),
+        "add_namespace": attr.string(),
     },
     implementation = _davros_serdes_impl,
 )
@@ -103,7 +109,7 @@ _split_files = rule(
     implementation = _split_files_impl,
 )
 
-def davros_serdes_library(name, srcs = [], deps = [], runtime = "@davros//davros:serdes_runtime"):
+def davros_serdes_library(name, srcs = [], deps = [], runtime = "@davros//davros:serdes_runtime", add_namespace = ""):
     """
     Generate a cc_libary for ROS messages specified in srcs.
 
@@ -112,6 +118,7 @@ def davros_serdes_library(name, srcs = [], deps = [], runtime = "@davros//davros
         srcs: source .msg file
         deps: dependencies
         runtime: label for serdes runtime.
+        add_namespace: add namespace to the message types
     """
     davros = name + "_davros_serdes"
     davros_deps = []
@@ -123,6 +130,7 @@ def davros_serdes_library(name, srcs = [], deps = [], runtime = "@davros//davros
         srcs = srcs,
         deps = deps + davros_deps,
         package_name = native.package_name(),
+        add_namespace = add_namespace,
     )
 
     srcs = name + "_srcs"

@@ -2,12 +2,14 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_format.h"
 #include "absl/types/span.h"
 #include <array>
 #include <iostream>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <sstream>
 #include "davros/common_runtime.h"
@@ -223,7 +225,7 @@ private:
         size_ = new_size;
         return absl::OkStatus();
       }
-      return absl::InternalError("No space in buffer");
+      return absl::InternalError(absl::StrFormat("No space in buffer: length: %d, need: %d", size_, next - start_));
     }
     return absl::OkStatus();
   }

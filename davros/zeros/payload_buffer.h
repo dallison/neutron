@@ -94,9 +94,14 @@ struct PayloadBuffer {
     return StringSize(ToAddress<const BufferOffset>(header_offset));
   }
 
+ const char* StringData(BufferOffset header_offset) const {
+    return StringData(ToAddress<const BufferOffset>(header_offset));
+  }
+
   std::string GetString(const StringHeader *addr) const;
   std::string_view GetStringView(const StringHeader *addr) const;
   size_t StringSize(const StringHeader *addr) const;
+  const char* StringData(const StringHeader *addr) const;
 
   template <typename T>
   T VectorGet(const VectorHeader *hdr, size_t index) const;

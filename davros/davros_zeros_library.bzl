@@ -9,9 +9,13 @@ def _davros_action(
         package_name,
         imports,
         other_srcs,
-        outputs):
+        outputs,
+        add_namespace):
     inputs = depset(direct = srcs, transitive = [depset(imports + other_srcs)])
     davros_args = ["--zeros", "--out={}/{}/zeros".format(out_dir, package_name), "--runtime_path=", "--msg_path={}".format(package_name)]
+    if add_namespace:
+        davros_args.append("--add_namespace=" + add_namespace)
+
     if imports:
         imports_arg = "--imports="
         sep = ""
@@ -68,6 +72,7 @@ def _davros_impl(ctx):
             imports,
             srcs,
             outputs,
+            ctx.attr.add_namespace,
         )
 
     return [DefaultInfo(files = depset(output_files + srcs)), MessageInfo(messages = srcs + imports)]
@@ -83,6 +88,7 @@ _davros_gen = rule(
         "deps": attr.label_list(
         ),
         "package_name": attr.string(),
+        "add_namespace": attr.string(),
     },
     implementation = _davros_impl,
 )
@@ -103,7 +109,7 @@ _split_files = rule(
     implementation = _split_files_impl,
 )
 
-def davros_zeros_library(name, srcs = [], deps = [], runtime = "@davros//davros:zeros_runtime"):
+def davros_zeros_library(name, srcs = [], deps = [], runtime = "@davros//davros:zeros_runtime", add_namespace = ""):
     """
     Generate a cc_libary for ROS messages specified in srcs.
 
@@ -112,6 +118,7 @@ def davros_zeros_library(name, srcs = [], deps = [], runtime = "@davros//davros:
         srcs: source .msg file
         deps: dependencies
         runtime: label for zeros runtime.
+        add_namespace: add given namespace to the message output
     """
     davros = name + "_davros_zeros"
     davros_deps = []
@@ -123,6 +130,7 @@ def davros_zeros_library(name, srcs = [], deps = [], runtime = "@davros//davros:
         srcs = srcs,
         deps = deps + davros_deps,
         package_name = native.package_name(),
+        add_namespace = add_namespace,
     )
 
     srcs = name + "_srcs"

@@ -7,6 +7,21 @@
 
 namespace davros::serdes {
 
+std::string Generator::Namespace(bool prefix_colon_colon) {
+  std::string ns;
+  if (namespace_.empty()) {
+    return ns;
+  }
+  if (prefix_colon_colon) {
+    ns = "::";
+  }
+  ns += namespace_;
+  if (!prefix_colon_colon) {
+    ns += "::";
+  }
+  return ns;
+}
+
 absl::Status Generator::Generate(const Message &msg) {
   std::filesystem::path dir =
       root_ / std::filesystem::path(msg.Package()->Name());
@@ -133,13 +148,14 @@ static std::string FieldCType(FieldType type) {
 
 static std::string SanitizeFieldName(const std::string &name) { return name; }
 
-static std::string MessageFieldTypeName(const Message &msg,
-                                        std::shared_ptr<MessageField> field) {
+std::string
+Generator::MessageFieldTypeName(const Message &msg,
+                                std::shared_ptr<MessageField> field) {
   std::string name;
   if (field->MsgPackage().empty()) {
-    return msg.Package()->Name() + "::" + field->MsgName();
+    return msg.Package()->Name() + "::" + Namespace(false) + field->MsgName();
   }
-  return field->MsgPackage() + "::" + field->MsgName();
+  return field->MsgPackage() + "::" + Namespace(false) + field->MsgName();
 }
 
 static std::string
@@ -188,7 +204,7 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
     }
   }
   os << "\n";
-  os << "namespace " << msg.Package()->Name() << " {\n";
+  os << "namespace " << msg.Package()->Name() << Namespace(true) << " {\n";
 
   if (msg.IsEnum()) {
     // Enumeration.
@@ -201,7 +217,7 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
     }
   }
 
-  os << "}    // namespace " << msg.Package()->Name() << "\n";
+  os << "}    // namespace " << msg.Package()->Name() << Namespace(true) << "\n";
 
   return absl::OkStatus();
 }
@@ -265,10 +281,12 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
   os << "  static const char* FullName() { return \"" << msg.Package()->Name()
      << "/" << msg.Name() << "\"; }\n";
   os << "  absl::Status SerializeToArray(char* addr, size_t len) const;\n";
-  os << "  absl::Status SerializeToBuffer(davros::serdes::Buffer& buffer) const;\n";
+  os << "  absl::Status SerializeToBuffer(davros::serdes::Buffer& buffer) "
+        "const;\n";
   os << "  absl::Status DeserializeFromArray(const char* addr, size_t "
         "len);\n";
-  os << "  absl::Status DeserializeFromBuffer(davros::serdes::Buffer& buffer);\n";
+  os << "  absl::Status DeserializeFromBuffer(davros::serdes::Buffer& "
+        "buffer);\n";
   os << "  size_t SerializedLength() const;\n";
   os << "  bool operator==(const " << msg.Name() << "& m) const;\n";
   os << "  bool operator!=(const " << msg.Name() << "& m) const {\n";
@@ -307,7 +325,8 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
         os << "  for (auto& m : msg." << SanitizeFieldName(field->Name())
            << ") {\n";
         if (msg_field->Msg()->IsEnum()) {
-          os << "  os << " << EnumCType(*msg_field->Msg()) << "(m) << std::endl;\n";
+          os << "  os << " << EnumCType(*msg_field->Msg())
+             << "(m) << std::endl;\n";
         } else {
           os << "    os << m.DebugString();\n";
         }
@@ -337,7 +356,7 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   if (msg.IsEnum()) {
     return absl::OkStatus();
   }
-  os << "namespace " << msg.Package()->Name() << " {\n";
+  os << "namespace " << msg.Package()->Name() << Namespace(true) <<" {\n";
   os << "absl::Status " << msg.Name()
      << "::SerializeToArray(char* addr, size_t len) const {\n";
   os << "  davros::serdes::Buffer buffer(addr, len);\n";
@@ -375,7 +394,7 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "  s << *this;\n";
   os << "  return s.str();\n";
   os << "}\n";
-  os << "}    // namespace " << msg.Package()->Name() << "\n";
+  os << "}    // namespace " << msg.Package()->Name() << Namespace(true) <<"\n";
 
   return absl::OkStatus();
 }

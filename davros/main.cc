@@ -21,6 +21,7 @@ ABSL_FLAG(std::vector<std::string>, imports, {},
           "Comma separated list of paths for imported messages");
 ABSL_FLAG(bool, ros, false, "Generate regular serializable ROS messages");
 ABSL_FLAG(bool, zeros, false, "Generate zero-copy ROS messages");
+ABSL_FLAG(std::string, add_namespace, "", "Add a namespace to the message classes");
 
 void GenerateSerialization(const std::vector<std::filesystem::path>& files) {
   if (absl::GetFlag(FLAGS_all)) {
@@ -33,7 +34,8 @@ void GenerateSerialization(const std::vector<std::filesystem::path>& files) {
     }
     davros::serdes::Generator gen(absl::GetFlag(FLAGS_out),
                                   absl::GetFlag(FLAGS_runtime_path),
-                                  absl::GetFlag(FLAGS_msg_path));
+                                  absl::GetFlag(FLAGS_msg_path),
+                                  absl::GetFlag(FLAGS_add_namespace));
     for (auto & [ pname, package ] : scanner->Packages()) {
       for (auto & [ mname, msg ] : package->Messages()) {
         absl::Status s = msg->Generate(gen);
@@ -105,7 +107,8 @@ void GenerateSerialization(const std::vector<std::filesystem::path>& files) {
   for (auto &msg : messages) {
     davros::serdes::Generator gen(absl::GetFlag(FLAGS_out),
                                   absl::GetFlag(FLAGS_runtime_path),
-                                  absl::GetFlag(FLAGS_msg_path));
+                                  absl::GetFlag(FLAGS_msg_path),
+                                  absl::GetFlag(FLAGS_add_namespace));
     absl::Status s = msg->Generate(gen);
     if (!s.ok()) {
       std::cerr << s << std::endl;
@@ -124,9 +127,10 @@ void GenerateZeroCopy(const std::vector<std::filesystem::path>& files) {
       std::cerr << status << std::endl;
       exit(1);
     }
-    davros::serdes::Generator gen(absl::GetFlag(FLAGS_out),
+    davros::zeros::Generator gen(absl::GetFlag(FLAGS_out),
                                   absl::GetFlag(FLAGS_runtime_path),
-                                  absl::GetFlag(FLAGS_msg_path));
+                                  absl::GetFlag(FLAGS_msg_path),
+                                  absl::GetFlag(FLAGS_add_namespace));
     for (auto & [ pname, package ] : scanner->Packages()) {
       for (auto & [ mname, msg ] : package->Messages()) {
         absl::Status s = msg->Generate(gen);
@@ -198,7 +202,8 @@ void GenerateZeroCopy(const std::vector<std::filesystem::path>& files) {
   for (auto &msg : messages) {
     davros::zeros::Generator gen(absl::GetFlag(FLAGS_out),
                                   absl::GetFlag(FLAGS_runtime_path),
-                                  absl::GetFlag(FLAGS_msg_path));
+                                  absl::GetFlag(FLAGS_msg_path),
+                                  absl::GetFlag(FLAGS_add_namespace));
     absl::Status s = msg->Generate(gen);
     if (!s.ok()) {
       std::cerr << s << std::endl;

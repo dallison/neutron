@@ -93,12 +93,13 @@ cc_library(
         "zeros/payload_buffer.cc",
     ],
     hdrs = [
+        "zeros/buffer.h",
         "zeros/message.h",
         "zeros/payload_buffer.h",
         "zeros/runtime.h",
     ],
     deps = [
-        ":serdes_runtime",
+        ":common_runtime",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/types:span",
@@ -178,6 +179,7 @@ davros_zeros_library(
     srcs = [
         "testdata/std_msgs/msg/Header.msg",
     ],
+    add_namespace = "zeros",
     runtime = ":zeros_runtime",
 )
 
@@ -199,11 +201,13 @@ davros_zeros_library(
         "testdata/other_msgs/msg/Enum.msg",
         "testdata/other_msgs/msg/Other.msg",
     ],
+    add_namespace = "zeros",
     runtime = ":zeros_runtime",
     deps = [
         ":zeros_std_msgs",
     ],
 )
+
 davros_serdes_library(
     name = "serdes_test_msgs",
     srcs = [
@@ -241,12 +245,15 @@ cc_test(
         ":msgs",
     ],
     deps = [
+        ":serdes_other_msgs",
+        ":serdes_runtime",
         ":zeros_other_msgs",
         ":zeros_runtime",
         "@com_google_googletest//:gtest",
         "@toolbelt//toolbelt",
     ],
 )
+
 cc_binary(
     name = "davros",
     srcs = [

@@ -24,7 +24,7 @@ TEST(GenTest, OtherMessage) {
   auto status = scanner->ParseAllMessages();
   ASSERT_TRUE(status.ok());
 
-  davros::serdes::Generator gen("/tmp", "foo", "bar");
+  davros::serdes::Generator gen("/tmp", "foo", "bar", "");
   std::shared_ptr<davros::Package> package = scanner->FindPackage("other_msgs");
   ASSERT_NE(nullptr, package);
   for (auto & [ mname, msg ] : package->Messages()) {

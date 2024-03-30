@@ -3,7 +3,6 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "davros/common_runtime.h"
-#include "davros/serdes/runtime.h"
 #include "davros/zeros/message.h"
 #include "davros/zeros/payload_buffer.h"
 #include <stdint.h>
@@ -13,6 +12,8 @@
 #include <vector>
 
 namespace davros::zeros {
+
+class Buffer;
 
 // There are two message formats for zero copy ROS:
 // 1. Source format - as seen by the programmer - a C++ class
@@ -72,6 +73,7 @@ template <typename T> constexpr size_t AlignedOffset(size_t offset) {
     bool operator!=(const cname##Field &other) const {                         \
       return !(*this == other);                                                \
     }                                                                          \
+    size_t SerializedSize() const { return sizeof(type); }                     \
                                                                                \
   private:                                                                     \
     PayloadBuffer *GetBuffer() const {                                         \
@@ -97,6 +99,8 @@ DEFINE_PRIMITIVE_FIELD(Float64, double)
 DEFINE_PRIMITIVE_FIELD(Bool, bool)
 DEFINE_PRIMITIVE_FIELD(Duration, davros::Duration)
 DEFINE_PRIMITIVE_FIELD(Time, davros::Time)
+
+#undef DEFINE_PRIMITIVE_FIELD
 
 class StringField {
 public:
@@ -141,6 +145,13 @@ public:
     return GetBuffer()->StringSize(GetMessageBinaryStart() +
                                    relative_binary_offset_);
   }
+
+  const char *data() const {
+    return GetBuffer()->StringData(GetMessageBinaryStart() +
+                                   relative_binary_offset_);
+  }
+
+  size_t SerializedSize() const { return 4 + size(); }
 
 private:
   template <int N> friend class StringArrayField;
@@ -195,6 +206,10 @@ public:
                      static_cast<typename std::underlying_type<Enum>::type>(e));
   }
 
+  void Set(T e) {
+    GetBuffer()->Set(GetMessageBinaryStart() + relative_binary_offset_, e);
+  }
+
   BufferOffset BinaryEndOffset() const {
     return relative_binary_offset_ +
            sizeof(typename std::underlying_type<Enum>::type);
@@ -205,6 +220,8 @@ public:
     return static_cast<Enum>(*this) == static_cast<Enum>(other);
   }
   bool operator!=(const EnumField &other) const { return !(*this == other); }
+
+  size_t SerializedSize() const { return sizeof(T); }
 
 private:
   PayloadBuffer *GetBuffer() const {
@@ -241,15 +258,15 @@ public:
   }
   BufferOffset BinaryOffset() const { return relative_binary_offset_; }
 
-  absl::Status SerializeToBuffer(serdes::Buffer &buffer) const {
+  absl::Status SerializeToBuffer(Buffer &buffer) const {
     return msg_.SerializeToBuffer(buffer);
   }
 
-  absl::Status DeserializeFromBuffer(serdes::Buffer &buffer) {
+  absl::Status DeserializeFromBuffer(Buffer &buffer) {
     return msg_.DeserializeFromBuffer(buffer);
   }
 
-  size_t SerializedLength() const { return msg_.SerializedLength(); }
+  size_t SerializedSize() const { return msg_.SerializedSize(); }
 
   bool operator==(const MessageField<MessageType> &m) const {
     return msg_ == m.msg_;
@@ -380,13 +397,26 @@ public:
     T *base = GetBuffer()->template ToAddress<T>(BaseOffset());
     return base[index];
   }
+
+  std::array<T, N> Get() const {
+    std::array<T, N> v;
+    for (size_t i = 0; i < N; i++) {
+      v[i] = (*this)[i];
+    }
+    return v;
+  }
   using iterator = FieldIterator<PrimitiveArrayField, T>;
+  using const_iterator = FieldIterator<PrimitiveArrayField, const T>;
 
   iterator begin() { return iterator(this, BaseOffset()); }
+  const_iterator begin() const { return const_iterator(this, BaseOffset()); }
   iterator end() { return iterator(this, BaseOffset() + N * sizeof(T)); }
+  const_iterator end() const {
+    return const_iterator(this, BaseOffset() + N * sizeof(T));
+  }
 
   size_t size() const { return N; }
-  T *data() const { GetBuffer()->template ToAddress<T>(BaseOffset()); }
+  T *data() const { return GetBuffer()->template ToAddress<T>(BaseOffset()); }
 
   BufferOffset BinaryEndOffset() const {
     return relative_binary_offset_ + sizeof(T) * N;
@@ -405,6 +435,8 @@ public:
   bool operator!=(const PrimitiveArrayField<T, N> &other) const {
     return !(*this == other);
   }
+
+  size_t SerializedSize() const { return sizeof(T) * N; }
 
 private:
   friend FieldIterator<PrimitiveArrayField, T>;
@@ -443,9 +475,14 @@ public:
   }
 
   using iterator = EnumFieldIterator<EnumArrayField, Enum>;
+  using const_iterator = EnumFieldIterator<EnumArrayField, const Enum>;
 
   iterator begin() { return iterator(this, BaseOffset()); }
+  const_iterator begin() const { return const_iterator(this, BaseOffset()); }
   iterator end() { return iterator(this, BaseOffset() + N * sizeof(T)); }
+  const_iterator end() const {
+    return const_iterator(this, BaseOffset() + N * sizeof(T));
+  }
 
   size_t size() const { return N; }
   Enum *data() const { GetBuffer()->template ToAddress<Enum>(BaseOffset()); }
@@ -467,6 +504,8 @@ public:
   bool operator!=(const EnumArrayField<Enum, N> &other) const {
     return !(*this == other);
   }
+
+  size_t SerializedSize() const { return sizeof(Enum) * N; }
 
 private:
   friend EnumFieldIterator<EnumArrayField, Enum>;
@@ -515,9 +554,12 @@ public:
   operator std::array<T, N> &() { return msgs_; }
 
   using iterator = typename std::array<T, N>::iterator;
+  using const_iterator = typename std::array<T, N>::const_iterator;
 
   iterator begin() { return msgs_.begin(); }
   iterator end() { return msgs_.end(); }
+  const_iterator begin() const { return msgs_.begin(); }
+  const_iterator end() const { return msgs_.end(); }
 
   size_t size() const { return N; }
   T *data() const { msgs_.data(); }
@@ -532,6 +574,14 @@ public:
   }
   bool operator!=(const MessageArrayField<T, N> &other) const {
     return !(*this == other);
+  }
+
+  size_t SerializedSize() const {
+    size_t n = 0;
+    for (auto &msg : msgs_) {
+      n += msg.SerializedSize();
+    }
+    return n;
   }
 
 private:
@@ -563,9 +613,12 @@ public:
   StringField &operator[](int index) { return strings_[index]; }
 
   using iterator = typename std::array<StringField, N>::iterator;
+  using const_iterator = typename std::array<StringField, N>::const_iterator;
 
   iterator begin() { return strings_.begin(); }
   iterator end() { return strings_.end(); }
+  const_iterator begin() const { return strings_.begin(); }
+  const_iterator end() const { return strings_.end(); }
 
   size_t size() const { return N; }
   StringField *data() const { return strings_.data(); }
@@ -580,6 +633,14 @@ public:
   }
   bool operator!=(const StringArrayField<N> &other) const {
     return !(*this == other);
+  }
+
+  size_t SerializedSize() const {
+    size_t n = 0;
+    for (auto &s : strings_) {
+      n += s.SerializedSize();
+    }
+    return n;
   }
 
 private:
@@ -613,11 +674,24 @@ public:
     return base[index];
   }
 
+  std::vector<T> Get() const {
+    std::vector<T> v;
+    size_t n = size();
+    for (size_t i = 0; i < n; i++) {
+      v.push_back((*this)[i]);
+    }
+    return v;
+  }
   using iterator = FieldIterator<PrimitiveVectorField, T>;
+  using const_iterator = FieldIterator<PrimitiveVectorField, const T>;
 
   iterator begin() { return iterator(this, BaseOffset()); }
   iterator end() {
     return iterator(this, BaseOffset() + NumElements() * sizeof(T));
+  }
+  const_iterator begin() const { return const_iterator(this, BaseOffset()); }
+  const_iterator end() const {
+    return const_iterator(this, BaseOffset() + NumElements() * sizeof(T));
   }
 
   void push_back(const T &v) {
@@ -635,7 +709,7 @@ public:
   void clear() { Header()->num_elements = 0; }
 
   size_t size() const { return Header()->num_elements; }
-  T *data() const { GetBuffer()->template ToAddress<T>(BaseOffset()); }
+  T *data() const { return GetBuffer()->template ToAddress<T>(BaseOffset()); }
 
   size_t capacity() const {
     VectorHeader *hdr = Header();
@@ -665,6 +739,8 @@ public:
   bool operator!=(const PrimitiveVectorField<T> &other) const {
     return !(*this == other);
   }
+
+  size_t SerializedSize() const { return 4 + size() * sizeof(T); }
 
 private:
   friend FieldIterator<PrimitiveVectorField, T>;
@@ -709,10 +785,16 @@ public:
   }
 
   using iterator = EnumFieldIterator<EnumVectorField, Enum>;
+  using const_iterator = EnumFieldIterator<EnumVectorField, const Enum>;
 
   iterator begin() { return iterator(this, BaseOffset()); }
   iterator end() {
     return iterator(this, BaseOffset() + NumElements() * sizeof(T));
+  }
+
+  const_iterator begin() const { return const_iterator(this, BaseOffset()); }
+  const_iterator end() const {
+    return const_iterator(this, BaseOffset() + NumElements() * sizeof(T));
   }
 
   void push_back(const Enum &v) {
@@ -761,6 +843,8 @@ public:
     return !(*this == other);
   }
 
+  size_t SerializedSize() const { return 4 + size() * sizeof(T); }
+
 private:
   friend EnumFieldIterator<EnumVectorField, Enum>;
   VectorHeader *Header() const {
@@ -801,6 +885,8 @@ public:
   MessageType &operator*() { return msg_; }
   MessageType *operator->() { return &msg_; }
 
+  MessageType &Get() { return msg_; }
+
   BufferOffset BinaryEndOffset() const {
     return msg_.absolute_binary_offset + MessageType::BinarySize();
   }
@@ -812,6 +898,8 @@ public:
   bool operator!=(const NonEmbeddedMessageField<MessageType> &other) const {
     return !(*this == other);
   }
+
+  size_t SerializedSize() const { return msg_.SerializedSize(); }
 
 private:
   template <typename T> friend class MessageVectorField;
@@ -849,9 +937,13 @@ public:
   NonEmbeddedMessageField<T> &operator[](int index) { return msgs_[index]; }
 
   using iterator = typename std::vector<NonEmbeddedMessageField<T>>::iterator;
+  using const_iterator =
+      typename std::vector<NonEmbeddedMessageField<T>>::const_iterator;
 
   iterator begin() { return msgs_.begin(); }
   iterator end() { return msgs_.end(); }
+  const_iterator begin() const { return msgs_.begin(); }
+  const_iterator end() const { return msgs_.end(); }
 
   void push_back(const T &v) {
     BufferOffset offset = v.absolute_binary_offset;
@@ -914,6 +1006,14 @@ public:
   }
   bool operator!=(const MessageVectorField<T> &other) const {
     return !(*this == other);
+  }
+
+  size_t SerializedSize() const {
+    size_t n = 4;
+    for (auto &msg : msgs_) {
+      n += msg.SerializedSize();
+    }
+    return n;
   }
 
 private:
@@ -984,11 +1084,19 @@ public:
   bool operator==(const NonEmbeddedStringField &other) const {
     return Get() == other.Get();
   }
-  bool operator!=(const NonEmbeddedStringField &other) const { return !(*this == other); }
+  bool operator!=(const NonEmbeddedStringField &other) const {
+    return !(*this == other);
+  }
 
   size_t size() const {
     return GetBuffer()->StringSize(relative_binary_offset_);
   }
+
+  const char *data() const {
+    return GetBuffer()->StringData(relative_binary_offset_);
+  }
+
+  size_t SerializedSize() const { return 4 + size(); }
 
 private:
   template <int N> friend class StringArrayField;
@@ -1043,9 +1151,14 @@ public:
   NonEmbeddedStringField &operator[](int index) { return strings_[index]; }
 
   using iterator = typename std::vector<NonEmbeddedStringField>::iterator;
+  using const_iterator =
+      typename std::vector<NonEmbeddedStringField>::const_iterator;
 
   iterator begin() { return strings_.begin(); }
   iterator end() { return strings_.end(); }
+
+  const_iterator begin() const { return strings_.begin(); }
+  const_iterator end() const { return strings_.end(); }
 
   size_t size() const { return strings_.size(); }
   NonEmbeddedStringField *data() { return strings_.data(); }
@@ -1114,7 +1227,17 @@ public:
   bool operator==(const StringVectorField &other) const {
     return strings_ == other.strings_;
   }
-  bool operator!=(const StringVectorField &other) const { return !(*this == other); }
+  bool operator!=(const StringVectorField &other) const {
+    return !(*this == other);
+  }
+
+  size_t SerializedSize() const {
+    size_t n = 4;
+    for (auto &s : strings_) {
+      n += s.SerializedSize();
+    }
+    return n;
+  }
 
 private:
   VectorHeader *Header() const {

@@ -287,7 +287,7 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
         "len);\n";
   os << "  absl::Status DeserializeFromBuffer(davros::serdes::Buffer& "
         "buffer);\n";
-  os << "  size_t SerializedLength() const;\n";
+  os << "  size_t SerializedSize() const;\n";
   os << "  bool operator==(const " << msg.Name() << "& m) const;\n";
   os << "  bool operator!=(const " << msg.Name() << "& m) const {\n";
   os << "    return !this->operator==(m);\n";
@@ -526,7 +526,7 @@ absl::Status Generator::GenerateDeserializer(const Message &msg,
 }
 
 absl::Status Generator::GenerateLength(const Message &msg, std::ostream &os) {
-  os << "size_t " << msg.Name() << "::SerializedLength() const {\n";
+  os << "size_t " << msg.Name() << "::SerializedSize() const {\n";
   os << "  size_t length = 0;\n";
   for (auto &field : msg.Fields()) {
     if (field->Type() == FieldType::kMessage) {
@@ -535,7 +535,7 @@ absl::Status Generator::GenerateLength(const Message &msg, std::ostream &os) {
         os << "  length += " << EnumCSize(*msg_field->Msg()) << ";\n";
       } else {
         os << "  length += this->" << SanitizeFieldName(field->Name())
-           << ".SerializedLength();\n";
+           << ".SerializedSize();\n";
       }
     } else if (field->IsArray()) {
       auto array = std::static_pointer_cast<ArrayField>(field);

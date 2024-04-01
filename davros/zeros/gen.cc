@@ -12,20 +12,33 @@ namespace davros::zeros {
 template <class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template <class... Ts> overloaded(Ts...)->overloaded<Ts...>;
 
-  std::string Generator::Namespace(bool prefix_colon_colon) {
-    std::string ns;
-    if (namespace_.empty()) {
-      return ns;
-    }
-    if (prefix_colon_colon) {
-      ns = "::";
-    }
-    ns += namespace_;
-    if (!prefix_colon_colon) {
-      ns += "::";
-    }
+std::string Generator::Namespace(bool prefix_colon_colon) {
+  std::string ns;
+  if (namespace_.empty()) {
     return ns;
   }
+  if (prefix_colon_colon) {
+    ns = "::";
+  }
+  ns += namespace_;
+  if (!prefix_colon_colon) {
+    ns += "::";
+  }
+  return ns;
+}
+
+std::shared_ptr<Field> Generator::ResolveField(std::shared_ptr<Field> field) {
+  if (field->IsArray()) {
+    auto array = std::static_pointer_cast<ArrayField>(field);
+    return array->Base();
+  }
+  return field;
+}
+
+static bool IsEnum(std::shared_ptr<Field> field) {
+  auto msg_field = std::static_pointer_cast<MessageField>(field);
+  return msg_field->Msg()->IsEnum();
+}
 
 absl::Status Generator::Generate(const Message &msg) {
   std::filesystem::path dir =
@@ -141,45 +154,6 @@ static std::string FieldCType(FieldType type) {
   }
 }
 
-static std::string FieldAlignmentType(std::shared_ptr<Field> field) {
-  switch (field->Type()) {
-  case FieldType::kInt8:
-    return "int8_t";
-  case FieldType::kUint8:
-    return "uint8_t";
-  case FieldType::kInt16:
-    return "int16_t";
-  case FieldType::kUint16:
-    return "uint16_t";
-  case FieldType::kInt32:
-    return "int32_t";
-  case FieldType::kUint32:
-    return "uint32_t";
-  case FieldType::kInt64:
-    return "int64_t";
-  case FieldType::kUint64:
-    return "uint64_t";
-  case FieldType::kFloat32:
-    return "float";
-  case FieldType::kFloat64:
-    return "double";
-  case FieldType::kTime:
-    return "int32_t";
-  case FieldType::kDuration:
-    return "int32_t";
-  case FieldType::kString:
-    return "int32_t";
-  case FieldType::kBool:
-    return "uint8_t";
-  case FieldType::kMessage:
-    return "int32_t";
-  case FieldType::kUnknown:
-    std::cerr << "Unknown field type for " << field->Name() << " "
-              << int(field->Type()) << std::endl;
-    abort();
-  }
-}
-
 static std::string ConstantCType(FieldType type) {
   switch (type) {
   case FieldType::kInt8:
@@ -265,8 +239,52 @@ static std::string EnumCType(const Message &msg) {
   }
 }
 
-std::string Generator::MessageFieldTypeName(const Message &msg,
-                                        std::shared_ptr<MessageField> field) {
+static std::string FieldAlignmentType(std::shared_ptr<Field> field) {
+  switch (field->Type()) {
+  case FieldType::kInt8:
+    return "int8_t";
+  case FieldType::kUint8:
+    return "uint8_t";
+  case FieldType::kInt16:
+    return "int16_t";
+  case FieldType::kUint16:
+    return "uint16_t";
+  case FieldType::kInt32:
+    return "int32_t";
+  case FieldType::kUint32:
+    return "uint32_t";
+  case FieldType::kInt64:
+    return "int64_t";
+  case FieldType::kUint64:
+    return "uint64_t";
+  case FieldType::kFloat32:
+    return "float";
+  case FieldType::kFloat64:
+    return "double";
+  case FieldType::kTime:
+    return "int32_t";
+  case FieldType::kDuration:
+    return "int32_t";
+  case FieldType::kString:
+    return "int32_t";
+  case FieldType::kBool:
+    return "uint8_t";
+  case FieldType::kMessage:
+    if (IsEnum(field)) {
+      auto msg_field = std::static_pointer_cast<MessageField>(field);
+      return EnumCType(*msg_field->Msg());
+    }
+    return "int32_t";
+  case FieldType::kUnknown:
+    std::cerr << "Unknown field type for " << field->Name() << " "
+              << int(field->Type()) << std::endl;
+    abort();
+  }
+}
+
+std::string
+Generator::MessageFieldTypeName(const Message &msg,
+                                std::shared_ptr<MessageField> field) {
   std::string name;
   if (field->MsgPackage().empty()) {
     return msg.Package()->Name() + "::" + Namespace(false) + field->MsgName();
@@ -323,7 +341,8 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
       return status;
     }
   }
-  os << "}    // namespace " << msg.Package()->Name() << Namespace(true) << "\n";
+  os << "}    // namespace " << msg.Package()->Name() << Namespace(true)
+     << "\n";
   return absl::OkStatus();
 }
 
@@ -445,19 +464,6 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
   return absl::OkStatus();
 }
 
-std::shared_ptr<Field> Generator::ResolveField(std::shared_ptr<Field> field) {
-  if (field->IsArray()) {
-    auto array = std::static_pointer_cast<ArrayField>(field);
-    return array->Base();
-  }
-  return field;
-}
-
-static bool IsEnum(std::shared_ptr<Field> field) {
-  auto msg_field = std::static_pointer_cast<MessageField>(field);
-  return msg_field->Msg()->IsEnum();
-}
-
 absl::Status Generator::GenerateFieldInitializers(const Message &msg,
                                                   std::ostream &os,
                                                   const char *sep) {
@@ -546,14 +552,21 @@ absl::Status Generator::GenerateBinarySize(const Message &msg,
   os << "    size_t offset = 0;\n";
 
   auto align = [this, &os, msg](std::shared_ptr<Field> prev,
-                          std::shared_ptr<Field> field) {
-    prev = ResolveField(prev);
-    field = ResolveField(field);
+                                std::shared_ptr<Field> field) {
+    auto resolved_prev = ResolveField(prev);
+    auto resolved_field = ResolveField(field);
     // The new offset is calculated by adding the current offset to the size
     // of the previous field and then aligning it to the alignment of the
     // current field.
-    os << "    offset = davros::zeros::AlignedOffset<"
-       << FieldAlignmentType(field) << ">(";
+    os << "    /* ";
+    if (prev == field) {
+      // END field
+      os << "END */ ";
+    } else {
+      os << field->Name() << " */ ";
+    }
+    os << "offset = davros::zeros::AlignedOffset<"
+       << FieldAlignmentType(resolved_field) << ">(";
     os << "offset + ";
     if (prev->Type() == FieldType::kMessage) {
       auto msg_field = std::static_pointer_cast<MessageField>(prev);
@@ -576,22 +589,22 @@ absl::Status Generator::GenerateBinarySize(const Message &msg,
                << array->Size() << ");\n";
           }
         } else {
-          os << "sizeof(" << FieldCType(prev->Type()) << ") * " << array->Size()
-             << ");\n";
+          os << "sizeof(" << FieldCType(resolved_prev->Type()) << ") * "
+             << array->Size() << ");\n";
         }
       } else {
         os << "sizeof(davros::zeros::VectorHeader));\n";
       }
     } else {
-      os << "sizeof(" << FieldCType(prev->Type()) << "));\n";
+      os << "sizeof(" << FieldCType(resolved_prev->Type()) << "));\n";
     }
   };
 
   // The remaining fields are aligned by their type from the end of the
   // previous field.
   for (size_t i = 1; i < fields.size(); i++) {
-    auto &prev = fields[i - 1];
-    auto &field = fields[i];
+    auto prev = fields[i - 1];
+    auto field = fields[i];
     align(prev, field);
   }
   // Last field.
@@ -647,7 +660,8 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   // os << "  s << *this;\n";
   // os << "  return s.str();\n";
   // os << "}\n";
-  os << "}    // namespace " << msg.Package()->Name() << Namespace(true) << "\n";
+  os << "}    // namespace " << msg.Package()->Name() << Namespace(true)
+     << "\n";
 
   return absl::OkStatus();
 }

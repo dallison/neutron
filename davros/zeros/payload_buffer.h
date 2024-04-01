@@ -45,9 +45,7 @@ struct PayloadBuffer {
     InitFreeList();
   }
 
-  size_t Size() const {
-    return size_t(hwm);
-  }
+  size_t Size() const { return size_t(hwm); }
 
   // Allocate space for the main message in the buffer and set the
   // 'message' field to its offset.
@@ -63,8 +61,20 @@ struct PayloadBuffer {
   // Allocate space for the string.
   // 'header_offset' is the offset into the buffer of the StringHeader.
   // The string is copied in.
-  static char *SetString(PayloadBuffer **self, const std::string &s,
+
+  // C-string style (allows for no allocation of std::string).
+  static char *SetString(PayloadBuffer **self, const char *s, size_t len,
                          BufferOffset header_offset);
+
+  static char *SetString(PayloadBuffer **self, const std::string &s,
+                         BufferOffset header_offset) {
+    return SetString(self, s.data(), s.size(), header_offset);
+  }
+
+  static char *SetString(PayloadBuffer **self, const std::string_view s,
+                         BufferOffset header_offset) {
+    return SetString(self, s.data(), s.size(), header_offset);
+  }
 
   bool IsNull(BufferOffset offset) {
     BufferOffset *p = ToAddress<BufferOffset>(offset);
@@ -94,14 +104,14 @@ struct PayloadBuffer {
     return StringSize(ToAddress<const BufferOffset>(header_offset));
   }
 
- const char* StringData(BufferOffset header_offset) const {
+  const char *StringData(BufferOffset header_offset) const {
     return StringData(ToAddress<const BufferOffset>(header_offset));
   }
 
   std::string GetString(const StringHeader *addr) const;
   std::string_view GetStringView(const StringHeader *addr) const;
   size_t StringSize(const StringHeader *addr) const;
-  const char* StringData(const StringHeader *addr) const;
+  const char *StringData(const StringHeader *addr) const;
 
   template <typename T>
   T VectorGet(const VectorHeader *hdr, size_t index) const;

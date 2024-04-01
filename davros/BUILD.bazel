@@ -97,6 +97,10 @@ cc_library(
         "zeros/message.h",
         "zeros/payload_buffer.h",
         "zeros/runtime.h",
+        "zeros/arrays.h",
+        "zeros/fields.h",
+        "zeros/iterators.h",
+        "zeros/vectors.h",
     ],
     deps = [
         ":common_runtime",

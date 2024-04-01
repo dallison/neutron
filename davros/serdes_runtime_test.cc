@@ -11,7 +11,7 @@ TEST(Runtime, FixedBuffer) {
   other.bar = "foobar";
   other.value = 1234;
 
-  size_t size = other.SerializedLength();
+  size_t size = other.SerializedSize();
   std::cerr << "length " << size << std::endl;
   char buffer[256];
   memset(buffer, 0xda, sizeof(buffer));
@@ -37,7 +37,7 @@ TEST(Runtime, DynamicBuffer) {
   other.bar = "foobar";
   other.value = 1234;
 
-  size_t size = other.SerializedLength();
+  size_t size = other.SerializedSize();
   std::cerr << "length " << size << std::endl;
   davros::serdes::Buffer buffer;
   auto status = other.SerializeToBuffer(buffer);

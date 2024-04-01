@@ -8,7 +8,7 @@ TEST(GenTest, HeaderMessage) {
   auto status = scanner->ParseAllMessages();
   ASSERT_TRUE(status.ok());
 
-  davros::serdes::Generator gen("/tmp", "", "");
+  davros::serdes::Generator gen("/tmp", "", "", "");
   std::shared_ptr<davros::Package> package = scanner->FindPackage("std_msgs");
   ASSERT_NE(nullptr, package);
   for (auto & [ mname, msg ] : package->Messages()) {

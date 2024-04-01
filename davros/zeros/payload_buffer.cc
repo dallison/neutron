@@ -16,7 +16,7 @@ void PayloadBuffer::AllocateMetadata(PayloadBuffer **self, void *md,
   (*self)->metadata = (*self)->ToOffset(m);
 }
 
-char *PayloadBuffer::SetString(PayloadBuffer **self, const std::string &s,
+char *PayloadBuffer::SetString(PayloadBuffer **self, const char* s, size_t len,
                                     BufferOffset header_offset) {
                                         // Get address of the string header
   BufferOffset *hdr = (*self)->ToAddress<BufferOffset>(header_offset);                              
@@ -29,13 +29,13 @@ char *PayloadBuffer::SetString(PayloadBuffer **self, const std::string &s,
   // If this contains a valid (non-zero) offset, reallocate the
   // data it points to, otherwise allocate new data.
   if (old_str != nullptr) {
-    str = Realloc(self, old_str, s.size() + 4, 4, false);
+    str = Realloc(self, old_str, len + 4, 4, false);
   } else {
-    str = Allocate(self, s.size() + 4, 4, false);
+    str = Allocate(self, len + 4, 4, false);
   }
   uint32_t *p = reinterpret_cast<uint32_t *>(str);
-  p[0] = uint32_t(s.size());
-  memcpy(p + 1, s.data(), s.size());
+  p[0] = uint32_t(len);
+  memcpy(p + 1, s, len);
 
   // The buffer may have moved.  Reassign the address of the string
   // back into the header.

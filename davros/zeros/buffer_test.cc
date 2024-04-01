@@ -106,13 +106,13 @@ TEST(BufferTest, String) {
   toolbelt::Hexdump(pb, pb->hwm);
   BufferOffset offset = pb->ToOffset(addr);
 
-  char *s = PayloadBuffer::SetString(&pb, "foobar", offset);
+  char *s = PayloadBuffer::SetString(&pb, std::string("foobar"), offset);
   std::cout << "String allocated at " << (void *)s << std::endl;
 
   toolbelt::Hexdump(pb, pb->hwm);
 
   // Now put in a bigger string, replacing the old one.
-  s = PayloadBuffer::SetString(&pb, "foobar has been replaced", offset);
+  s = PayloadBuffer::SetString(&pb, std::string("foobar has been replaced"), offset);
   std::cout << "New string allocated at " << (void *)s << std::endl;
 
   toolbelt::Hexdump(pb, pb->hwm);

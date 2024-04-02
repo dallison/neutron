@@ -329,7 +329,7 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
         os << "  for (auto& m : msg." << SanitizeFieldName(field->Name())
            << ") {\n";
         if (msg_field->Msg()->IsEnum()) {
-          os << "  os << " << EnumCType(*msg_field->Msg())
+          os << "    os << " << EnumCType(*msg_field->Msg())
              << "(m) << std::endl;\n";
         } else {
           os << "    os << m.DebugString();\n";
@@ -436,7 +436,7 @@ absl::Status Generator::GenerateSerializer(const Message &msg,
         os << "  for (auto& m : this->" << SanitizeFieldName(field->Name())
            << ") {\n";
         if (msg_field->Msg()->IsEnum()) {
-          os << "  if (absl::Status status = buffer.Write("
+          os << "    if (absl::Status status = buffer.Write("
              << EnumCType(*msg_field->Msg())
              << "(m)); "
                 "!status.ok()) return status;\n";
@@ -489,28 +489,28 @@ absl::Status Generator::GenerateDeserializer(const Message &msg,
         auto msg_field = std::static_pointer_cast<MessageField>(array->Base());
         os << "  {\n";
         if (array->IsFixedSize()) {
-          os << "  int32_t size = " << array->Size() << ";\n";
+          os << "    int32_t size = " << array->Size() << ";\n";
         } else {
-          os << "  int32_t size;\n";
-          os << "  if (absl::Status status = buffer.Read(size); "
+          os << "    int32_t size;\n";
+          os << "    if (absl::Status status = buffer.Read(size); "
                 "!status.ok()) "
                 "return status;\n";
         }
-        os << "  for (int32_t i = 0; i < size; i++) {\n";
+        os << "    for (int32_t i = 0; i < size; i++) {\n";
         if (msg_field->Msg()->IsEnum()) {
-          os << "    " << EnumCType(*msg_field->Msg()) << " v;\n";
-          os << "    if (absl::Status status = buffer.Read(v); !status.ok()) "
+          os << "        " << EnumCType(*msg_field->Msg()) << " v;\n";
+          os << "        if (absl::Status status = buffer.Read(v); !status.ok()) "
                 "return status;\n";
-          os << "    this->" << SanitizeFieldName(field->Name())
+          os << "        this->" << SanitizeFieldName(field->Name())
              << "[i] = static_cast<" << MessageFieldTypeName(msg, msg_field)
              << ">(v);\n";
-          os << "  }\n";
+          os << "    }\n";
         } else {
-          os << "    if (absl::Status status = this->"
+          os << "      if (absl::Status status = this->"
              << SanitizeFieldName(field->Name())
              << "[i].DeserializeFromBuffer(buffer)"
              << "; !status.ok()) return status;\n";
-          os << "  }\n";
+          os << "    }\n";
         }
         os << "  }\n";
       } else {

@@ -90,8 +90,8 @@ cc_library(
         "serdes/gen.h",
     ],
     deps = [
-        ":common_runtime",
         ":common_gen",
+        ":common_runtime",
         ":descriptor",
         ":msglib",
         "@com_google_absl//absl/container:flat_hash_set",
@@ -130,9 +130,10 @@ cc_library(
         "zeros/gen.h",
     ],
     deps = [
+        ":common_gen",
+        ":descriptor",
         ":msglib",
         ":zeros_runtime",
-        ":common_gen",
         "@com_google_absl//absl/container:flat_hash_set",
     ],
 )

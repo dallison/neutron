@@ -122,6 +122,11 @@ public:
     return *this;
   }
 
+  T front() { return (*this)[0]; }
+  const T front() const { return (*this)[0]; }
+  T back() { return (*this)[N - 1]; }
+  const T back() const { return (*this)[N - 1]; }
+
   std::array<T, N> Get() const {
     std::array<T, N> v;
     for (size_t i = 0; i < N; i++) {
@@ -201,6 +206,11 @@ public:
     const T *base = GetBuffer()->template ToAddress<const T>(BaseOffset());
     return *reinterpret_cast<const Enum *>(&base[index]);
   }
+
+  Enum front() { return (*this)[0]; }
+  const Enum front() const { return (*this)[0]; }
+  Enum back() { return (*this)[N - 1]; }
+  const Enum back() const { return (*this)[N - 1]; }
 
   const std::array<Enum, N> Get() const {
     std::array<Enum, N> r;
@@ -299,6 +309,11 @@ public:
   bool empty() const { return N == 0; }
   size_t max_size() const { return N; }
 
+  T& front() { return msgs_.front(); }
+  const T& front() const { return msgs_.front(); }
+  T& back() { return msgs_.back(); }
+  const T& back() const { return msgs_.back(); }
+
   BufferOffset BinaryEndOffset() const {
     return relative_binary_offset_ + T::BinarySize() * N;
   }
@@ -346,6 +361,11 @@ public:
   }
 
   StringField &operator[](int index) { return strings_[index]; }
+
+  StringField& front() { return strings_.front(); }
+  const StringField& front() const { return strings_.front(); }
+  StringField& back() { return strings_.back(); }
+  const StringField& back() const { return strings_.back(); }
 
   std::array<StringField, N> &Get() { return strings_; }
   const std::array<StringField, N> &Get() const { return strings_; }

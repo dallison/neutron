@@ -119,6 +119,11 @@ public:
     return base[index];
   }
 
+  T front() { return (*this)[0]; }
+  const T front() const { return (*this)[0]; }
+  T back() { return (*this)[size() - 1]; }
+  const T back() const { return (*this)[size() - 1]; }
+
   std::vector<T> Get() const {
     std::vector<T> v;
     size_t n = size();
@@ -227,10 +232,15 @@ public:
     return *reinterpret_cast<Enum *>(&base[index]);
   }
 
- const Enum &operator[](int index) const {
+  const Enum &operator[](int index) const {
     const T *base = GetBuffer()->template ToAddress<const T>(BaseOffset());
     return *reinterpret_cast<const Enum *>(&base[index]);
   }
+
+  Enum front() { return (*this)[0]; }
+  const Enum front() const { return (*this)[0]; }
+  Enum back() { return (*this)[size() - 1]; }
+  const Enum back() const { return (*this)[size() - 1]; }
 
   const std::vector<Enum> Get() const {
     size_t n = size();
@@ -354,6 +364,11 @@ public:
 
   NonEmbeddedMessageField<T> &operator[](int index) { return msgs_[index]; }
 
+  NonEmbeddedMessageField<T>& front() { return msgs_.front(); }
+  const NonEmbeddedMessageField<T>& front() const { return msgs_.front(); }
+  NonEmbeddedMessageField<T>& back() { return msgs_.back(); }
+  const NonEmbeddedMessageField<T>& back() const { return msgs_.back(); }
+
 #define RTYPE std::vector<NonEmbeddedMessageField<T>>
   DECLARE_VECTOR_ARRAY_BITS(NonEmbeddedMessageField<T>, RTYPE, msgs_)
 #undef RTYPE
@@ -430,13 +445,9 @@ public:
     return n;
   }
 
-std::vector<NonEmbeddedMessageField<T>>& Get() {
-  return msgs_;
-}
+  std::vector<NonEmbeddedMessageField<T>> &Get() { return msgs_; }
 
-const std::vector<NonEmbeddedMessageField<T>>& Get() const {
-  return msgs_;
-}
+  const std::vector<NonEmbeddedMessageField<T>> &Get() const { return msgs_; }
 
 private:
   friend FieldIterator<MessageVectorField, T>;
@@ -518,6 +529,11 @@ public:
   size_t size() const { return strings_.size(); }
   NonEmbeddedStringField *data() { return strings_.data(); }
   bool empty() const { return size() == 0; }
+
+  NonEmbeddedStringField& front() { return strings_.front(); }
+  const NonEmbeddedStringField& front() const { return strings_.front(); }
+  NonEmbeddedStringField& back() { return strings_.back(); }
+  const NonEmbeddedStringField& back() const { return strings_.back(); }
 
   std::vector<NonEmbeddedStringField> &Get() { return strings_; }
   const std::vector<NonEmbeddedStringField> &Get() const { return strings_; }

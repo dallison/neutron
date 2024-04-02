@@ -82,3 +82,5 @@ Enum16[] ve16
 Enum32[] ve32
 Enum64[] ve64
 
+int32 auto
+int64 virtual

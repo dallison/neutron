@@ -255,6 +255,11 @@ public:
             GetMessageBinaryStart() + relative_binary_offset_));
   }
 
+  T GetUnderlying() const {
+    return GetBuffer()->template Get<typename std::underlying_type<Enum>::type>(
+        GetMessageBinaryStart() + relative_binary_offset_);
+  }
+
   void Set(Enum e) {
     GetBuffer()->Set(GetMessageBinaryStart() + relative_binary_offset_,
                      static_cast<typename std::underlying_type<Enum>::type>(e));
@@ -307,6 +312,9 @@ public:
   MessageType &operator*() { return msg_; }
   MessageType *operator->() { return &msg_; }
 
+  MessageType &Get() { return msg_; }
+  const MessageType &Get() const { return msg_; }
+
   BufferOffset BinaryEndOffset() const {
     return relative_binary_offset_ + MessageType::BinarySize();
   }
@@ -350,6 +358,7 @@ public:
   MessageType *operator->() { return &msg_; }
 
   MessageType &Get() { return msg_; }
+  const MessageType &Get() const { return msg_; }
 
   BufferOffset BinaryEndOffset() const {
     return msg_.absolute_binary_offset + MessageType::BinarySize();
@@ -361,6 +370,14 @@ public:
   }
   bool operator!=(const NonEmbeddedMessageField<MessageType> &other) const {
     return !(*this == other);
+  }
+
+  absl::Status SerializeToBuffer(Buffer &buffer) const {
+    return msg_.SerializeToBuffer(buffer);
+  }
+
+  absl::Status DeserializeFromBuffer(Buffer &buffer) {
+    return msg_.DeserializeFromBuffer(buffer);
   }
 
   size_t SerializedSize() const { return msg_.SerializedSize(); }

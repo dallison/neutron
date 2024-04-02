@@ -30,6 +30,16 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "common_gen",
+    hdrs = [
+        "common_gen.h",
+    ],
+    deps = [
+        "@com_google_absl//absl/container:flat_hash_set",
+    ],
+)
+
 cc_test(
     name = "lex_test",
     srcs = [
@@ -81,6 +91,7 @@ cc_library(
     ],
     deps = [
         ":common_runtime",
+        ":common_gen",
         ":descriptor",
         ":msglib",
         "@com_google_absl//absl/container:flat_hash_set",
@@ -93,13 +104,13 @@ cc_library(
         "zeros/payload_buffer.cc",
     ],
     hdrs = [
+        "zeros/arrays.h",
         "zeros/buffer.h",
+        "zeros/fields.h",
+        "zeros/iterators.h",
         "zeros/message.h",
         "zeros/payload_buffer.h",
         "zeros/runtime.h",
-        "zeros/arrays.h",
-        "zeros/fields.h",
-        "zeros/iterators.h",
         "zeros/vectors.h",
     ],
     deps = [
@@ -121,6 +132,7 @@ cc_library(
     deps = [
         ":msglib",
         ":zeros_runtime",
+        ":common_gen",
         "@com_google_absl//absl/container:flat_hash_set",
     ],
 )
@@ -240,6 +252,34 @@ cc_test(
     ],
 )
 
+davros_serdes_library(
+    name = "serdes_all_msgs",
+    srcs = [
+        "testdata/test_msgs/msg/All.msg",
+        "testdata/test_msgs/msg/Enum16.msg",
+        "testdata/test_msgs/msg/Enum32.msg",
+        "testdata/test_msgs/msg/Enum64.msg",
+        "testdata/test_msgs/msg/Enum8.msg",
+        "testdata/test_msgs/msg/Nested.msg",
+    ],
+    add_namespace = "serdes",
+    runtime = ":serdes_runtime",
+)
+
+davros_zeros_library(
+    name = "zeros_all_msgs",
+    srcs = [
+        "testdata/test_msgs/msg/All.msg",
+        "testdata/test_msgs/msg/Enum16.msg",
+        "testdata/test_msgs/msg/Enum32.msg",
+        "testdata/test_msgs/msg/Enum64.msg",
+        "testdata/test_msgs/msg/Enum8.msg",
+        "testdata/test_msgs/msg/Nested.msg",
+    ],
+    add_namespace = "zeros",
+    runtime = ":zeros_runtime",
+)
+
 cc_test(
     name = "zeros_runtime_test",
     srcs = [
@@ -249,8 +289,10 @@ cc_test(
         ":msgs",
     ],
     deps = [
+        ":serdes_all_msgs",
         ":serdes_other_msgs",
         ":serdes_runtime",
+        ":zeros_all_msgs",
         ":zeros_other_msgs",
         ":zeros_runtime",
         "@com_google_googletest//:gtest",

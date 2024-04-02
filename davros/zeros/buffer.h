@@ -97,6 +97,24 @@ public:
     v.Set(*reinterpret_cast<type *>(addr_));                                   \
     addr_ += v.SerializedSize();                                               \
     return absl::OkStatus();                                                   \
+  }                                                                            \
+                                                                               \
+  absl::Status Write(type v) {                                                 \
+    if (absl::Status status = HasSpaceFor(sizeof(type)); !status.ok()) {       \
+      return status;                                                           \
+    }                                                                          \
+    memcpy(addr_, &v, sizeof(type));                                           \
+    addr_ += sizeof(type);                                                     \
+    return absl::OkStatus();                                                   \
+  }                                                                            \
+                                                                               \
+  absl::Status Read(type &v) {                                                 \
+    if (absl::Status status = Check(sizeof(type)); !status.ok()) {             \
+      return status;                                                           \
+    }                                                                          \
+    v = *reinterpret_cast<type *>(addr_);                                      \
+    addr_ += sizeof(type);                                                     \
+    return absl::OkStatus();                                                   \
   }
 
   PRIMITIVE_FUNCS(Int8, int8_t)
@@ -208,7 +226,7 @@ public:
     memcpy(addr_, &size, sizeof(size));
     memcpy(addr_ + 4, vec.data(), size * sizeof(T));
     addr_ += vec.SerializedSize();
-   return absl::OkStatus();
+    return absl::OkStatus();
   }
 
   template <typename T> absl::Status Read(PrimitiveVectorField<T> &vec) {
@@ -289,7 +307,7 @@ public:
     }
     memcpy(addr_, vec.data(), N * sizeof(T));
     addr_ += vec.SerializedSize();
-   return absl::OkStatus();
+    return absl::OkStatus();
   }
 
   template <typename T, int N>

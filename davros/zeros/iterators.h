@@ -17,7 +17,7 @@ namespace davros::zeros {
 
 
 template <typename Field, typename T> struct FieldIterator {
-  FieldIterator(Field *f, BufferOffset o, bool r = false)
+  FieldIterator(const Field *f, BufferOffset o, bool r = false)
       : field(f), offset(o), reverse(r) {}
 
   FieldIterator &operator++() {
@@ -38,15 +38,15 @@ template <typename Field, typename T> struct FieldIterator {
   }
   FieldIterator operator+(size_t i) {
     if (reverse) {
-      return iterator(field, field->BaseOffset() - i * sizeof(T));
+      return FieldIterator(field, field->BaseOffset() - i * sizeof(T), true);
     }
-    return iterator(field, field->BaseOffset() + i * sizeof(T));
+    return FieldIterator(field, field->BaseOffset() + i * sizeof(T));
   }
   FieldIterator operator-(size_t i) {
     if (reverse) {
-      return iterator(field, field->BaseOffset() + i * sizeof(T));
+      return FieldIterator(field, field->BaseOffset() + i * sizeof(T), true);
     }
-    return iterator(field, field->BaseOffset() - i * sizeof(T));
+    return FieldIterator(field, field->BaseOffset() - i * sizeof(T));
   }
   T &operator*() const {
     T *addr = field->GetBuffer()->template ToAddress<T>(offset);
@@ -58,13 +58,13 @@ template <typename Field, typename T> struct FieldIterator {
   }
   bool operator!=(const FieldIterator &it) const { return !operator==(it); }
 
-  Field *field;
+  const Field *field;
   BufferOffset offset;
   bool reverse;
 };
 
 template <typename Field> struct StringFieldIterator {
-  StringFieldIterator(Field *f, BufferOffset o, bool r = false)
+  StringFieldIterator(const Field *f, BufferOffset o, bool r = false)
       : field(f), offset(o), reverse(r) {}
 
   StringFieldIterator &operator++() {
@@ -85,15 +85,15 @@ template <typename Field> struct StringFieldIterator {
   }
   StringFieldIterator operator+(size_t i) {
     if (reverse) {
-      return iterator(field, field->BaseOffset() - i * sizeof(BufferOffset));
+      return StringFieldIterator(field, field->BaseOffset() - i * sizeof(BufferOffset), true);
     }
-    return iterator(field, field->BaseOffset() + i * sizeof(BufferOffset));
+    return StringFieldIterator(field, field->BaseOffset() + i * sizeof(BufferOffset));
   }
   StringFieldIterator operator-(size_t i) {
     if (reverse) {
-      return iterator(field, field->BaseOffset() + i * sizeof(BufferOffset));
+      return StringFieldIterator(field, field->BaseOffset() + i * sizeof(BufferOffset), true);
     }
-    return iterator(field, field->BaseOffset() - i * sizeof(BufferOffset));
+    return StringFieldIterator(field, field->BaseOffset() - i * sizeof(BufferOffset));
   }
   std::string_view operator*() const {
     return field->GetBuffer()->GetStringView(field->BaseOffset() + offset);
@@ -106,13 +106,13 @@ template <typename Field> struct StringFieldIterator {
     return !operator==(it);
   }
 
-  Field *field;
+  const Field *field;
   BufferOffset offset;
   bool reverse;
 };
 
 template <typename Field, typename T> struct EnumFieldIterator {
-  EnumFieldIterator(Field *f, BufferOffset o, bool r = false)
+  EnumFieldIterator(const Field *f, BufferOffset o, bool r = false)
       : field(f), offset(o), reverse(r) {}
 
   EnumFieldIterator &operator++() {
@@ -133,18 +133,18 @@ template <typename Field, typename T> struct EnumFieldIterator {
   }
   EnumFieldIterator operator+(size_t i) {
     if (reverse) {
-      return iterator(field, field->BaseOffset() -
-                                 i * sizeof(std::underlying_type<T>::type));
+      return EnumFieldIterator(field, field->BaseOffset() -
+                                 i * sizeof(std::underlying_type<T>::type), true);
     }
-    return iterator(field, field->BaseOffset() +
+    return EnumFieldIterator(field, field->BaseOffset() +
                                i * sizeof(std::underlying_type<T>::type));
   }
   EnumFieldIterator operator-(size_t i) {
     if (reverse) {
-      return iterator(field, field->BaseOffset() +
-                                 i * sizeof(std::underlying_type<T>::type));
+      return EnumFieldIterator(field, field->BaseOffset() +
+                                 i * sizeof(std::underlying_type<T>::type), true);
     }
-    return iterator(field, field->BaseOffset() -
+    return EnumFieldIterator(field, field->BaseOffset() -
                                i * sizeof(std::underlying_type<T>::type));
   }
 
@@ -159,7 +159,7 @@ template <typename Field, typename T> struct EnumFieldIterator {
   }
   bool operator!=(const EnumFieldIterator &it) const { return !operator==(it); }
 
-  Field *field;
+  const Field *field;
   BufferOffset offset;
   bool reverse;
 };

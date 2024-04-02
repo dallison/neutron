@@ -1,7 +1,7 @@
 #pragma once
 
-#include <stdint.h>
 #include <iostream>
+#include <stdint.h>
 
 namespace davros {
 
@@ -15,7 +15,7 @@ struct Time {
   bool operator!=(const Time &t) const { return !this->operator==(t); }
 };
 
-inline std::ostream& operator<<(std::ostream& os, const Time& t) {
+inline std::ostream &operator<<(std::ostream &os, const Time &t) {
   os << "secs: " << t.secs << " nsecs: " << t.nsecs;
   return os;
 }
@@ -31,7 +31,7 @@ struct Duration {
   bool operator!=(const Duration &d) const { return !this->operator==(d); }
 };
 
-inline std::ostream& operator<<(std::ostream& os, const Duration& d) {
+inline std::ostream &operator<<(std::ostream &os, const Duration &d) {
   os << "secs: " << d.secs << " nsecs: " << d.nsecs;
   return os;
 }
@@ -40,4 +40,6 @@ inline uint32_t AlignSize(uint32_t s,
                           uint32_t alignment = uint32_t(sizeof(uint64_t))) {
   return (s + (alignment - 1)) & ~(alignment - 1);
 }
-}
+
+
+} // namespace davros

@@ -24,6 +24,8 @@ private:
   absl::Status GenerateEmbeddedConstructor(const Message& msg, std::ostream& os);
   absl::Status GenerateNonEmbeddedConstructor(const Message& msg, std::ostream& os);
   absl::Status GenerateBinarySize(const Message& msg, std::ostream& os);
+  absl::Status GenerateStructStreamer(const Message& msg, std::ostream& os);
+  absl::Status GenerateEnumStreamer(const Message& msg, std::ostream& os);
 
   absl::Status GenerateSource(const Message& msg, std::ostream& os);
   absl::Status GenerateSerializer(const Message &msg, std::ostream &os);

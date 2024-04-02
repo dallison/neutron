@@ -1,7 +1,9 @@
-#include "davros/zeros/other_msgs/Other.h"
 #include "davros/serdes/other_msgs/Other.h"
-#include "davros/zeros/runtime.h"
 #include "davros/serdes/runtime.h"
+#include "davros/serdes/test_msgs/All.h"
+#include "davros/zeros/other_msgs/Other.h"
+#include "davros/zeros/runtime.h"
+#include "davros/zeros/test_msgs/All.h"
 #include "toolbelt/hexdump.h"
 #include <gtest/gtest.h>
 
@@ -32,7 +34,7 @@ TEST(Runtime, ZeroToSerdes) {
 
   size_t length = other.SerializedSize();
   std::cout << length << std::endl;
-  char *serdes_buffer = (char*)malloc(length);
+  char *serdes_buffer = (char *)malloc(length);
 
   auto status = other.SerializeToArray(serdes_buffer, length);
   std::cerr << status << std::endl;
@@ -57,7 +59,7 @@ TEST(Runtime, Pipeline) {
   sother.bar = "foobar";
   sother.value = 1234;
   size_t length1 = sother.SerializedSize();
-  char *serdes_buffer1 = (char*)malloc(length1);
+  char *serdes_buffer1 = (char *)malloc(length1);
 
   auto status = sother.SerializeToArray(serdes_buffer1, length1);
   std::cerr << status << std::endl;
@@ -73,9 +75,10 @@ TEST(Runtime, Pipeline) {
   PayloadBuffer::AllocateMainMessage(&pb,
                                      other_msgs::zeros::Other::BinarySize());
 
-  std::cout << "binary size: " << other_msgs::zeros::Other::BinarySize() << std::endl;
+  std::cout << "binary size: " << other_msgs::zeros::Other::BinarySize()
+            << std::endl;
   other_msgs::zeros::Other zother(std::make_shared<PayloadBuffer *>(pb),
-                                 pb->message);
+                                  pb->message);
 
   status = zother.DeserializeFromArray(serdes_buffer1, length1);
   ASSERT_TRUE(status.ok());
@@ -86,7 +89,7 @@ TEST(Runtime, Pipeline) {
 
   // Serialize zero-copy to serdes buffer.
   size_t length2 = zother.SerializedSize();
-  char *serdes_buffer2 = (char*)malloc(length2);
+  char *serdes_buffer2 = (char *)malloc(length2);
 
   status = zother.SerializeToArray(serdes_buffer2, length2);
   std::cerr << status << std::endl;
@@ -108,6 +111,59 @@ TEST(Runtime, Pipeline) {
   free(serdes_buffer1);
   free(serdes_buffer2);
   free(zbuffer);
+}
+
+TEST(Runtime, AllZeroToSerdes) {
+  char *buffer = (char *)malloc(8192);
+
+  PayloadBuffer *pb = new (buffer) PayloadBuffer(8192);
+
+  // Allocate space for a message containing an offset for the string.
+  PayloadBuffer::AllocateMainMessage(&pb, test_msgs::zeros::All::BinarySize());
+
+  test_msgs::zeros::All all(std::make_shared<PayloadBuffer *>(pb), pb->message);
+
+  // Set the fields.
+  all.i8 = 1;
+  all.ui8 = 2;
+  all.i16 = 3;
+  all.ui16 = 4;
+  all.i32 = 5;
+  all.ui32 = 6;
+  all.i64 = 7;
+  all.ui64 = 8;
+  all.f32 = 9;
+  all.f64 = 10;
+  all.s = "dave";
+  all.t = {45, 67};
+  all.d = {78, 89};
+
+  all.n->foo = 1234;
+  all.n->bar = "bar";
+
+  all.e8 = test_msgs::zeros::Enum8::X1;
+  all.e16 = test_msgs::zeros::Enum16::X2;
+  all.e32 = test_msgs::zeros::Enum32::X3;
+  all.e64 = test_msgs::zeros::Enum64::X1;
+  
+  toolbelt::Hexdump(buffer, pb->Size());
+
+  size_t length = all.SerializedSize();
+  std::cout << length << std::endl;
+  char *serdes_buffer = (char *)malloc(length);
+
+  auto status = all.SerializeToArray(serdes_buffer, length);
+  std::cerr << status << std::endl;
+  ASSERT_TRUE(status.ok());
+  toolbelt::Hexdump(serdes_buffer, length);
+
+  // Deserialize from buffer and print it:
+  test_msgs::serdes::All sall;
+  status = sall.DeserializeFromArray(serdes_buffer, length);
+  ASSERT_TRUE(status.ok());
+  std::cout << sall.DebugString();
+  free(serdes_buffer);
+  free(buffer);
 }
 
 int main(int argc, char **argv) {

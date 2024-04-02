@@ -5,6 +5,8 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "davros/common_runtime.h"
+#include "davros/zeros/fields.h"
+#include "davros/zeros/iterators.h"
 #include "davros/zeros/message.h"
 #include "davros/zeros/payload_buffer.h"
 #include <stdint.h>
@@ -64,7 +66,6 @@ namespace davros::zeros {
                                   true);                                       \
   }
 
-
 // vtype: value type
 // rtype: relay type (like std::array<T,N>)
 // relay: member to relay through
@@ -114,6 +115,13 @@ public:
     return base[index];
   }
 
+  PrimitiveArrayField &operator=(const PrimitiveArrayField &other) {
+    for (size_t i = 0; i < N; i++) {
+      (*this)[i] = other[i];
+    }
+    return *this;
+  }
+
   std::array<T, N> Get() const {
     std::array<T, N> v;
     for (size_t i = 0; i < N; i++) {
@@ -129,6 +137,8 @@ public:
 
   size_t size() const { return N; }
   T *data() const { return GetBuffer()->template ToAddress<T>(BaseOffset()); }
+  bool empty() const { return N == 0; }
+  size_t max_size() const { return N; }
 
   BufferOffset BinaryEndOffset() const {
     return relative_binary_offset_ + sizeof(T) * N;
@@ -152,6 +162,7 @@ public:
 
 private:
   friend FieldIterator<PrimitiveArrayField, T>;
+  friend FieldIterator<PrimitiveArrayField, const T>;
   BufferOffset BaseOffset() const {
     return Message::GetMessageBinaryStart(this, source_offset_) +
            relative_binary_offset_;
@@ -186,6 +197,19 @@ public:
     return *reinterpret_cast<Enum *>(&base[index]);
   }
 
+  const Enum &operator[](int index) const {
+    const T *base = GetBuffer()->template ToAddress<const T>(BaseOffset());
+    return *reinterpret_cast<const Enum *>(&base[index]);
+  }
+
+  const std::array<Enum, N> Get() const {
+    std::array<Enum, N> r;
+    for (size_t i = 0; i < N; i++) {
+      r[i] = (*this)[i];
+    }
+    return r;
+  }
+
 #define ITYPE EnumFieldIterator<EnumArrayField, value_type>
 #define CTYPE EnumFieldIterator<EnumArrayField, const value_type>
   DECLARE_ZERO_COPY_ARRAY_BITS(Enum, ITYPE, CTYPE, T)
@@ -194,6 +218,8 @@ public:
 
   size_t size() const { return N; }
   Enum *data() const { GetBuffer()->template ToAddress<Enum>(BaseOffset()); }
+  bool empty() const { return N == 0; }
+  size_t max_size() const { return N; }
 
   BufferOffset BinaryEndOffset() const {
     return relative_binary_offset_ + sizeof(T) * N;
@@ -217,6 +243,7 @@ public:
 
 private:
   friend EnumFieldIterator<EnumArrayField, Enum>;
+  friend EnumFieldIterator<EnumArrayField, const Enum>;
   BufferOffset BaseOffset() const {
     return Message::GetMessageBinaryStart(this, source_offset_) +
            relative_binary_offset_;
@@ -260,6 +287,8 @@ public:
   T &operator[](int index) { return msgs_[index]; }
 
   operator std::array<T, N> &() { return msgs_; }
+  std::array<T, N> &Get() { return msgs_; }
+  const std::array<T, N> &Get() const { return msgs_; }
 
 #define RTYPE std::array<T, N>
   DECLARE_RELAY_ARRAY_BITS(T, RTYPE, msgs_)
@@ -267,6 +296,8 @@ public:
 
   size_t size() const { return N; }
   T *data() const { msgs_.data(); }
+  bool empty() const { return N == 0; }
+  size_t max_size() const { return N; }
 
   BufferOffset BinaryEndOffset() const {
     return relative_binary_offset_ + T::BinarySize() * N;
@@ -315,6 +346,9 @@ public:
   }
 
   StringField &operator[](int index) { return strings_[index]; }
+
+  std::array<StringField, N> &Get() { return strings_; }
+  const std::array<StringField, N> &Get() const { return strings_; }
 
 #define RTYPE std::array<StringField, N>
   DECLARE_RELAY_ARRAY_BITS(StringField, RTYPE, strings_)

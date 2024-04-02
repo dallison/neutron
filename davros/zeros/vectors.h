@@ -5,6 +5,8 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "davros/common_runtime.h"
+#include "davros/zeros/fields.h"
+#include "davros/zeros/iterators.h"
 #include "davros/zeros/message.h"
 #include "davros/zeros/payload_buffer.h"
 #include <stdint.h>
@@ -184,6 +186,7 @@ public:
 
 private:
   friend FieldIterator<PrimitiveVectorField, T>;
+  friend FieldIterator<PrimitiveVectorField, const T>;
   VectorHeader *Header() const {
     return GetBuffer()->template ToAddress<VectorHeader>(
         Message::GetMessageBinaryStart(this, source_offset_) +
@@ -222,6 +225,20 @@ public:
   Enum &operator[](int index) {
     T *base = GetBuffer()->template ToAddress<T>(BaseOffset());
     return *reinterpret_cast<Enum *>(&base[index]);
+  }
+
+ const Enum &operator[](int index) const {
+    const T *base = GetBuffer()->template ToAddress<const T>(BaseOffset());
+    return *reinterpret_cast<const Enum *>(&base[index]);
+  }
+
+  const std::vector<Enum> Get() const {
+    size_t n = size();
+    std::vector<Enum> r;
+    for (size_t i = 0; i < n; i++) {
+      r[i] = (*this)[i];
+    }
+    return r;
   }
 
 #define ITYPE EnumFieldIterator<EnumVectorField, value_type>
@@ -281,6 +298,7 @@ public:
 
 private:
   friend EnumFieldIterator<EnumVectorField, Enum>;
+  friend EnumFieldIterator<EnumVectorField, const Enum>;
   VectorHeader *Header() const {
     return GetBuffer()->template ToAddress<VectorHeader>(
         Message::GetMessageBinaryStart(this, source_offset_) +
@@ -412,8 +430,17 @@ public:
     return n;
   }
 
+std::vector<NonEmbeddedMessageField<T>>& Get() {
+  return msgs_;
+}
+
+const std::vector<NonEmbeddedMessageField<T>>& Get() const {
+  return msgs_;
+}
+
 private:
   friend FieldIterator<MessageVectorField, T>;
+  friend FieldIterator<MessageVectorField, const T>;
   VectorHeader *Header() const {
     return GetBuffer()->template ToAddress<VectorHeader>(
         Message::GetMessageBinaryStart(this, source_offset_) +
@@ -491,6 +518,9 @@ public:
   size_t size() const { return strings_.size(); }
   NonEmbeddedStringField *data() { return strings_.data(); }
   bool empty() const { return size() == 0; }
+
+  std::vector<NonEmbeddedStringField> &Get() { return strings_; }
+  const std::vector<NonEmbeddedStringField> &Get() const { return strings_; }
 
   void push_back(const std::string &s) {
     // Allocate string header in buffer.

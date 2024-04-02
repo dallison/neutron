@@ -222,7 +222,7 @@ public:
     if (absl::Status status = HasSpaceFor(vec.SerializedSize()); !status.ok()) {
       return status;
     }
-    uint32_t size = static_cast<uint32_t>(vec.size()) * sizeof(T);
+    uint32_t size = static_cast<uint32_t>(vec.size());
     memcpy(addr_, &size, sizeof(size));
     memcpy(addr_ + 4, vec.data(), size * sizeof(T));
     addr_ += vec.SerializedSize();
@@ -248,7 +248,7 @@ public:
       return status;
     }
     uint32_t size =
-        static_cast<uint32_t>(vec.size()) * sizeof(EnumVectorField<Enum>::T);
+        static_cast<uint32_t>(vec.size());
     memcpy(addr_, &size, sizeof(size));
     memcpy(addr_ + 4, vec.data(), size * sizeof(EnumVectorField<Enum>::T));
     addr_ += vec.SerializedSize();

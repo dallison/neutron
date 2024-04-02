@@ -355,8 +355,7 @@ public:
       // Binary offset in the StringField is relative to the start of the
       // message, not the buffer start.
       strings_[i].relative_binary_offset_ = relative_binary_offset +
-                                            sizeof(BufferOffset) * i -
-                                            GetMessageBinaryStart();
+                                            sizeof(BufferOffset) * i;
     }
   }
 

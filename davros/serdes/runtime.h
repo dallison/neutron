@@ -4,15 +4,15 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_format.h"
 #include "absl/types/span.h"
+#include "davros/common_runtime.h"
 #include <array>
 #include <iostream>
+#include <sstream>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string>
 #include <string_view>
 #include <vector>
-#include <sstream>
-#include "davros/common_runtime.h"
 
 namespace davros::serdes {
 
@@ -21,7 +21,7 @@ namespace davros::serdes {
 class Buffer {
 public:
   // Dynamic buffer with own memory allocation.
-  Buffer(size_t initial_size=16) : owned_(true), size_(initial_size) {
+  Buffer(size_t initial_size = 16) : owned_(true), size_(initial_size) {
     if (initial_size < 16) {
       // Need a reasonable size to start with.
       abort();
@@ -49,9 +49,7 @@ public:
 
   size_t size() const { return Size(); }
 
-  template <typename T> T *Data() {
-    return reinterpret_cast<T *>(start_);
-  }
+  template <typename T> T *Data() { return reinterpret_cast<T *>(start_); }
 
   char *data() { return Data<char>(); }
 
@@ -132,7 +130,7 @@ public:
   }
 
   template <typename T> absl::Status Read(std::vector<T> &vec) {
-    if (absl::Status status = Check(4); !status.ok()) {
+  if (absl::Status status = Check(4); !status.ok()) {
       return status;
     }
     uint32_t size = 0;
@@ -147,7 +145,7 @@ public:
     return absl::OkStatus();
   }
 
-  template <typename T, int N> absl::Status Write(const std::array<T, N> &vec) {
+  template <typename T, size_t N> absl::Status Write(const std::array<T, N> &vec) {
     for (auto &v : vec) {
       if (absl::Status status = Write(v); !status.ok()) {
         return status;
@@ -156,7 +154,7 @@ public:
     return absl::OkStatus();
   }
 
-  template <typename T, int N> absl::Status Read(std::array<T, N> &vec) {
+  template <typename T, size_t N> absl::Status Read(std::array<T, N> &vec) {
     for (int i = 0; i < N; i++) {
       if (absl::Status status = Read(vec[i]); !status.ok()) {
         return status;
@@ -225,7 +223,8 @@ private:
         size_ = new_size;
         return absl::OkStatus();
       }
-      return absl::InternalError(absl::StrFormat("No space in buffer: length: %d, need: %d", size_, next - start_));
+      return absl::InternalError(absl::StrFormat(
+          "No space in buffer: length: %d, need: %d", size_, next - start_));
     }
     return absl::OkStatus();
   }

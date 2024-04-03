@@ -11,7 +11,7 @@
 #include "absl/status/statusor.h"
 #include "davros/common_runtime.h"
 #include "davros/zeros/message.h"
-#include "davros/zeros/payload_buffer.h"
+#include "toolbelt/payload_buffer.h"
 
 namespace davros::zeros {
 

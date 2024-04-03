@@ -27,6 +27,133 @@ class Buffer;
 //
 // The binary offset in the field is the offset from the start of the
 // enclosing binary message to the field in the PayloadBuffer.
+//
+// The PayloadBuffer is organized as a header (of type PayloadBuffer)
+// and a memory allocation heap that allows variable sized memory blocks
+// to be allocated, reallocated and freed.  Everything in the buffer
+// is relocateable and can be moved around or sent to another process.
+//
+//        +-------------------+
+//        |                   |
+//        |  PayloadBuffer    |
+//        |                   |
+//        +-------------------+
+//        |                   |
+//        |                   |
+//        |                   |
+//        |                   |
+//        |    Buffer heap    |
+//        |                   |
+//        |                   |
+//        |                   |
+//        |                   |
+//        |                   |
+//        +-------------------+
+//
+// Primitive fields
+// ----------------
+// These are things like integers, floating point numbers, enums and
+// Time and Duration types.  They are stored inline in the buffer in their
+// native format and endianness, aligned to their appropriate alignment.
+// For example, a 64 bit floating point number is stored in IEEE 754
+// binary format.
+//
+// String fields
+// --------------
+// These are stored as a 32-bit offset (absolute from the start of the
+// buffer) to the string data, which is a 32-bit length followed by the
+// string bytes.  In the following diagram, O is the offset to the string
+// data; L is the length of the string data (in bytes, 32-bit native
+// format) and "str" is the string bytes.  The bytes are NOT terminated
+// by a NUL byte.  The offset and the length are aligned to a 4 byte
+// boundary.
+//
+//         +----------------+
+//         |                |
+//         |                |
+//         |      +-----+   |
+//         |      |  O  |------+
+//         |      +-----+   |  |
+//         |                |  |
+//         |  +----------------+
+//         |  V             |
+//         |  +---+-------+ |
+//         |  | L | "str" | |
+//         |  +---+-------+ |
+//         |                |
+//         |                |
+//         |                |
+//         |                |
+//         |                |
+//         +----------------+
+//
+// Message fields
+// --------------
+// A message field is stored inline in the current message, aligned to an 8 byte
+// boundary.  The length is aligned to 4 bytes.
+//
+// Fixed size primitive array fields
+// ----------------------------------
+// These are stored as inline arrays of fixed size.  They are aligned to the
+// native alignment of the type.
+//
+// Fixed size string array fields.
+// -------------------------------
+// These are a fixed size set of offsets to string data, aligned to 4 bytes.  Each
+// string is stored as a regular string field, with the offset referring to its
+// length.
+//
+// Fixed size message array fields
+// -------------------------------
+// These are stored inline as a fixed size array of messages.  The array is
+// aligned to 8 bytes.
+//
+// Variable size primitive fields
+// ------------------------------
+// This is stored as an 8-byte VectorHeader consisting of:
+// 1. uint32_t num_elements
+// 2. BufferOffset offset
+//
+// The offset refers to an allocated block of memory (in the buffer) that starts
+// out with sufficient space for 2 elements (2 * sizeof(T) bytes) and grows
+// exponentially as the space is used up.  The capacity of this block is
+// held in a 32-bit little endian word immediately preceding the memory
+// block that specifies the number of bytes occupied by the block (not number
+// of elements).
+//
+// The num_elements member is the number of used elements in the field, which
+// is always less than or equal to the capacity divided by the element size.
+//
+//          +--------------+
+//          | num_elements |
+//          +--------------+
+//          | offset       |-----+
+//          +--------------+     |
+//                               |
+//          +--------------------+
+//          |
+//          |
+//          |    +---------------+
+//          |    | block size    |  <-- in bytes (capacity * sizeof(T))
+//          +--->+---------------+
+//               |               |
+//               |  array        |
+//               |  data         |
+//               |               |  <--- contents of vector
+//               |               |
+//               |               |
+//               |               |
+//               +---------------+
+//
+// Variable size string fields
+// ---------------------------
+// As variable sized primitive fields with each element being an offset
+// to the string length and data
+//
+// Variable size message fields.
+// ----------------------------
+// As variable sized primitive fields with each element being an offset
+// to a message allocated from a block of memory.
 
 template <typename T>
 constexpr size_t AlignedOffset(size_t offset) {
@@ -157,4 +284,7 @@ inline std::ostream &operator<<(std::ostream &os,
   }
   return os;
 }
+
+#undef DEFINE_PRIMITIVE_FIELD_STREAMER
+
 }  // namespace davros::zeros

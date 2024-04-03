@@ -99,16 +99,12 @@ cc_library(
 
 cc_library(
     name = "zeros_runtime",
-    srcs = [
-        "zeros/payload_buffer.cc",
-    ],
     hdrs = [
         "zeros/arrays.h",
         "zeros/buffer.h",
         "zeros/fields.h",
         "zeros/iterators.h",
         "zeros/message.h",
-        "zeros/payload_buffer.h",
         "zeros/runtime.h",
         "zeros/vectors.h",
     ],
@@ -134,21 +130,6 @@ cc_library(
         ":msglib",
         ":zeros_runtime",
         "@com_google_absl//absl/container:flat_hash_set",
-    ],
-)
-
-cc_test(
-    name = "zeros_buffer_test",
-    srcs = [
-        "zeros/buffer_test.cc",
-    ],
-    data = [
-        ":msgs",
-    ],
-    deps = [
-        ":zeros",
-        "@com_google_googletest//:gtest",
-        "@toolbelt//toolbelt",
     ],
 )
 

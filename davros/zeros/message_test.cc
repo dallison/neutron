@@ -1,10 +1,10 @@
-#include "absl/strings/str_format.h"
 #include "davros/zeros/message.h"
+#include <gtest/gtest.h>
+#include <sstream>
+#include "absl/strings/str_format.h"
 #include "davros/zeros/payload_buffer.h"
 #include "davros/zeros/runtime.h"
 #include "toolbelt/hexdump.h"
-#include <gtest/gtest.h>
-#include <sstream>
 
 using PayloadBuffer = davros::zeros::PayloadBuffer;
 using BufferOffset = davros::zeros::BufferOffset;
@@ -33,7 +33,8 @@ struct InnerMessage : public Message {
               << this->absolute_binary_offset << std::dec << std::endl;
   }
   InnerMessage(std::shared_ptr<PayloadBuffer *> buffer, BufferOffset offset)
-      : Message(buffer, offset), str(offsetof(InnerMessage, str), 0),
+      : Message(buffer, offset),
+        str(offsetof(InnerMessage, str), 0),
         f(offsetof(InnerMessage, f),
           davros::zeros::AlignedOffset<uint64_t>(str.BinaryEndOffset())) {}
   static constexpr size_t BinarySize() { return 16; }
@@ -43,7 +44,8 @@ struct InnerMessage : public Message {
 
 struct TestMessage : public Message {
   TestMessage(std::shared_ptr<PayloadBuffer *> buffer, BufferOffset offset)
-      : Message(buffer, offset), x(offsetof(TestMessage, x), 0),
+      : Message(buffer, offset),
+        x(offsetof(TestMessage, x), 0),
         y(offsetof(TestMessage, y),
           davros::zeros::AlignedOffset<uint64_t>(x.BinaryEndOffset())),
         s(offsetof(TestMessage, s),
@@ -73,40 +75,40 @@ struct TestMessage : public Message {
         cvec(offsetof(TestMessage, cvec),
              davros::zeros::AlignedOffset<uint32_t>(carr.BinaryEndOffset())) {}
   static constexpr size_t BinarySize() {
-    size_t offset = 0; // x
+    size_t offset = 0;  // x
     offset =
-        davros::zeros::AlignedOffset<uint64_t>(offset + sizeof(uint32_t)); // y
+        davros::zeros::AlignedOffset<uint64_t>(offset + sizeof(uint32_t));  // y
     offset =
-        davros::zeros::AlignedOffset<uint32_t>(offset + sizeof(uint64_t)); // s
+        davros::zeros::AlignedOffset<uint32_t>(offset + sizeof(uint64_t));  // s
     offset = davros::zeros::AlignedOffset<uint64_t>(offset +
-                                                    sizeof(StringHeader)); // m
+                                                    sizeof(StringHeader));  // m
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + InnerMessage::BinarySize()); // arr
+        offset + InnerMessage::BinarySize());  // arr
     offset = davros::zeros::AlignedOffset<uint32_t>(offset + sizeof(uint32_t) *
-                                                                 10); // vec
+                                                                 10);  // vec
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + sizeof(VectorHeader)); // marr
+        offset + sizeof(VectorHeader));  // marr
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + InnerMessage::BinarySize() * 5); // sarr
+        offset + InnerMessage::BinarySize() * 5);  // sarr
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + sizeof(StringHeader) * 20); // mvec
+        offset + sizeof(StringHeader) * 20);  // mvec
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + sizeof(VectorHeader)); // svec
+        offset + sizeof(VectorHeader));  // svec
     offset = davros::zeros::AlignedOffset<uint32_t>(offset +
-                                                    sizeof(VectorHeader)); // e
+                                                    sizeof(VectorHeader));  // e
     offset = davros::zeros::AlignedOffset<uint32_t>(offset +
-                                                    sizeof(uint32_t)); // earr
+                                                    sizeof(uint32_t));  // earr
     offset = davros::zeros::AlignedOffset<VectorHeader>(
-        offset + sizeof(uint16_t) * 10); // evec
+        offset + sizeof(uint16_t) * 10);  // evec
+
+    offset = davros::zeros::AlignedOffset<int8_t>(
+        offset + sizeof(VectorHeader));  // carr
 
     offset = davros::zeros::AlignedOffset<int8_t>(offset +
-                                                  sizeof(VectorHeader)); // carr
-
-    offset = davros::zeros::AlignedOffset<int8_t>(offset +
-                                                  sizeof(int8_t) * 32); // cvec
+                                                  sizeof(int8_t) * 32);  // cvec
 
     offset = davros::zeros::AlignedOffset<uint16_t>(
-        offset + sizeof(VectorHeader)); // END
+        offset + sizeof(VectorHeader));  // END
     return offset;
 
     // return 4 + 4 + 8 + 4 + 4 + InnerMessage::BinarySize() +
@@ -118,71 +120,71 @@ struct TestMessage : public Message {
 
   // This is for debug for when the sizes don't match the actual field offset.
   size_t XBinarySize() {
-    size_t offset = 0; // x
+    size_t offset = 0;  // x
     offset =
-        davros::zeros::AlignedOffset<uint64_t>(offset + sizeof(uint32_t)); // y
+        davros::zeros::AlignedOffset<uint64_t>(offset + sizeof(uint32_t));  // y
     std::cout << offset << std::endl;
     std::cout << "y @" << y.BinaryOffset() << std::endl;
     offset =
-        davros::zeros::AlignedOffset<uint32_t>(offset + sizeof(uint64_t)); // s
+        davros::zeros::AlignedOffset<uint32_t>(offset + sizeof(uint64_t));  // s
     std::cout << offset << std::endl;
     std::cout << "s @" << s.BinaryOffset() << " " << s.BinaryEndOffset()
               << std::endl;
     offset = davros::zeros::AlignedOffset<uint64_t>(offset +
-                                                    sizeof(StringHeader)); // m
+                                                    sizeof(StringHeader));  // m
     std::cout << offset << std::endl;
     std::cout << "m @" << m.BinaryOffset() << std::endl;
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + InnerMessage::BinarySize()); // arr
+        offset + InnerMessage::BinarySize());  // arr
     std::cout << offset << std::endl;
     std::cout << "arr @" << arr.BinaryOffset() << std::endl;
     offset = davros::zeros::AlignedOffset<uint32_t>(offset + sizeof(uint32_t) *
-                                                                 10); // vec
+                                                                 10);  // vec
     std::cout << offset << std::endl;
     std::cout << "vec @" << vec.BinaryOffset() << std::endl;
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + sizeof(VectorHeader)); // marr
+        offset + sizeof(VectorHeader));  // marr
     std::cout << offset << std::endl;
     std::cout << "marr @" << marr.BinaryOffset() << std::endl;
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + InnerMessage::BinarySize() * 5); // sarr
+        offset + InnerMessage::BinarySize() * 5);  // sarr
     std::cout << offset << std::endl;
     std::cout << "sarr @" << sarr.BinaryOffset() << std::endl;
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + sizeof(StringHeader) * 20); // mvec
+        offset + sizeof(StringHeader) * 20);  // mvec
     std::cout << offset << std::endl;
     std::cout << "mvec @" << mvec.BinaryOffset() << std::endl;
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + sizeof(VectorHeader)); // svec
+        offset + sizeof(VectorHeader));  // svec
     std::cout << offset << std::endl;
     std::cout << "svec @" << svec.BinaryOffset() << std::endl;
     offset = davros::zeros::AlignedOffset<uint32_t>(offset +
-                                                    sizeof(VectorHeader)); // e
+                                                    sizeof(VectorHeader));  // e
     std::cout << offset << std::endl;
     std::cout << "earr @" << e.BinaryOffset() << std::endl;
     offset = davros::zeros::AlignedOffset<uint32_t>(offset +
-                                                    sizeof(uint32_t)); // earr
+                                                    sizeof(uint32_t));  // earr
     std::cout << offset << std::endl;
     std::cout << "e @" << earr.BinaryOffset() << std::endl;
 
     offset = davros::zeros::AlignedOffset<VectorHeader>(
-        offset + sizeof(uint16_t) * 10); // evec
+        offset + sizeof(uint16_t) * 10);  // evec
 
     std::cout << offset << std::endl;
     std::cout << "evec @" << evec.BinaryOffset() << std::endl;
 
-    offset = davros::zeros::AlignedOffset<int8_t>(offset +
-                                                  sizeof(VectorHeader)); // carr
+    offset = davros::zeros::AlignedOffset<int8_t>(
+        offset + sizeof(VectorHeader));  // carr
     std::cout << offset << std::endl;
     std::cout << "carr @" << carr.BinaryOffset() << std::endl;
 
     offset = davros::zeros::AlignedOffset<int8_t>(offset +
-                                                  sizeof(int8_t) * 32); // cvec
+                                                  sizeof(int8_t) * 32);  // cvec
     std::cout << offset << std::endl;
     std::cout << "cvec @" << cvec.BinaryOffset() << std::endl;
 
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + sizeof(VectorHeader)); // END
+        offset + sizeof(VectorHeader));  // END
     std::cout << offset << std::endl;
     return offset;
   }

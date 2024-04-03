@@ -2,6 +2,11 @@
 
 // Vector fields.
 
+#include <stdint.h>
+#include <stdlib.h>
+#include <string>
+#include <string_view>
+#include <vector>
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "davros/common_runtime.h"
@@ -9,11 +14,6 @@
 #include "davros/zeros/iterators.h"
 #include "davros/zeros/message.h"
 #include "davros/zeros/payload_buffer.h"
-#include <stdint.h>
-#include <stdlib.h>
-#include <string>
-#include <string_view>
-#include <vector>
 
 namespace davros::zeros {
 
@@ -71,38 +71,39 @@ namespace davros::zeros {
 // vtype: value type
 // rtype: relay type (like std::array<T,N>)
 // relay: member to relay through
-#define DECLARE_VECTOR_ARRAY_BITS(vtype, rtype, relay)                         \
-  using value_type = vtype;                                                    \
-  using reference = value_type &;                                              \
-  using const_reference = value_type &;                                        \
-  using pointer = value_type *;                                                \
-  using const_pointer = const value_type *;                                    \
-  using size_type = size_t;                                                    \
-  using difference_type = ptrdiff_t;                                           \
-                                                                               \
-  using iterator = typename rtype::iterator;                                   \
-  using const_iterator = typename rtype::const_iterator;                       \
-  using reverse_iterator = typename rtype::reverse_iterator;                   \
-  using const_reverse_iterator = typename rtype::const_reverse_iterator;       \
-                                                                               \
-  iterator begin() { return relay.begin(); }                                   \
-  iterator end() { return relay.end(); }                                       \
-  reverse_iterator rbegin() { return relay.rbegin(); }                         \
-  reverse_iterator rend() { return relay.rend(); }                             \
-  const_iterator begin() const { return relay.begin(); }                       \
-  const_iterator end() const { return relay.end(); }                           \
-  const_iterator cbegin() const { return relay.begin(); }                      \
-  const_iterator cend() const { return relay.end(); }                          \
-  const_reverse_iterator rbegin() const { return relay.rbegin(); }             \
-  const_reverse_iterator rend() const { return relay.rend(); }                 \
-  const_reverse_iterator crbegin() const { return relay.crbegin(); }           \
+#define DECLARE_VECTOR_ARRAY_BITS(vtype, rtype, relay)                   \
+  using value_type = vtype;                                              \
+  using reference = value_type &;                                        \
+  using const_reference = value_type &;                                  \
+  using pointer = value_type *;                                          \
+  using const_pointer = const value_type *;                              \
+  using size_type = size_t;                                              \
+  using difference_type = ptrdiff_t;                                     \
+                                                                         \
+  using iterator = typename rtype::iterator;                             \
+  using const_iterator = typename rtype::const_iterator;                 \
+  using reverse_iterator = typename rtype::reverse_iterator;             \
+  using const_reverse_iterator = typename rtype::const_reverse_iterator; \
+                                                                         \
+  iterator begin() { return relay.begin(); }                             \
+  iterator end() { return relay.end(); }                                 \
+  reverse_iterator rbegin() { return relay.rbegin(); }                   \
+  reverse_iterator rend() { return relay.rend(); }                       \
+  const_iterator begin() const { return relay.begin(); }                 \
+  const_iterator end() const { return relay.end(); }                     \
+  const_iterator cbegin() const { return relay.begin(); }                \
+  const_iterator cend() const { return relay.end(); }                    \
+  const_reverse_iterator rbegin() const { return relay.rbegin(); }       \
+  const_reverse_iterator rend() const { return relay.rend(); }           \
+  const_reverse_iterator crbegin() const { return relay.crbegin(); }     \
   const_reverse_iterator crend() const { return relay.crend(); }
 
 // This is a variable length vector of T.  It looks like a std::vector<T>.
 // The binary message contains a VectorHeader at the binary offset.  This
 // contains the number of elements and the base offset for the data.
-template <typename T> class PrimitiveVectorField {
-public:
+template <typename T>
+class PrimitiveVectorField {
+ public:
   PrimitiveVectorField() = default;
   explicit PrimitiveVectorField(uint32_t source_offset,
                                 uint32_t relative_binary_offset)
@@ -189,7 +190,7 @@ public:
 
   size_t SerializedSize() const { return 4 + size() * sizeof(value_type); }
 
-private:
+ private:
   friend FieldIterator<PrimitiveVectorField, T>;
   friend FieldIterator<PrimitiveVectorField, const T>;
   VectorHeader *Header() const {
@@ -217,8 +218,9 @@ private:
   BufferOffset relative_binary_offset_;
 };
 
-template <typename Enum> class EnumVectorField {
-public:
+template <typename Enum>
+class EnumVectorField {
+ public:
   EnumVectorField() = default;
   explicit EnumVectorField(uint32_t source_offset,
                            uint32_t relative_binary_offset)
@@ -306,7 +308,7 @@ public:
 
   size_t SerializedSize() const { return 4 + size() * sizeof(T); }
 
-private:
+ private:
   friend EnumFieldIterator<EnumVectorField, Enum>;
   friend EnumFieldIterator<EnumVectorField, const Enum>;
   VectorHeader *Header() const {
@@ -336,8 +338,9 @@ private:
 
 // The vector contains a set of BufferOffsets allocated in the buffer,
 // each of which contains the absolute offset of the message.
-template <typename T> class MessageVectorField {
-public:
+template <typename T>
+class MessageVectorField {
+ public:
   MessageVectorField() = default;
   explicit MessageVectorField(uint32_t source_offset,
                               uint32_t relative_binary_offset)
@@ -364,10 +367,10 @@ public:
 
   NonEmbeddedMessageField<T> &operator[](int index) { return msgs_[index]; }
 
-  NonEmbeddedMessageField<T>& front() { return msgs_.front(); }
-  const NonEmbeddedMessageField<T>& front() const { return msgs_.front(); }
-  NonEmbeddedMessageField<T>& back() { return msgs_.back(); }
-  const NonEmbeddedMessageField<T>& back() const { return msgs_.back(); }
+  NonEmbeddedMessageField<T> &front() { return msgs_.front(); }
+  const NonEmbeddedMessageField<T> &front() const { return msgs_.front(); }
+  NonEmbeddedMessageField<T> &back() { return msgs_.back(); }
+  const NonEmbeddedMessageField<T> &back() const { return msgs_.back(); }
 
 #define RTYPE std::vector<NonEmbeddedMessageField<T>>
   DECLARE_VECTOR_ARRAY_BITS(NonEmbeddedMessageField<T>, RTYPE, msgs_)
@@ -449,7 +452,7 @@ public:
 
   const std::vector<NonEmbeddedMessageField<T>> &Get() const { return msgs_; }
 
-private:
+ private:
   friend FieldIterator<MessageVectorField, T>;
   friend FieldIterator<MessageVectorField, const T>;
   VectorHeader *Header() const {
@@ -497,7 +500,7 @@ private:
 // |           |                             |   "data"    |
 // +-----------+                             +-------------+
 class StringVectorField {
-public:
+ public:
   StringVectorField() = default;
   explicit StringVectorField(uint32_t source_offset,
                              uint32_t relative_binary_offset)
@@ -530,10 +533,10 @@ public:
   NonEmbeddedStringField *data() { return strings_.data(); }
   bool empty() const { return size() == 0; }
 
-  NonEmbeddedStringField& front() { return strings_.front(); }
-  const NonEmbeddedStringField& front() const { return strings_.front(); }
-  NonEmbeddedStringField& back() { return strings_.back(); }
-  const NonEmbeddedStringField& back() const { return strings_.back(); }
+  NonEmbeddedStringField &front() { return strings_.front(); }
+  const NonEmbeddedStringField &front() const { return strings_.front(); }
+  NonEmbeddedStringField &back() { return strings_.back(); }
+  const NonEmbeddedStringField &back() const { return strings_.back(); }
 
   std::vector<NonEmbeddedStringField> &Get() { return strings_; }
   const std::vector<NonEmbeddedStringField> &Get() const { return strings_; }
@@ -614,7 +617,7 @@ public:
     return n;
   }
 
-private:
+ private:
   VectorHeader *Header() const {
     return GetBuffer()->template ToAddress<VectorHeader>(
         Message::GetMessageBinaryStart(this, source_offset_) +

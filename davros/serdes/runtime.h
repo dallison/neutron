@@ -1,25 +1,25 @@
 #pragma once
 
+#include <stdint.h>
+#include <stdlib.h>
+#include <array>
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <vector>
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_format.h"
 #include "absl/types/span.h"
 #include "davros/common_runtime.h"
-#include <array>
-#include <iostream>
-#include <sstream>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string>
-#include <string_view>
-#include <vector>
 
 namespace davros::serdes {
 
 // Provides a statically sized or dynamic buffer used for serialization
 // of messages.
 class Buffer {
-public:
+ public:
   // Dynamic buffer with own memory allocation.
   Buffer(size_t initial_size = 16) : owned_(true), size_(initial_size) {
     if (initial_size < 16) {
@@ -36,7 +36,10 @@ public:
 
   // Fixed buffer in non-owned memory.
   Buffer(char *addr, size_t size)
-      : owned_(false), start_(addr), size_(size), addr_(addr),
+      : owned_(false),
+        start_(addr),
+        size_(size),
+        addr_(addr),
         end_(addr + size) {}
 
   ~Buffer() {
@@ -49,13 +52,17 @@ public:
 
   size_t size() const { return Size(); }
 
-  template <typename T> T *Data() { return reinterpret_cast<T *>(start_); }
+  template <typename T>
+  T *Data() {
+    return reinterpret_cast<T *>(start_);
+  }
 
   char *data() { return Data<char>(); }
 
   std::string AsString() const { return std::string(start_, addr_ - start_); }
 
-  template <typename T> absl::Span<const T> AsSpan() const {
+  template <typename T>
+  absl::Span<const T> AsSpan() const {
     return absl::Span<T>(reinterpret_cast<const T *>(start_), addr_ - start_);
   }
 
@@ -69,7 +76,8 @@ public:
   // word reads and writes they can come with a performance degradation.
   // It won't make any difference anyway since the biggest performance
   // issue with serialization is large data sets, like camera images.
-  template <typename T> absl::Status Write(const T &v) {
+  template <typename T>
+  absl::Status Write(const T &v) {
     if (absl::Status status = HasSpaceFor(sizeof(T)); !status.ok()) {
       return status;
     }
@@ -78,7 +86,8 @@ public:
     return absl::OkStatus();
   }
 
-  template <typename T> absl::Status Read(T &v) {
+  template <typename T>
+  absl::Status Read(T &v) {
     if (absl::Status status = Check(sizeof(T)); !status.ok()) {
       return status;
     }
@@ -87,7 +96,8 @@ public:
     return absl::OkStatus();
   }
 
-  template <> absl::Status Write(const std::string &v) {
+  template <>
+  absl::Status Write(const std::string &v) {
     if (absl::Status status = HasSpaceFor(4 + v.size()); !status.ok()) {
       return status;
     }
@@ -99,7 +109,8 @@ public:
     return absl::OkStatus();
   }
 
-  template <> absl::Status Read(std::string &v) {
+  template <>
+  absl::Status Read(std::string &v) {
     if (absl::Status status = Check(4); !status.ok()) {
       return status;
     }
@@ -114,7 +125,8 @@ public:
     return absl::OkStatus();
   }
 
-  template <typename T> absl::Status Write(const std::vector<T> &vec) {
+  template <typename T>
+  absl::Status Write(const std::vector<T> &vec) {
     if (absl::Status status = HasSpaceFor(4); !status.ok()) {
       return status;
     }
@@ -129,8 +141,9 @@ public:
     return absl::OkStatus();
   }
 
-  template <typename T> absl::Status Read(std::vector<T> &vec) {
-  if (absl::Status status = Check(4); !status.ok()) {
+  template <typename T>
+  absl::Status Read(std::vector<T> &vec) {
+    if (absl::Status status = Check(4); !status.ok()) {
       return status;
     }
     uint32_t size = 0;
@@ -145,7 +158,8 @@ public:
     return absl::OkStatus();
   }
 
-  template <typename T, size_t N> absl::Status Write(const std::array<T, N> &vec) {
+  template <typename T, size_t N>
+  absl::Status Write(const std::array<T, N> &vec) {
     for (auto &v : vec) {
       if (absl::Status status = Write(v); !status.ok()) {
         return status;
@@ -154,7 +168,8 @@ public:
     return absl::OkStatus();
   }
 
-  template <typename T, size_t N> absl::Status Read(std::array<T, N> &vec) {
+  template <typename T, size_t N>
+  absl::Status Read(std::array<T, N> &vec) {
     for (int i = 0; i < N; i++) {
       if (absl::Status status = Read(vec[i]); !status.ok()) {
         return status;
@@ -163,7 +178,8 @@ public:
     return absl::OkStatus();
   }
 
-  template <> absl::Status Write(const Time &t) {
+  template <>
+  absl::Status Write(const Time &t) {
     if (absl::Status status = Write(t.secs); !status.ok()) {
       return status;
     }
@@ -173,7 +189,8 @@ public:
     return absl::OkStatus();
   }
 
-  template <> absl::Status Read(Time &t) {
+  template <>
+  absl::Status Read(Time &t) {
     if (absl::Status status = Read(t.secs); !status.ok()) {
       return status;
     }
@@ -183,7 +200,8 @@ public:
     return absl::OkStatus();
   }
 
-  template <> absl::Status Write(const Duration &d) {
+  template <>
+  absl::Status Write(const Duration &d) {
     if (absl::Status status = Write(d.secs); !status.ok()) {
       return status;
     }
@@ -193,7 +211,8 @@ public:
     return absl::OkStatus();
   }
 
-  template <> absl::Status Read(Duration &d) {
+  template <>
+  absl::Status Read(Duration &d) {
     if (absl::Status status = Read(d.secs); !status.ok()) {
       return status;
     }
@@ -203,7 +222,7 @@ public:
     return absl::OkStatus();
   }
 
-private:
+ private:
   absl::Status HasSpaceFor(size_t n) {
     char *next = addr_ + n;
     // Off-by-one complexity here.  The end is one past the end of the buffer.
@@ -237,11 +256,11 @@ private:
     return absl::InternalError("End of buffer");
   }
 
-  bool owned_ = false;    // Memory is owned by this buffer.
-  char *start_ = nullptr; //
+  bool owned_ = false;     // Memory is owned by this buffer.
+  char *start_ = nullptr;  //
   size_t size_ = 0;
   char *addr_ = nullptr;
   char *end_ = nullptr;
 };
 
-} // namespace davros::serdes
+}  // namespace davros::serdes

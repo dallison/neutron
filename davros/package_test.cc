@@ -1,7 +1,7 @@
-#include "davros/lex.h"
 #include "davros/package.h"
 #include <gtest/gtest.h>
 #include <sstream>
+#include "davros/lex.h"
 
 TEST(PackageTest, Scanner) {
   std::shared_ptr<davros::PackageScanner> scanner(

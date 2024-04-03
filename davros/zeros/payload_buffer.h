@@ -75,11 +75,11 @@ struct PayloadBuffer {
   }
 
   // This is a variable sized buffer with the resizer being a function to
-  // allocate new memory.  A pointer to the resizer function is stored in the memory
-  // immediately above the header.  We can't store the actual std::function
-  // in the memory because the memory will be deleted during the call to the
-  // std::function which invalidates its this pointer.  Instead we copy the
-  // std::function to the heap and store a raw pointer to it.  The heap
+  // allocate new memory.  A pointer to the resizer function is stored in the
+  // memory immediately above the header.  We can't store the actual
+  // std::function in the memory because the memory will be deleted during the
+  // call to the std::function which invalidates its this pointer.  Instead we
+  // copy the std::function to the heap and store a raw pointer to it.  The heap
   // copy will be destructed when the payload buffer is destructed.
   // This implies that you need to destruct the payload buffer to avoid
   // a memory leak.  This is only necessary for resizable buffers.  Fixed
@@ -111,7 +111,7 @@ struct PayloadBuffer {
     if (magic != kMovableBufferMagic) {
       return nullptr;
     }
-    return *reinterpret_cast<Resizer**>(this + 1);
+    return *reinterpret_cast<Resizer **>(this + 1);
   }
 
   size_t Size() const { return size_t(hwm); }

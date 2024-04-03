@@ -1,11 +1,11 @@
 #pragma once
 
-#include "absl/container/flat_hash_map.h"
-#include <iostream>
 #include <stdarg.h>
 #include <stdint.h>
-#include <string>
 #include <functional>
+#include <iostream>
+#include <string>
+#include "absl/container/flat_hash_map.h"
 
 namespace davros {
 
@@ -40,8 +40,9 @@ enum class Token {
 };
 
 class LexicalAnalyzer {
-public:
-  LexicalAnalyzer(std::string filename, std::istream &in, std::function<void(const std::string&)> error_fn = {});
+ public:
+  LexicalAnalyzer(std::string filename, std::istream &in,
+                  std::function<void(const std::string &)> error_fn = {});
 
   void NextToken();
   void ReadLine();
@@ -65,14 +66,14 @@ public:
   void VError(const char *error, va_list ap);
 
   void Error(int lineno, const char *error, ...);
-  void VError(int lineno, const char *error, va_list ap); 
+  void VError(int lineno, const char *error, va_list ap);
 
   int NumErrors() const { return num_errors_; }
 
   bool Eof() const { return in_.eof(); }
   int TokenLineNumber() const { return token_lineno_; }
 
-private:
+ private:
   char NextChar() { return line_[ch_++]; }
   std::istream &in_;
   Token current_token_ = Token::kInvalid;
@@ -86,7 +87,7 @@ private:
   int lineno_ = 0;
   int token_lineno_ = 0;
   int num_errors_ = 0;
-  std::function<void(const std::string&)> error_fn_ = {}; 
+  std::function<void(const std::string &)> error_fn_ = {};
 };
 
-} // namespace davros
+}  // namespace davros

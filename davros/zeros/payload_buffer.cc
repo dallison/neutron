@@ -106,7 +106,7 @@ void PayloadBuffer::InitFreeList() {
   size_t header_size = sizeof(PayloadBuffer);
   if (magic == kMovableBufferMagic) {
     end_of_header +=
-        sizeof(Resizer *); // Room for resizer function for movable buffers.
+        sizeof(Resizer *);  // Room for resizer function for movable buffers.
     header_size += sizeof(Resizer *);
   }
   FreeBlockHeader *f = reinterpret_cast<FreeBlockHeader *>(end_of_header);
@@ -152,7 +152,7 @@ uint32_t PayloadBuffer::TakeStartOfFreeBlock(FreeBlockHeader *block,
 
 void *PayloadBuffer::Allocate(PayloadBuffer **buffer, uint32_t n,
                               uint32_t alignment, bool clear) {
-  n = AlignSize(n, alignment); // Aligned.
+  n = AlignSize(n, alignment);  // Aligned.
   size_t full_length = n + sizeof(uint32_t);
   FreeBlockHeader *free_block = (*buffer)->FreeList();
   FreeBlockHeader *prev = nullptr;
@@ -162,8 +162,8 @@ void *PayloadBuffer::Allocate(PayloadBuffer **buffer, uint32_t n,
       // header, take the lower part of the free block and keep the remainder
       // in the free list.
       n = (*buffer)->TakeStartOfFreeBlock(free_block, n, full_length, prev);
-      size_t *newblock = (size_t *)free_block; // Start of new block.
-      *newblock = n;                           // Size of allocated block.
+      size_t *newblock = (size_t *)free_block;  // Start of new block.
+      *newblock = n;                            // Size of allocated block.
       void *addr =
           reinterpret_cast<void *>(uintptr_t(free_block) + sizeof(uint32_t));
       if (clear) {
@@ -290,7 +290,7 @@ void PayloadBuffer::InsertNewFreeBlockAtEnd(FreeBlockHeader *free_block,
 void PayloadBuffer::Free(void *p) {
   // An allocated block has its length immediately before its address.
   uint32_t alloc_length =
-      *(reinterpret_cast<uint32_t *>(p) - 1); // Length of allocated block.
+      *(reinterpret_cast<uint32_t *>(p) - 1);  // Length of allocated block.
 
   // Point to real start of allocated block.
   FreeBlockHeader *alloc_header =
@@ -354,10 +354,10 @@ void PayloadBuffer::ShrinkBlock(FreeBlockHeader *alloc_block,
   if (rem >= sizeof(FreeBlockHeader)) {
     // If we are freeing enough to make a free block, free it, otherwise
     // there's nothing we can do and we just keep the block the same size.
-    *len_ptr = new_length; // Change size of block.
+    *len_ptr = new_length;  // Change size of block.
     uint32_t *newp = reinterpret_cast<uint32_t *>(
         reinterpret_cast<char *>(alloc_block) + sizeof(uint32_t) + new_length);
-    *newp = rem - sizeof(uint32_t); // Add header for free.
+    *newp = rem - sizeof(uint32_t);  // Add header for free.
     Free(newp + 1);
   }
 }
@@ -425,7 +425,7 @@ void *PayloadBuffer::Realloc(PayloadBuffer **buffer, void *p, uint32_t n,
       reinterpret_cast<FreeBlockHeader *>(uintptr_t(p) - sizeof(uint32_t));
   uintptr_t alloc_addr = (uintptr_t)p;
 
-  n = AlignSize(n); // Aligned.
+  n = AlignSize(n);  // Aligned.
   if (n == orig_length) {
     // Same size as current block, nothing to do.
     return p;
@@ -498,4 +498,4 @@ void *PayloadBuffer::Realloc(PayloadBuffer **buffer, void *p, uint32_t n,
   return newp;
 }
 
-} // namespace davros::zeros
+}  // namespace davros::zeros

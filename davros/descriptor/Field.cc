@@ -11,22 +11,34 @@ absl::Status Field::DeserializeFromArray(const char* addr, size_t len) {
 }
 
 absl::Status Field::SerializeToBuffer(davros::serdes::Buffer& buffer) const {
-  if (absl::Status status = buffer.Write(this->index); !status.ok()) return status;
-  if (absl::Status status = buffer.Write(this->name); !status.ok()) return status;
-  if (absl::Status status = buffer.Write(this->type); !status.ok()) return status;
-  if (absl::Status status = buffer.Write(this->array_size); !status.ok()) return status;
-  if (absl::Status status = buffer.Write(this->msg_package); !status.ok()) return status;
-  if (absl::Status status = buffer.Write(this->msg_name); !status.ok()) return status;
+  if (absl::Status status = buffer.Write(this->index); !status.ok())
+    return status;
+  if (absl::Status status = buffer.Write(this->name); !status.ok())
+    return status;
+  if (absl::Status status = buffer.Write(this->type); !status.ok())
+    return status;
+  if (absl::Status status = buffer.Write(this->array_size); !status.ok())
+    return status;
+  if (absl::Status status = buffer.Write(this->msg_package); !status.ok())
+    return status;
+  if (absl::Status status = buffer.Write(this->msg_name); !status.ok())
+    return status;
   return absl::OkStatus();
 }
 
 absl::Status Field::DeserializeFromBuffer(davros::serdes::Buffer& buffer) {
-  if (absl::Status status = buffer.Read(this->index); !status.ok()) return status;
-  if (absl::Status status = buffer.Read(this->name); !status.ok()) return status;
-  if (absl::Status status = buffer.Read(this->type); !status.ok()) return status;
-  if (absl::Status status = buffer.Read(this->array_size); !status.ok()) return status;
-  if (absl::Status status = buffer.Read(this->msg_package); !status.ok()) return status;
-  if (absl::Status status = buffer.Read(this->msg_name); !status.ok()) return status;
+  if (absl::Status status = buffer.Read(this->index); !status.ok())
+    return status;
+  if (absl::Status status = buffer.Read(this->name); !status.ok())
+    return status;
+  if (absl::Status status = buffer.Read(this->type); !status.ok())
+    return status;
+  if (absl::Status status = buffer.Read(this->array_size); !status.ok())
+    return status;
+  if (absl::Status status = buffer.Read(this->msg_package); !status.ok())
+    return status;
+  if (absl::Status status = buffer.Read(this->msg_name); !status.ok())
+    return status;
   return absl::OkStatus();
 }
 
@@ -41,7 +53,7 @@ size_t Field::SerializedLength() const {
   return length;
 }
 
-  bool Field::operator==(const Field& m) const {
+bool Field::operator==(const Field& m) const {
   if (this->index != m.index) return false;
   if (this->name != m.name) return false;
   if (this->type != m.type) return false;
@@ -50,4 +62,4 @@ size_t Field::SerializedLength() const {
   if (this->msg_name != m.msg_name) return false;
   return true;
 }
-}    // namespace descriptor
+}  // namespace descriptor

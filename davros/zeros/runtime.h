@@ -28,15 +28,16 @@ class Buffer;
 // The binary offset in the field is the offset from the start of the
 // enclosing binary message to the field in the PayloadBuffer.
 
-template <typename T> constexpr size_t AlignedOffset(size_t offset) {
+template <typename T>
+constexpr size_t AlignedOffset(size_t offset) {
   return (offset + sizeof(T) - 1) & ~(sizeof(T) - 1);
 }
 
-#define DEFINE_PRIMITIVE_FIELD_STREAMER(cname, type)                           \
-  inline std::ostream &operator<<(std::ostream &os,                            \
-                                  const cname##Field &field) {                 \
-    os << field.Get() << std::endl;                                            \
-    return os;                                                                 \
+#define DEFINE_PRIMITIVE_FIELD_STREAMER(cname, type)           \
+  inline std::ostream &operator<<(std::ostream &os,            \
+                                  const cname##Field &field) { \
+    os << field.Get() << std::endl;                            \
+    return os;                                                 \
   }
 
 DEFINE_PRIMITIVE_FIELD_STREAMER(Int8, int8_t)
@@ -58,7 +59,8 @@ inline std::ostream &operator<<(std::ostream &os, const StringField &field) {
   return os;
 }
 
-inline std::ostream &operator<<(std::ostream &os, const NonEmbeddedStringField &field) {
+inline std::ostream &operator<<(std::ostream &os,
+                                const NonEmbeddedStringField &field) {
   os << field.Get() << std::endl;
   return os;
 }
@@ -155,4 +157,4 @@ inline std::ostream &operator<<(std::ostream &os,
   }
   return os;
 }
-} // namespace davros::zeros
+}  // namespace davros::zeros

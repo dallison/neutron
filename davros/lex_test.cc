@@ -89,7 +89,8 @@ TEST(LexTest, Operators) {
 
 TEST(LexTest, StringConstant) {
   std::stringstream input;
-  input << "string foo =   this is the rest of the line   # comment\n\nint32 bar\n";
+  input << "string foo =   this is the rest of the line   # comment\n\nint32 "
+           "bar\n";
 
   davros::LexicalAnalyzer lex("stdin", input);
   ASSERT_EQ(davros::Token::kString, lex.CurrentToken());

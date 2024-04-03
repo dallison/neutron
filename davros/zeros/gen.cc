@@ -1,18 +1,22 @@
 
 #include "davros/zeros/gen.h"
+#include <fstream>
+#include <memory>
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_format.h"
 #include "davros/common_gen.h"
-#include <fstream>
-#include <memory>
 #include "davros/descriptor.h"
 
 namespace davros::zeros {
 
 // Magic helper templates for std::visit.
 // See https://en.cppreference.com/w/cpp/utility/variant/visit
-template <class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-template <class... Ts> overloaded(Ts...)->overloaded<Ts...>;
+template <class... Ts>
+struct overloaded : Ts... {
+  using Ts::operator()...;
+};
+template <class... Ts>
+overloaded(Ts...)->overloaded<Ts...>;
 
 std::string Generator::Namespace(bool prefix_colon_colon) {
   std::string ns;
@@ -82,116 +86,116 @@ absl::Status Generator::Generate(const Message &msg) {
 
 static std::string FieldClass(FieldType type) {
   switch (type) {
-  case FieldType::kInt8:
-    return "Int8Field";
-  case FieldType::kUint8:
-    return "Uint8Field";
-  case FieldType::kInt16:
-    return "Int16Field";
-  case FieldType::kUint16:
-    return "Uint16Field";
-  case FieldType::kInt32:
-    return "Int32Field";
-  case FieldType::kUint32:
-    return "Uint32Field";
-  case FieldType::kInt64:
-    return "Int64Field";
-  case FieldType::kUint64:
-    return "Uint64Field";
-  case FieldType::kFloat32:
-    return "Float32Field";
-  case FieldType::kFloat64:
-    return "Float64Field";
-  case FieldType::kTime:
-    return "TimeField";
-  case FieldType::kDuration:
-    return "DurationField";
-  case FieldType::kString:
-    return "StringField";
-  case FieldType::kMessage:
-    return "MessageField";
-  case FieldType::kBool:
-    return "dBoolField";
-  case FieldType::kUnknown:
-    abort();
+    case FieldType::kInt8:
+      return "Int8Field";
+    case FieldType::kUint8:
+      return "Uint8Field";
+    case FieldType::kInt16:
+      return "Int16Field";
+    case FieldType::kUint16:
+      return "Uint16Field";
+    case FieldType::kInt32:
+      return "Int32Field";
+    case FieldType::kUint32:
+      return "Uint32Field";
+    case FieldType::kInt64:
+      return "Int64Field";
+    case FieldType::kUint64:
+      return "Uint64Field";
+    case FieldType::kFloat32:
+      return "Float32Field";
+    case FieldType::kFloat64:
+      return "Float64Field";
+    case FieldType::kTime:
+      return "TimeField";
+    case FieldType::kDuration:
+      return "DurationField";
+    case FieldType::kString:
+      return "StringField";
+    case FieldType::kMessage:
+      return "MessageField";
+    case FieldType::kBool:
+      return "dBoolField";
+    case FieldType::kUnknown:
+      abort();
   }
 }
 
 static std::string FieldCType(FieldType type) {
   switch (type) {
-  case FieldType::kInt8:
-    return "int8_t";
-  case FieldType::kUint8:
-    return "uint8_t";
-  case FieldType::kInt16:
-    return "int16_t";
-  case FieldType::kUint16:
-    return "uint16_t";
-  case FieldType::kInt32:
-    return "int32_t";
-  case FieldType::kUint32:
-    return "uint32_t";
-  case FieldType::kInt64:
-    return "int64_t";
-  case FieldType::kUint64:
-    return "uint64_t";
-  case FieldType::kFloat32:
-    return "float";
-  case FieldType::kFloat64:
-    return "double";
-  case FieldType::kTime:
-    return "davros::Time";
-  case FieldType::kDuration:
-    return "davros::Duration";
-  case FieldType::kString:
-    return "davros::zeros::StringHeader";
-  case FieldType::kBool:
-    return "uint8_t";
-  case FieldType::kMessage:
-    std::cerr << "Can't use message field type here\n";
-    return "<message>";
-  case FieldType::kUnknown:
-    std::cerr << "Unknown field type " << int(type) << std::endl;
-    abort();
+    case FieldType::kInt8:
+      return "int8_t";
+    case FieldType::kUint8:
+      return "uint8_t";
+    case FieldType::kInt16:
+      return "int16_t";
+    case FieldType::kUint16:
+      return "uint16_t";
+    case FieldType::kInt32:
+      return "int32_t";
+    case FieldType::kUint32:
+      return "uint32_t";
+    case FieldType::kInt64:
+      return "int64_t";
+    case FieldType::kUint64:
+      return "uint64_t";
+    case FieldType::kFloat32:
+      return "float";
+    case FieldType::kFloat64:
+      return "double";
+    case FieldType::kTime:
+      return "davros::Time";
+    case FieldType::kDuration:
+      return "davros::Duration";
+    case FieldType::kString:
+      return "davros::zeros::StringHeader";
+    case FieldType::kBool:
+      return "uint8_t";
+    case FieldType::kMessage:
+      std::cerr << "Can't use message field type here\n";
+      return "<message>";
+    case FieldType::kUnknown:
+      std::cerr << "Unknown field type " << int(type) << std::endl;
+      abort();
   }
 }
 
 static std::string ConstantCType(FieldType type) {
   switch (type) {
-  case FieldType::kInt8:
-    return "int8_t";
-  case FieldType::kUint8:
-    return "uint8_t";
-  case FieldType::kInt16:
-    return "int16_t";
-  case FieldType::kUint16:
-    return "uint16_t";
-  case FieldType::kInt32:
-    return "int32_t";
-  case FieldType::kUint32:
-    return "uint32_t";
-  case FieldType::kInt64:
-    return "int64_t";
-  case FieldType::kUint64:
-    return "uint64_t";
-  case FieldType::kFloat32:
-    return "float";
-  case FieldType::kFloat64:
-    return "double";
-  case FieldType::kTime:
-    return "davros::Time";
-  case FieldType::kDuration:
-    return "davros::Duration";
-  case FieldType::kString:
-    return "std::string";
-  case FieldType::kBool:
-    return "uint8_t";
-  case FieldType::kMessage:
-    std::cerr << "Can't use message field type here\n";
-    return "<message>";
-  case FieldType::kUnknown:
-    std::cerr << "Unknown field type " << int(type) << std::endl;
-    abort();
+    case FieldType::kInt8:
+      return "int8_t";
+    case FieldType::kUint8:
+      return "uint8_t";
+    case FieldType::kInt16:
+      return "int16_t";
+    case FieldType::kUint16:
+      return "uint16_t";
+    case FieldType::kInt32:
+      return "int32_t";
+    case FieldType::kUint32:
+      return "uint32_t";
+    case FieldType::kInt64:
+      return "int64_t";
+    case FieldType::kUint64:
+      return "uint64_t";
+    case FieldType::kFloat32:
+      return "float";
+    case FieldType::kFloat64:
+      return "double";
+    case FieldType::kTime:
+      return "davros::Time";
+    case FieldType::kDuration:
+      return "davros::Duration";
+    case FieldType::kString:
+      return "std::string";
+    case FieldType::kBool:
+      return "uint8_t";
+    case FieldType::kMessage:
+      std::cerr << "Can't use message field type here\n";
+      return "<message>";
+    case FieldType::kUnknown:
+      std::cerr << "Unknown field type " << int(type) << std::endl;
+      abort();
   }
 }
 static int EnumCSize(const Message &msg) {
@@ -200,24 +204,24 @@ static int EnumCSize(const Message &msg) {
   int size = 0;
   for (auto & [ name, c ] : msg.Constants()) {
     switch (c->Type()) {
-    case FieldType::kInt8:
-    case FieldType::kUint8:
-      size = std::max(size, 1);
-      break;
-    case FieldType::kInt16:
-    case FieldType::kUint16:
-      size = std::max(size, 2);
-      break;
-    case FieldType::kInt32:
-    case FieldType::kUint32:
-      size = std::max(size, 4);
-      break;
-    case FieldType::kInt64:
-    case FieldType::kUint64:
-      size = std::max(size, 8);
-      break;
-    default:
-      break;
+      case FieldType::kInt8:
+      case FieldType::kUint8:
+        size = std::max(size, 1);
+        break;
+      case FieldType::kInt16:
+      case FieldType::kUint16:
+        size = std::max(size, 2);
+        break;
+      case FieldType::kInt32:
+      case FieldType::kUint32:
+        size = std::max(size, 4);
+        break;
+      case FieldType::kInt64:
+      case FieldType::kUint64:
+        size = std::max(size, 8);
+        break;
+      default:
+        break;
     }
   }
   return size;
@@ -227,66 +231,65 @@ static std::string EnumCType(const Message &msg) {
   int size = EnumCSize(msg);
 
   switch (size) {
-  case 0:
-  default:
-    return "uint8_t";
-  case 1:
-    return "uint8_t";
-  case 2:
-    return "uint16_t";
-  case 4:
-    return "uint32_t";
-  case 8:
-    return "uint64_t";
+    case 0:
+    default:
+      return "uint8_t";
+    case 1:
+      return "uint8_t";
+    case 2:
+      return "uint16_t";
+    case 4:
+      return "uint32_t";
+    case 8:
+      return "uint64_t";
   }
 }
 
 static std::string FieldAlignmentType(std::shared_ptr<Field> field) {
   switch (field->Type()) {
-  case FieldType::kInt8:
-    return "int8_t";
-  case FieldType::kUint8:
-    return "uint8_t";
-  case FieldType::kInt16:
-    return "int16_t";
-  case FieldType::kUint16:
-    return "uint16_t";
-  case FieldType::kInt32:
-    return "int32_t";
-  case FieldType::kUint32:
-    return "uint32_t";
-  case FieldType::kInt64:
-    return "int64_t";
-  case FieldType::kUint64:
-    return "uint64_t";
-  case FieldType::kFloat32:
-    return "float";
-  case FieldType::kFloat64:
-    return "double";
-  case FieldType::kTime:
-    return "int32_t";
-  case FieldType::kDuration:
-    return "int32_t";
-  case FieldType::kString:
-    return "int32_t";
-  case FieldType::kBool:
-    return "uint8_t";
-  case FieldType::kMessage:
-    if (IsEnum(field)) {
-      auto msg_field = std::static_pointer_cast<MessageField>(field);
-      return EnumCType(*msg_field->Msg());
-    }
-    return "int32_t";
-  case FieldType::kUnknown:
-    std::cerr << "Unknown field type for " << field->Name() << " "
-              << int(field->Type()) << std::endl;
-    abort();
+    case FieldType::kInt8:
+      return "int8_t";
+    case FieldType::kUint8:
+      return "uint8_t";
+    case FieldType::kInt16:
+      return "int16_t";
+    case FieldType::kUint16:
+      return "uint16_t";
+    case FieldType::kInt32:
+      return "int32_t";
+    case FieldType::kUint32:
+      return "uint32_t";
+    case FieldType::kInt64:
+      return "int64_t";
+    case FieldType::kUint64:
+      return "uint64_t";
+    case FieldType::kFloat32:
+      return "float";
+    case FieldType::kFloat64:
+      return "double";
+    case FieldType::kTime:
+      return "int32_t";
+    case FieldType::kDuration:
+      return "int32_t";
+    case FieldType::kString:
+      return "int32_t";
+    case FieldType::kBool:
+      return "uint8_t";
+    case FieldType::kMessage:
+      if (IsEnum(field)) {
+        auto msg_field = std::static_pointer_cast<MessageField>(field);
+        return EnumCType(*msg_field->Msg());
+      }
+      return "int32_t";
+    case FieldType::kUnknown:
+      std::cerr << "Unknown field type for " << field->Name() << " "
+                << int(field->Type()) << std::endl;
+      abort();
   }
 }
 
-std::string
-Generator::MessageFieldTypeName(const Message &msg,
-                                std::shared_ptr<MessageField> field) {
+std::string Generator::MessageFieldTypeName(
+    const Message &msg, std::shared_ptr<MessageField> field) {
   std::string name;
   if (field->MsgPackage().empty()) {
     return msg.Package()->Name() + "::" + Namespace(false) + field->MsgName();
@@ -294,9 +297,8 @@ Generator::MessageFieldTypeName(const Message &msg,
   return field->MsgPackage() + "::" + Namespace(false) + field->MsgName();
 }
 
-static std::string
-MessageFieldIncludeFile(const Message &msg,
-                        std::shared_ptr<MessageField> field) {
+static std::string MessageFieldIncludeFile(
+    const Message &msg, std::shared_ptr<MessageField> field) {
   if (field->MsgPackage().empty()) {
     return "zeros/" + msg.Package()->Name() + "/" + field->MsgName() + ".h";
   }
@@ -395,10 +397,10 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
          << SanitizeFieldName(c->Name()) << " = ";
     }
 
-    std::visit(overloaded{[&os](int64_t v) { os << v; },
-                          [&os](double v) { os << v; },
-                          [&os](std::string v) { os << '"' << v << '"'; }},
-               c->Value());
+    std::visit(
+        overloaded{[&os](int64_t v) { os << v; }, [&os](double v) { os << v; },
+                   [&os](std::string v) { os << '"' << v << '"'; }},
+        c->Value());
     os << ";" << std::endl;
   }
 
@@ -888,4 +890,4 @@ absl::Status Generator::GenerateLength(const Message &msg, std::ostream &os) {
   return absl::OkStatus();
 }
 
-} // namespace davros::zeros
+}  // namespace davros::zeros

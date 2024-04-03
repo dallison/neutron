@@ -1,7 +1,7 @@
 #pragma once
 
-#include <iostream>
 #include <stdint.h>
+#include <iostream>
 
 namespace davros {
 
@@ -41,5 +41,4 @@ inline uint32_t AlignSize(uint32_t s,
   return (s + (alignment - 1)) & ~(alignment - 1);
 }
 
-
-} // namespace davros
+}  // namespace davros

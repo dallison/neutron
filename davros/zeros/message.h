@@ -1,8 +1,8 @@
 #pragma once
 
-#include "davros/zeros/payload_buffer.h"
-#include <memory>
 #include <stdint.h>
+#include <memory>
+#include "davros/zeros/payload_buffer.h"
 
 namespace davros::zeros {
 
@@ -61,18 +61,20 @@ struct Message {
     return pb->get();
   }
 
- static std::shared_ptr<PayloadBuffer *> GetSharedBuffer(void *field, uint32_t offset) {
+  static std::shared_ptr<PayloadBuffer *> GetSharedBuffer(void *field,
+                                                          uint32_t offset) {
     std::shared_ptr<PayloadBuffer *> *pb =
         reinterpret_cast<std::shared_ptr<PayloadBuffer *> *>(
             reinterpret_cast<char *>(field) - offset);
     return *pb;
   }
-  
-  static BufferOffset GetMessageBinaryStart(const void *field, uint32_t offset) {
+
+  static BufferOffset GetMessageBinaryStart(const void *field,
+                                            uint32_t offset) {
     const Message *msg = reinterpret_cast<const Message *>(
         reinterpret_cast<const char *>(field) - offset);
     return msg->absolute_binary_offset;
   }
 };
 
-} // namespace davros::zeros
+}  // namespace davros::zeros

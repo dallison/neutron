@@ -7,39 +7,39 @@ namespace davros {
 
 static int FromFieldType(FieldType t) {
   switch (t) {
-  case FieldType::kInt8:
-    return descriptor::Field::TYPE_INT8;
-  case FieldType::kUint8:
-    return descriptor::Field::TYPE_UINT8;
-  case FieldType::kInt16:
-    return descriptor::Field::TYPE_INT16;
-  case FieldType::kUint16:
-    return descriptor::Field::TYPE_UINT16;
-  case FieldType::kInt32:
-    return descriptor::Field::TYPE_INT32;
-  case FieldType::kUint32:
-    return descriptor::Field::TYPE_UINT32;
-  case FieldType::kInt64:
-    return descriptor::Field::TYPE_INT64;
-  case FieldType::kUint64:
-    return descriptor::Field::TYPE_UINT64;
-  case FieldType::kFloat32:
-    return descriptor::Field::TYPE_FLOAT32;
-  case FieldType::kFloat64:
-    return descriptor::Field::TYPE_FLOAT64;
-  case FieldType::kTime:
-    return descriptor::Field::TYPE_TIME;
-  case FieldType::kDuration:
-    return descriptor::Field::TYPE_DURATION;
-  case FieldType::kString:
-    return descriptor::Field::TYPE_STRING;
-  case FieldType::kBool:
-    return descriptor::Field::TYPE_BOOL;
-  case FieldType::kMessage:
-    return descriptor::Field::TYPE_MESSAGE;
-  case FieldType::kUnknown:
-    std::cerr << "Unknown field type " << int(t) << std::endl;
-    abort();
+    case FieldType::kInt8:
+      return descriptor::Field::TYPE_INT8;
+    case FieldType::kUint8:
+      return descriptor::Field::TYPE_UINT8;
+    case FieldType::kInt16:
+      return descriptor::Field::TYPE_INT16;
+    case FieldType::kUint16:
+      return descriptor::Field::TYPE_UINT16;
+    case FieldType::kInt32:
+      return descriptor::Field::TYPE_INT32;
+    case FieldType::kUint32:
+      return descriptor::Field::TYPE_UINT32;
+    case FieldType::kInt64:
+      return descriptor::Field::TYPE_INT64;
+    case FieldType::kUint64:
+      return descriptor::Field::TYPE_UINT64;
+    case FieldType::kFloat32:
+      return descriptor::Field::TYPE_FLOAT32;
+    case FieldType::kFloat64:
+      return descriptor::Field::TYPE_FLOAT64;
+    case FieldType::kTime:
+      return descriptor::Field::TYPE_TIME;
+    case FieldType::kDuration:
+      return descriptor::Field::TYPE_DURATION;
+    case FieldType::kString:
+      return descriptor::Field::TYPE_STRING;
+    case FieldType::kBool:
+      return descriptor::Field::TYPE_BOOL;
+    case FieldType::kMessage:
+      return descriptor::Field::TYPE_MESSAGE;
+    case FieldType::kUnknown:
+      std::cerr << "Unknown field type " << int(t) << std::endl;
+      abort();
   }
 }
 
@@ -88,7 +88,7 @@ absl::StatusOr<descriptor::Descriptor> MakeDescriptor(const Message &msg) {
     }
     desc.fields.push_back(f);
   }
-  for (auto& import : imports) {
+  for (auto &import : imports) {
     desc.imports.push_back(import);
   }
   return desc;
@@ -131,4 +131,4 @@ absl::StatusOr<descriptor::Descriptor> DecodeDescriptor(std::istream &is) {
   descriptor::Descriptor desc;
   return desc;
 }
-} // namespace davros
+}  // namespace davros

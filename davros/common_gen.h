@@ -106,4 +106,4 @@ inline bool IsCppReservedWord(const std::string &s) {
   };
   return reserved_words.contains(s);
 }
-}
+}  // namespace davros

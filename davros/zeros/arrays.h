@@ -309,10 +309,10 @@ public:
   bool empty() const { return N == 0; }
   size_t max_size() const { return N; }
 
-  T& front() { return msgs_.front(); }
-  const T& front() const { return msgs_.front(); }
-  T& back() { return msgs_.back(); }
-  const T& back() const { return msgs_.back(); }
+  T &front() { return msgs_.front(); }
+  const T &front() const { return msgs_.front(); }
+  T &back() { return msgs_.back(); }
+  const T &back() const { return msgs_.back(); }
 
   BufferOffset BinaryEndOffset() const {
     return relative_binary_offset_ + T::BinarySize() * N;
@@ -354,17 +354,17 @@ public:
                                    sizeof(StringField) * i;
       // Binary offset in the StringField is relative to the start of the
       // message, not the buffer start.
-      strings_[i].relative_binary_offset_ = relative_binary_offset +
-                                            sizeof(BufferOffset) * i;
+      strings_[i].relative_binary_offset_ =
+          relative_binary_offset + sizeof(BufferOffset) * i;
     }
   }
 
   StringField &operator[](int index) { return strings_[index]; }
 
-  StringField& front() { return strings_.front(); }
-  const StringField& front() const { return strings_.front(); }
-  StringField& back() { return strings_.back(); }
-  const StringField& back() const { return strings_.back(); }
+  StringField &front() { return strings_.front(); }
+  const StringField &front() const { return strings_.front(); }
+  StringField &back() { return strings_.back(); }
+  const StringField &back() const { return strings_.back(); }
 
   std::array<StringField, N> &Get() { return strings_; }
   const std::array<StringField, N> &Get() const { return strings_; }

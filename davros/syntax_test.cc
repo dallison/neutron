@@ -1,7 +1,7 @@
-#include "davros/lex.h"
 #include "davros/syntax.h"
 #include <gtest/gtest.h>
 #include <sstream>
+#include "davros/lex.h"
 
 TEST(SyntaxTest, SingleField) {
   std::stringstream input;

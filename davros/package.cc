@@ -1,7 +1,7 @@
 #include "davros/package.h"
-#include "absl/strings/str_format.h"
 #include <filesystem>
 #include <fstream>
+#include "absl/strings/str_format.h"
 
 namespace davros {
 
@@ -90,9 +90,8 @@ absl::Status PackageScanner::ScanForMessagesFrom(std::filesystem::path path) {
   return absl::OkStatus();
 }
 
-std::shared_ptr<Message>
-PackageScanner::FindMessage(const std::string package_name,
-                            const std::string &msg_name) {
+std::shared_ptr<Message> PackageScanner::FindMessage(
+    const std::string package_name, const std::string &msg_name) {
   auto it = packages_.find(package_name);
   if (it == packages_.end()) {
     return nullptr;
@@ -100,9 +99,8 @@ PackageScanner::FindMessage(const std::string package_name,
   return it->second->FindMessage(msg_name);
 }
 
-absl::StatusOr<std::shared_ptr<Message>>
-PackageScanner::ResolveImport(const std::string &package_name,
-                              const std::string &msg_name) {
+absl::StatusOr<std::shared_ptr<Message>> PackageScanner::ResolveImport(
+    const std::string &package_name, const std::string &msg_name) {
   auto package = FindPackage(package_name);
   if (package == nullptr) {
     return absl::InternalError(
@@ -122,8 +120,8 @@ PackageScanner::ResolveImport(const std::string &package_name,
   return msg;
 }
 
-absl::StatusOr<std::shared_ptr<Message>>
-Package::ParseMessage(std::filesystem::path file) {
+absl::StatusOr<std::shared_ptr<Message>> Package::ParseMessage(
+    std::filesystem::path file) {
   std::ifstream in(file);
   if (!in) {
     return absl::InternalError(
@@ -168,7 +166,7 @@ absl::Status Package::ResolveMessages(std::shared_ptr<PackageScanner> scanner) {
   for (auto & [ name, msg ] : messages_) {
     messages.push_back(msg);
   }
-  for (auto & msg : messages) {
+  for (auto &msg : messages) {
     if (absl::Status status = msg->Resolve(scanner); !status.ok()) {
       return status;
     }
@@ -182,4 +180,4 @@ void PackageScanner::Dump(std::ostream &os) {
   }
 }
 
-} // namespace davros
+}  // namespace davros

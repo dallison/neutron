@@ -1,6 +1,6 @@
-#include "davros/serdes/runtime.h"
-#include "davros/serdes/other_msgs/Other.h"
 #include <gtest/gtest.h>
+#include "davros/serdes/other_msgs/Other.h"
+#include "davros/serdes/runtime.h"
 #include "toolbelt/hexdump.h"
 
 TEST(Runtime, FixedBuffer) {

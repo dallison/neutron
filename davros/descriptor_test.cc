@@ -1,10 +1,10 @@
 #include "davros/descriptor.h"
-#include "davros/package.h"
 #include <gtest/gtest.h>
 #include <sstream>
+#include "davros/package.h"
 
 TEST(DescriptorTest, OneLine) {
-    std::shared_ptr<davros::Package> pkg =
+  std::shared_ptr<davros::Package> pkg =
       std::make_shared<davros::Package>(nullptr, "other_msgs");
   auto msg = pkg->ParseMessage("./davros/testdata/other_msgs/msg/Other.msg");
   ASSERT_TRUE(msg.ok());

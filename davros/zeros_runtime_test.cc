@@ -1,3 +1,4 @@
+#include <gtest/gtest.h>
 #include "davros/serdes/other_msgs/Other.h"
 #include "davros/serdes/runtime.h"
 #include "davros/serdes/test_msgs/All.h"
@@ -5,7 +6,6 @@
 #include "davros/zeros/runtime.h"
 #include "davros/zeros/test_msgs/All.h"
 #include "toolbelt/hexdump.h"
-#include <gtest/gtest.h>
 
 using PayloadBuffer = davros::zeros::PayloadBuffer;
 

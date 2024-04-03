@@ -39,8 +39,6 @@ struct Field {
   absl::Status DeserializeFromBuffer(davros::serdes::Buffer& buffer);
   size_t SerializedLength() const;
   bool operator==(const Field& m) const;
-  bool operator!=(const Field& m) const {
-    return !this->operator==(m);
-  }
+  bool operator!=(const Field& m) const { return !this->operator==(m); }
 };
-}    // namespace descriptor
+}  // namespace descriptor

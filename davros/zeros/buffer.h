@@ -15,7 +15,7 @@ namespace davros::zeros {
 // is also supported.
 
 class Buffer {
-public:
+ public:
   // Dynamic buffer with own memory allocation.
   Buffer(size_t initial_size = 16) : owned_(true), size_(initial_size) {
     if (initial_size < 16) {
@@ -32,7 +32,10 @@ public:
 
   // Fixed buffer in non-owned memory.
   Buffer(char *addr, size_t size)
-      : owned_(false), start_(addr), size_(size), addr_(addr),
+      : owned_(false),
+        start_(addr),
+        size_(size),
+        addr_(addr),
         end_(addr + size) {}
 
   ~Buffer() {
@@ -45,13 +48,17 @@ public:
 
   size_t size() const { return Size(); }
 
-  template <typename T> T *Data() { return reinterpret_cast<T *>(start_); }
+  template <typename T>
+  T *Data() {
+    return reinterpret_cast<T *>(start_);
+  }
 
   char *data() { return Data<char>(); }
 
   std::string AsString() const { return std::string(start_, addr_ - start_); }
 
-  template <typename T> absl::Span<const T> AsSpan() const {
+  template <typename T>
+  absl::Span<const T> AsSpan() const {
     return absl::Span<T>(reinterpret_cast<const T *>(start_), addr_ - start_);
   }
 
@@ -190,7 +197,8 @@ public:
     return absl::OkStatus();
   }
 
-  template <typename Enum> absl::Status Write(const EnumField<Enum> &v) {
+  template <typename Enum>
+  absl::Status Write(const EnumField<Enum> &v) {
     if (absl::Status status = HasSpaceFor(v.SerializedSize()); !status.ok()) {
       return status;
     }
@@ -201,7 +209,8 @@ public:
     return absl::OkStatus();
   }
 
-  template <typename Enum> absl::Status Read(EnumField<Enum> &v) {
+  template <typename Enum>
+  absl::Status Read(EnumField<Enum> &v) {
     if (absl::Status status = Check(v.SerializedSize()); !status.ok()) {
       return status;
     }
@@ -210,15 +219,18 @@ public:
     return absl::OkStatus();
   }
 
-  template <typename T> absl::Status Write(const MessageField<T> &msg) {
+  template <typename T>
+  absl::Status Write(const MessageField<T> &msg) {
     return msg.Get().SerializeToBuffer(*this);
   }
 
-  template <typename T> absl::Status Read(MessageField<T> &msg) {
+  template <typename T>
+  absl::Status Read(MessageField<T> &msg) {
     return msg.Get().DeserializeFromBuffer(*this);
   }
 
-  template <typename T> absl::Status Write(const PrimitiveVectorField<T> &vec) {
+  template <typename T>
+  absl::Status Write(const PrimitiveVectorField<T> &vec) {
     if (absl::Status status = HasSpaceFor(vec.SerializedSize()); !status.ok()) {
       return status;
     }
@@ -229,7 +241,8 @@ public:
     return absl::OkStatus();
   }
 
-  template <typename T> absl::Status Read(PrimitiveVectorField<T> &vec) {
+  template <typename T>
+  absl::Status Read(PrimitiveVectorField<T> &vec) {
     if (absl::Status status = Check(4); !status.ok()) {
       return status;
     }
@@ -247,15 +260,15 @@ public:
     if (absl::Status status = HasSpaceFor(vec.SerializedSize()); !status.ok()) {
       return status;
     }
-    uint32_t size =
-        static_cast<uint32_t>(vec.size());
+    uint32_t size = static_cast<uint32_t>(vec.size());
     memcpy(addr_, &size, sizeof(size));
     memcpy(addr_ + 4, vec.data(), size * sizeof(EnumVectorField<Enum>::T));
     addr_ += vec.SerializedSize();
     return absl::OkStatus();
   }
 
-  template <typename Enum> absl::Status Read(EnumVectorField<Enum> &vec) {
+  template <typename Enum>
+  absl::Status Read(EnumVectorField<Enum> &vec) {
     if (absl::Status status = Check(4); !status.ok()) {
       return status;
     }
@@ -340,7 +353,8 @@ public:
     return absl::OkStatus();
   }
 
-  template <int N> absl::Status Write(const StringArrayField<N> &vec) {
+  template <int N>
+  absl::Status Write(const StringArrayField<N> &vec) {
     for (auto &s : vec) {
       if (absl::Status status = Write(s); !status.ok()) {
         return status;
@@ -349,7 +363,8 @@ public:
     return absl::OkStatus();
   }
 
-  template <int N> absl::Status Read(StringArrayField<N> &vec) {
+  template <int N>
+  absl::Status Read(StringArrayField<N> &vec) {
     for (auto &s : vec) {
       if (absl::Status status = Read(s); !status.ok()) {
         return status;
@@ -362,7 +377,7 @@ public:
   // MessageArrayField
   // MessageVectorField
   // StringVectorField
-private:
+ private:
   absl::Status HasSpaceFor(size_t n) {
     char *next = addr_ + n;
     // Off-by-one complexity here.  The end is one past the end of the buffer.
@@ -396,11 +411,11 @@ private:
     return absl::InternalError("End of buffer");
   }
 
-  bool owned_ = false;    // Memory is owned by this buffer.
-  char *start_ = nullptr; //
+  bool owned_ = false;     // Memory is owned by this buffer.
+  char *start_ = nullptr;  //
   size_t size_ = 0;
   char *addr_ = nullptr;
   char *end_ = nullptr;
-}; // namespace davros::zeros
+};  // namespace davros::zeros
 
-} // namespace davros::zeros
+}  // namespace davros::zeros

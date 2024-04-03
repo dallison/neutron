@@ -1,13 +1,13 @@
 #pragma once
 
-#include "absl/container/flat_hash_map.h"
-#include "absl/status/status.h"
-#include "davros/lex.h"
 #include <map>
 #include <memory>
 #include <string>
 #include <variant>
 #include <vector>
+#include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
+#include "davros/lex.h"
 
 namespace davros {
 
@@ -35,7 +35,7 @@ enum class FieldType {
 };
 
 class Constant {
-public:
+ public:
   Constant(FieldType type, std::string name,
            std::variant<int64_t, double, std::string> value)
       : type_(type), name_(std::move(name)), value_(std::move(value)) {}
@@ -44,20 +44,20 @@ public:
   std::string TypeName() const;
   const std::string &Name() const { return name_; }
   FieldType Type() const { return type_; }
-std::variant<int64_t, double, std::string> Value() { return value_; }
+  std::variant<int64_t, double, std::string> Value() { return value_; }
 
-private:
+ private:
   FieldType type_;
   std::string name_;
   std::variant<int64_t, double, std::string> value_;
 };
 
 class Field {
-public:
+ public:
   Field() = default;
   virtual ~Field() = default;
   Field(FieldType type, std::string name)
-      : type_(type), name_(std::move(name)){}
+      : type_(type), name_(std::move(name)) {}
 
   virtual std::string TypeName() const;
   virtual void Dump(std::ostream &os) const;
@@ -67,17 +67,19 @@ public:
 
   virtual bool IsArray() const { return false; }
 
-private:
+ private:
   FieldType type_;
   std::string name_;
-  std::variant<int64_t, double, std::string> default_value_; // TODO: support this.
+  std::variant<int64_t, double, std::string>
+      default_value_;  // TODO: support this.
 };
 
 class MessageField : public Field {
-public:
+ public:
   MessageField(std::string name, std::string msg_package, std::string msg_name)
       : Field(FieldType::kMessage, std::move(name)),
-        msg_package_(std::move(msg_package)), msg_name_(std::move(msg_name)) {}
+        msg_package_(std::move(msg_package)),
+        msg_name_(std::move(msg_name)) {}
 
   const std::string &MsgPackage() const { return msg_package_; }
   const std::string &MsgName() const { return msg_name_; }
@@ -87,14 +89,14 @@ public:
 
   void Resolved(std::shared_ptr<Message> msg) { msg_ = msg; }
 
-private:
+ private:
   std::string msg_package_;
   std::string msg_name_;
   std::shared_ptr<Message> msg_;
 };
 
 class ArrayField : public Field {
-public:
+ public:
   // If size is 0 then this is variable sized.
   ArrayField(std::shared_ptr<Field> base, int size)
       : base_(base), size_(size) {}
@@ -109,7 +111,7 @@ public:
 
   bool IsArray() const override { return true; }
 
-private:
+ private:
   std::shared_ptr<Field> base_;
   int size_;
 };
@@ -118,18 +120,18 @@ private:
 // generator should derive from this class and provide the implemention
 // of the Generate function.
 class Generator {
-public:
+ public:
   Generator() = default;
   virtual ~Generator() = default;
 
   // Provide implementation in derived class.
-  virtual absl::Status Generate(const Message& msg) {
+  virtual absl::Status Generate(const Message &msg) {
     return absl::InternalError("No generator provided");
   }
 };
 
 class Message {
-public:
+ public:
   Message(std::shared_ptr<Package> package, std::string name)
       : package_(std::move(package)), name_(std::move(name)) {}
 
@@ -141,16 +143,18 @@ public:
 
   const std::shared_ptr<Package> Package() const { return package_; }
   const std::string Name() const { return name_; }
-  const std::vector<std::shared_ptr<Field>>& Fields() const { return fields_; }
-  const std::map<std::string, std::shared_ptr<Constant>>& Constants() const { return constants_; }
- 
+  const std::vector<std::shared_ptr<Field>> &Fields() const { return fields_; }
+  const std::map<std::string, std::shared_ptr<Constant>> &Constants() const {
+    return constants_;
+  }
+
   absl::Status Resolve(std::shared_ptr<PackageScanner> scanner);
 
   absl::Status Generate(Generator &gen) const { return gen.Generate(*this); }
 
   bool IsEnum() const;
 
-private:
+ private:
   std::shared_ptr<class Package> package_;
   std::string name_;
   std::vector<std::shared_ptr<Field>> fields_;
@@ -163,4 +167,4 @@ private:
   static absl::flat_hash_map<Token, FieldType> field_types_;
 };
 
-} // namespace davros
+}  // namespace davros

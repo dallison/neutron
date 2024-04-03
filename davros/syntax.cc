@@ -8,26 +8,26 @@ absl::flat_hash_map<Token, FieldType> Message::field_types_;
 
 static bool IsIntField(FieldType t) {
   switch (t) {
-  case FieldType::kBool:
-    [[fallthrough]];
-  case FieldType::kInt8:
-    [[fallthrough]];
-  case FieldType::kUint8:
-    [[fallthrough]];
-  case FieldType::kInt16:
-    [[fallthrough]];
-  case FieldType::kUint16:
-    [[fallthrough]];
-  case FieldType::kInt32:
-    [[fallthrough]];
-  case FieldType::kUint32:
-    [[fallthrough]];
-  case FieldType::kInt64:
-    [[fallthrough]];
-  case FieldType::kUint64:
-    return true;
-  default:
-    return false;
+    case FieldType::kBool:
+      [[fallthrough]];
+    case FieldType::kInt8:
+      [[fallthrough]];
+    case FieldType::kUint8:
+      [[fallthrough]];
+    case FieldType::kInt16:
+      [[fallthrough]];
+    case FieldType::kUint16:
+      [[fallthrough]];
+    case FieldType::kInt32:
+      [[fallthrough]];
+    case FieldType::kUint32:
+      [[fallthrough]];
+    case FieldType::kInt64:
+      [[fallthrough]];
+    case FieldType::kUint64:
+      return true;
+    default:
+      return false;
   }
 }
 
@@ -72,73 +72,73 @@ absl::Status Message::Parse(LexicalAnalyzer &lex) {
     std::string msg_package;
     std::string msg_name;
     switch (lex.CurrentToken()) {
-    case Token::kIdentifier: {
-      msg_package.clear();
-      msg_name = lex.Spelling();
-      lex.NextToken();
-      // ROS only allows a single package followed by a /
-      if (lex.Match(Token::kSlash)) {
-        msg_package = msg_name;
-        if (lex.CurrentToken() == Token::kIdentifier) {
-          msg_name = lex.Spelling();
-          lex.NextToken();
-        } else {
-          lex.Error("Invalid message name");
-          lex.ReadLine();
-          lex.NextToken();
-          continue;
+      case Token::kIdentifier: {
+        msg_package.clear();
+        msg_name = lex.Spelling();
+        lex.NextToken();
+        // ROS only allows a single package followed by a /
+        if (lex.Match(Token::kSlash)) {
+          msg_package = msg_name;
+          if (lex.CurrentToken() == Token::kIdentifier) {
+            msg_name = lex.Spelling();
+            lex.NextToken();
+          } else {
+            lex.Error("Invalid message name");
+            lex.ReadLine();
+            lex.NextToken();
+            continue;
+          }
         }
+
+        field_type = FieldType::kMessage;
+
+        // The unadorned type Header is special for the first field in the
+        // message.
+        if (fields_.empty() && msg_package.empty() && msg_name == "Header") {
+          msg_package = "std_msgs";
+        }
+        break;
       }
 
-      field_type = FieldType::kMessage;
-
-      // The unadorned type Header is special for the first field in the
-      // message.
-      if (fields_.empty() && msg_package.empty() && msg_name == "Header") {
-        msg_package = "std_msgs";
-      }
-      break;
-    }
-
-    case Token::kBool:
-      [[fallthrough]];
-    case Token::kInt8:
-      [[fallthrough]];
-    case Token::kUint8:
-      [[fallthrough]];
-    case Token::kInt16:
-      [[fallthrough]];
-    case Token::kUint16:
-      [[fallthrough]];
-    case Token::kInt32:
-      [[fallthrough]];
-    case Token::kUint32:
-      [[fallthrough]];
-    case Token::kInt64:
-      [[fallthrough]];
-    case Token::kUint64:
-      [[fallthrough]];
-    case Token::kFloat32:
-      [[fallthrough]];
-    case Token::kFloat64:
-      [[fallthrough]];
-    case Token::kString:
-      [[fallthrough]];
-    case Token::kTime:
-      [[fallthrough]];
-    case Token::kDuration:
-      [[fallthrough]];
-    case Token::kChar:
-      [[fallthrough]];
-    case Token::kByte:
-      field_type = field_types_[lex.CurrentToken()];
-      lex.NextToken();
-      break;
-    default:
-      lex.Error("Invalid message field type");
-      lex.ReadLine();
-      lex.NextToken();
-      break;
+      case Token::kBool:
+        [[fallthrough]];
+      case Token::kInt8:
+        [[fallthrough]];
+      case Token::kUint8:
+        [[fallthrough]];
+      case Token::kInt16:
+        [[fallthrough]];
+      case Token::kUint16:
+        [[fallthrough]];
+      case Token::kInt32:
+        [[fallthrough]];
+      case Token::kUint32:
+        [[fallthrough]];
+      case Token::kInt64:
+        [[fallthrough]];
+      case Token::kUint64:
+        [[fallthrough]];
+      case Token::kFloat32:
+        [[fallthrough]];
+      case Token::kFloat64:
+        [[fallthrough]];
+      case Token::kString:
+        [[fallthrough]];
+      case Token::kTime:
+        [[fallthrough]];
+      case Token::kDuration:
+        [[fallthrough]];
+      case Token::kChar:
+        [[fallthrough]];
+      case Token::kByte:
+        field_type = field_types_[lex.CurrentToken()];
+        lex.NextToken();
+        break;
+      default:
+        lex.Error("Invalid message field type");
+        lex.ReadLine();
+        lex.NextToken();
+        break;
     }
     if (field_type == FieldType::kUnknown) {
       continue;
@@ -246,40 +246,40 @@ absl::Status Message::Parse(LexicalAnalyzer &lex) {
   return lex.NumErrors() == 0
              ? absl::OkStatus()
              : absl::InternalError("Parsing errors encountered");
-} // namespace davros
+}  // namespace davros
 
 static std::string FieldTypeName(FieldType t) {
   switch (t) {
-  case FieldType::kBool:
-    return "bool";
-  case FieldType::kInt8:
-    return "int8";
-  case FieldType::kUint8:
-    return "uint8";
-  case FieldType::kInt16:
-    return "int16";
-  case FieldType::kUint16:
-    return "uint16";
-  case FieldType::kInt32:
-    return "int32";
-  case FieldType::kUint32:
-    return "uint32";
-  case FieldType::kInt64:
-    return "int64";
-  case FieldType::kUint64:
-    return "uint64";
-  case FieldType::kFloat32:
-    return "float32";
-  case FieldType::kFloat64:
-    return "float64";
-  case FieldType::kString:
-    return "string";
-  case FieldType::kTime:
-    return "time";
-  case FieldType::kDuration:
-    return "duration";
-  default:
-    return "unknown";
+    case FieldType::kBool:
+      return "bool";
+    case FieldType::kInt8:
+      return "int8";
+    case FieldType::kUint8:
+      return "uint8";
+    case FieldType::kInt16:
+      return "int16";
+    case FieldType::kUint16:
+      return "uint16";
+    case FieldType::kInt32:
+      return "int32";
+    case FieldType::kUint32:
+      return "uint32";
+    case FieldType::kInt64:
+      return "int64";
+    case FieldType::kUint64:
+      return "uint64";
+    case FieldType::kFloat32:
+      return "float32";
+    case FieldType::kFloat64:
+      return "float64";
+    case FieldType::kString:
+      return "string";
+    case FieldType::kTime:
+      return "time";
+    case FieldType::kDuration:
+      return "duration";
+    default:
+      return "unknown";
   }
 }
 std::string Field::TypeName() const { return FieldTypeName(type_); }
@@ -303,15 +303,19 @@ std::string ArrayField::TypeName() const {
 
 // Magic helper templates for std::visit.
 // See https://en.cppreference.com/w/cpp/utility/variant/visit
-template <class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-template <class... Ts> overloaded(Ts...)->overloaded<Ts...>;
+template <class... Ts>
+struct overloaded : Ts... {
+  using Ts::operator()...;
+};
+template <class... Ts>
+overloaded(Ts...)->overloaded<Ts...>;
 
 void Constant::Dump(std::ostream &os) const {
   os << TypeName() << " " << name_ << " = ";
-  std::visit(overloaded{[&os](int64_t v) { os << v; },
-                        [&os](double v) { os << v; },
-                        [&os](std::string v) { os << v; }},
-             value_);
+  std::visit(
+      overloaded{[&os](int64_t v) { os << v; }, [&os](double v) { os << v; },
+                 [&os](std::string v) { os << v; }},
+      value_);
   os << std::endl;
 }
 
@@ -389,4 +393,4 @@ absl::Status Message::Resolve(std::shared_ptr<PackageScanner> scanner) {
   }
   return absl::OkStatus();
 }
-} // namespace davros
+}  // namespace davros

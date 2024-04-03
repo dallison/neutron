@@ -1,21 +1,23 @@
 #pragma once
 
+#include <filesystem>
 #include "absl/status/status.h"
 #include "davros/package.h"
-#include <filesystem>
 
 namespace davros::serdes {
 
 class Generator : public davros::Generator {
-public:
+ public:
   Generator(std::filesystem::path root, std::string runtime_path,
             std::string msg_path, std::string ns)
-      : root_(std::move(root)), runtime_path_(std::move(runtime_path)),
-        msg_path_(std::move(msg_path)), namespace_(std::move(ns)) {}
+      : root_(std::move(root)),
+        runtime_path_(std::move(runtime_path)),
+        msg_path_(std::move(msg_path)),
+        namespace_(std::move(ns)) {}
 
   absl::Status Generate(const Message &msg) override;
 
-private:
+ private:
   absl::Status GenerateHeader(const Message &msg, std::ostream &os);
   absl::Status GenerateSource(const Message &msg, std::ostream &os);
   absl::Status GenerateEnum(const Message &msg, std::ostream &os);
@@ -36,4 +38,4 @@ private:
   std::string namespace_;
 };
 
-} // namespace davros::serdes
+}  // namespace davros::serdes

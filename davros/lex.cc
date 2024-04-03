@@ -1,6 +1,6 @@
 #include "davros/lex.h"
-#include "absl/strings/str_format.h"
 #include <ctype.h>
+#include "absl/strings/str_format.h"
 
 namespace davros {
 
@@ -29,7 +29,7 @@ LexicalAnalyzer::LexicalAnalyzer(
 }
 
 void LexicalAnalyzer::NextToken() {
-  for(;;) {
+  for (;;) {
     SkipSpaces();
     char ch = NextChar();
     if (ch_ >= line_.size()) {
@@ -57,7 +57,7 @@ void LexicalAnalyzer::NextToken() {
         spelling_ += ch;
         ch = NextChar();
       }
-      ch_--; // One too far.
+      ch_--;  // One too far.
       auto it = reserved_words_.find(spelling_);
       if (it != reserved_words_.end()) {
         current_token_ = it->second;
@@ -118,23 +118,23 @@ void LexicalAnalyzer::NextToken() {
 
     // Operator tokens.
     switch (ch) {
-    case '/':
-      current_token_ = Token::kSlash;
-      return;
-    case '=':
-      current_token_ = Token::kEqual;
-      return;
-    case '[':
-      current_token_ = Token::kLsquare;
-      return;
-    case ']':
-      current_token_ = Token::kRsquare;
-      return;
-    case '<':
-      current_token_ = Token::kLess;
-      return;
-    default:
-      break;
+      case '/':
+        current_token_ = Token::kSlash;
+        return;
+      case '=':
+        current_token_ = Token::kEqual;
+        return;
+      case '[':
+        current_token_ = Token::kLsquare;
+        return;
+      case ']':
+        current_token_ = Token::kRsquare;
+        return;
+      case '<':
+        current_token_ = Token::kLess;
+        return;
+      default:
+        break;
     }
     // If we get here we have an invalid token.
     current_token_ = Token::kInvalid;
@@ -217,4 +217,4 @@ void LexicalAnalyzer::VError(int lineno, const char *error, va_list ap) {
   }
   num_errors_++;
 }
-} // namespace davros
+}  // namespace davros

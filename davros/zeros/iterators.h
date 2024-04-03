@@ -2,21 +2,21 @@
 
 // Array and vector iterators.
 
-#include "absl/status/status.h"
-#include "absl/status/statusor.h"
-#include "davros/common_runtime.h"
-#include "davros/zeros/message.h"
-#include "davros/zeros/payload_buffer.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <string>
 #include <string_view>
 #include <vector>
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "davros/common_runtime.h"
+#include "davros/zeros/message.h"
+#include "davros/zeros/payload_buffer.h"
 
 namespace davros::zeros {
 
-
-template <typename Field, typename T> struct FieldIterator {
+template <typename Field, typename T>
+struct FieldIterator {
   FieldIterator(const Field *f, BufferOffset o, bool r = false)
       : field(f), offset(o), reverse(r) {}
 
@@ -63,7 +63,8 @@ template <typename Field, typename T> struct FieldIterator {
   bool reverse;
 };
 
-template <typename Field> struct StringFieldIterator {
+template <typename Field>
+struct StringFieldIterator {
   StringFieldIterator(const Field *f, BufferOffset o, bool r = false)
       : field(f), offset(o), reverse(r) {}
 
@@ -85,15 +86,19 @@ template <typename Field> struct StringFieldIterator {
   }
   StringFieldIterator operator+(size_t i) {
     if (reverse) {
-      return StringFieldIterator(field, field->BaseOffset() - i * sizeof(BufferOffset), true);
+      return StringFieldIterator(
+          field, field->BaseOffset() - i * sizeof(BufferOffset), true);
     }
-    return StringFieldIterator(field, field->BaseOffset() + i * sizeof(BufferOffset));
+    return StringFieldIterator(field,
+                               field->BaseOffset() + i * sizeof(BufferOffset));
   }
   StringFieldIterator operator-(size_t i) {
     if (reverse) {
-      return StringFieldIterator(field, field->BaseOffset() + i * sizeof(BufferOffset), true);
+      return StringFieldIterator(
+          field, field->BaseOffset() + i * sizeof(BufferOffset), true);
     }
-    return StringFieldIterator(field, field->BaseOffset() - i * sizeof(BufferOffset));
+    return StringFieldIterator(field,
+                               field->BaseOffset() - i * sizeof(BufferOffset));
   }
   std::string_view operator*() const {
     return field->GetBuffer()->GetStringView(field->BaseOffset() + offset);
@@ -111,7 +116,8 @@ template <typename Field> struct StringFieldIterator {
   bool reverse;
 };
 
-template <typename Field, typename T> struct EnumFieldIterator {
+template <typename Field, typename T>
+struct EnumFieldIterator {
   EnumFieldIterator(const Field *f, BufferOffset o, bool r = false)
       : field(f), offset(o), reverse(r) {}
 
@@ -133,19 +139,23 @@ template <typename Field, typename T> struct EnumFieldIterator {
   }
   EnumFieldIterator operator+(size_t i) {
     if (reverse) {
-      return EnumFieldIterator(field, field->BaseOffset() -
-                                 i * sizeof(std::underlying_type<T>::type), true);
+      return EnumFieldIterator(
+          field,
+          field->BaseOffset() - i * sizeof(std::underlying_type<T>::type),
+          true);
     }
-    return EnumFieldIterator(field, field->BaseOffset() +
-                               i * sizeof(std::underlying_type<T>::type));
+    return EnumFieldIterator(
+        field, field->BaseOffset() + i * sizeof(std::underlying_type<T>::type));
   }
   EnumFieldIterator operator-(size_t i) {
     if (reverse) {
-      return EnumFieldIterator(field, field->BaseOffset() +
-                                 i * sizeof(std::underlying_type<T>::type), true);
+      return EnumFieldIterator(
+          field,
+          field->BaseOffset() + i * sizeof(std::underlying_type<T>::type),
+          true);
     }
-    return EnumFieldIterator(field, field->BaseOffset() -
-                               i * sizeof(std::underlying_type<T>::type));
+    return EnumFieldIterator(
+        field, field->BaseOffset() - i * sizeof(std::underlying_type<T>::type));
   }
 
   T &operator*() const {
@@ -164,6 +174,4 @@ template <typename Field, typename T> struct EnumFieldIterator {
   bool reverse;
 };
 
-
-}
-
+}  // namespace davros::zeros

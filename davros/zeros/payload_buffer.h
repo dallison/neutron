@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <iostream>
 #include <stdint.h>
 #include <stdlib.h>
@@ -8,22 +9,50 @@
 
 namespace davros::zeros {
 
-constexpr uint32_t kFixedBufferMagic = 0x65766144;
-constexpr uint32_t kMovableBufferMagic = 0x45766144;
+constexpr uint32_t kFixedBufferMagic = 0xe5f6f1c4;
+constexpr uint32_t kMovableBufferMagic = 0xc5f6f1c4;
 
 using BufferOffset = uint32_t;
 
 struct FreeBlockHeader {
-  uint32_t length;
-  BufferOffset next;
+  uint32_t length;   // Length of the free block, including the header.
+  BufferOffset next; // Absolute offset into buffer for next free block.
 };
 
+// The 'data' member refers to a block of allocated memory in the
+// buffer.  Since it's been allocated using Allocate, the preceding
+// 4 bytes contains the length of the block in bytes (little endian).
+// To get the count of the number of elements in the allocated block
+// (the vector's capacity), divide this by sizeof(T) where T is the
+// type of the values stored in the vector.
 struct VectorHeader {
-  uint32_t num_elements;
-  BufferOffset data;
+  uint32_t num_elements; // Number of populated elements.
+  BufferOffset data;     // Absolute offset of vector data.
 };
 
+struct PayloadBuffer;
+
+// A string is held in an allocated block as a 4 byte little endian
+// length field, followed immediately by the string data.  The block
+// length is aligned to a multiple of 4 bytes, so that can't be
+// used to hold the actual length of the string.
+// A StringHeader is the absolute offset into the buffer of the
+// length field of the string.
 using StringHeader = BufferOffset;
+
+// The resizer function is called when the buffer needs to be expanded.
+// Its responsibility is to:
+// 1. Allocate memory for the new buffer with the size given.
+// 2. Copy the current buffer contents to the new memory
+// 3. Set *buffer to the address of the new buffer.
+// 4. Freeing up the old buffer if necessary.
+//
+// It is not responsible for adding the new memory to the free list in
+// the buffer to make it available for allocation.  If the buffer
+// is allocated using malloc, the resize would be a simple call
+// to realloc.  However, care must be taken to preserve the
+// contents of the resizer function.
+using Resizer = std::function<void(PayloadBuffer **, size_t new_size)>;
 
 // This is a buffer that holds the contents of a message.
 // It is located at the first address of the actual buffer with the
@@ -38,11 +67,51 @@ struct PayloadBuffer {
   BufferOffset metadata;  // Offset to message metadata.
 
   // Initialize a new PayloadBuffer at this with a message of the
-  // given size.
-  PayloadBuffer(uint32_t size, bool is_fixed = true)
-      : magic(is_fixed ? kFixedBufferMagic : kMovableBufferMagic), hwm(0),
-        full_size(size) {
+  // given size.  This is a fixed size buffer.
+  PayloadBuffer(uint32_t size)
+      : magic(kFixedBufferMagic), message(0), hwm(0), full_size(size),
+        metadata(0) {
     InitFreeList();
+  }
+
+  // This is a variable sized buffer with the resizer being a function to
+  // allocate new memory.  A pointer to the resizer function is stored in the memory
+  // immediately above the header.  We can't store the actual std::function
+  // in the memory because the memory will be deleted during the call to the
+  // std::function which invalidates its this pointer.  Instead we copy the
+  // std::function to the heap and store a raw pointer to it.  The heap
+  // copy will be destructed when the payload buffer is destructed.
+  // This implies that you need to destruct the payload buffer to avoid
+  // a memory leak.  This is only necessary for resizable buffers.  Fixed
+  // size buffers don't need to be destructed.
+  PayloadBuffer(uint32_t initial_size, Resizer r)
+      : magic(kMovableBufferMagic), message(0), hwm(0), full_size(initial_size),
+        metadata(0) {
+    InitFreeList();
+    SetResizer(std::move(r));
+  }
+
+  ~PayloadBuffer() {
+    if (magic == kMovableBufferMagic) {
+      // Destruct the resizer.
+      Resizer **addr = reinterpret_cast<Resizer **>(this + 1);
+      delete *addr;
+    }
+  }
+
+  void SetResizer(Resizer r) {
+    // Place a pointer to the resizer function in the buffer just after the
+    // header.
+    Resizer **addr = reinterpret_cast<Resizer **>(this + 1);
+    Resizer *on_heap = new Resizer(std::move(r)); // Moved to heap memory.
+    *addr = on_heap;                              // Place address in memory.
+  }
+
+  Resizer *GetResizer() {
+    if (magic != kMovableBufferMagic) {
+      return nullptr;
+    }
+    return *reinterpret_cast<Resizer**>(this + 1);
   }
 
   size_t Size() const { return size_t(hwm); }

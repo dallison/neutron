@@ -1,13 +1,14 @@
 #include "davros/zeros/message.h"
 #include "davros/zeros/payload_buffer.h"
+#include "davros/zeros/runtime.h"
 #include "toolbelt/hexdump.h"
 #include <gtest/gtest.h>
 #include <sstream>
-#include "davros/zeros/runtime.h"
 
 using PayloadBuffer = davros::zeros::PayloadBuffer;
 using BufferOffset = davros::zeros::BufferOffset;
 using VectorHeader = davros::zeros::VectorHeader;
+using Resizer = davros::zeros::Resizer;
 
 TEST(BufferTest, Simple) {
   char *buffer = (char *)malloc(4096);
@@ -112,7 +113,8 @@ TEST(BufferTest, String) {
   toolbelt::Hexdump(pb, pb->hwm);
 
   // Now put in a bigger string, replacing the old one.
-  s = PayloadBuffer::SetString(&pb, std::string("foobar has been replaced"), offset);
+  s = PayloadBuffer::SetString(&pb, std::string("foobar has been replaced"),
+                               offset);
   std::cout << "New string allocated at " << (void *)s << std::endl;
 
   toolbelt::Hexdump(pb, pb->hwm);
@@ -191,7 +193,7 @@ TEST(BufferTest, VectorExpandMore) {
   }
   toolbelt::Hexdump(pb, pb->hwm);
 
- for (int i = 0; i < 100; i++) {
+  for (int i = 0; i < 100; i++) {
     uint32_t v = pb->VectorGet<uint32_t>(hdr, i);
     ASSERT_EQ(i + 1, v);
   }
@@ -199,6 +201,41 @@ TEST(BufferTest, VectorExpandMore) {
 
   free(buffer);
 }
+
+TEST(BufferTest, Resizeable) {
+  char *buffer = (char *)malloc(256);
+  bool resized = false;
+  PayloadBuffer *pb = new (buffer)
+      PayloadBuffer(256, [&resized](PayloadBuffer **p, size_t new_size) {
+        std::cout << "resize for " << new_size << std::endl;
+        *p = reinterpret_cast<PayloadBuffer *>(realloc(*p, new_size));
+        resized = true;
+      });
+  pb->Dump(std::cout);
+  toolbelt::Hexdump(pb, 64);
+
+  void *addr = PayloadBuffer::Allocate(&pb, 128, 4);
+  ASSERT_NE(nullptr, addr);
+  ASSERT_FALSE(resized);
+
+  memset(addr, 0xda, 128);
+  pb->Dump(std::cout);
+  std::cout << "Allocated " << addr << std::endl;
+  toolbelt::Hexdump(pb, pb->hwm);
+
+  // This will cause a resize.
+  addr = PayloadBuffer::Allocate(&pb, 128, 4);
+  ASSERT_NE(nullptr, addr);
+  ASSERT_TRUE(resized);
+  memset(addr, 0xdd, 128);
+
+  pb->Dump(std::cout);
+  toolbelt::Hexdump(pb, pb->hwm);
+
+  // Don't free 'buffer' as it has already been freed by the call to realloc.
+  delete pb;
+}
+
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
 

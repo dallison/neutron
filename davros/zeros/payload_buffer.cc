@@ -79,7 +79,7 @@ const char *PayloadBuffer::StringData(const StringHeader *addr) const {
 
 void PayloadBuffer::Dump(std::ostream &os) {
   os << "PayloadBuffer: " << this << std::endl;
-  os << "  magic: " << (magic == kFixedBufferMagic ? "fixed" : "variable")
+  os << "  magic: " << (magic == kFixedBufferMagic ? "fixed" : "moveable")
      << std::endl;
   os << "  hwm: " << hwm << " " << ToAddress(hwm) << std::endl;
   os << "  full_size: " << full_size << std::endl;
@@ -102,14 +102,19 @@ void PayloadBuffer::DumpFreeList(std::ostream &os) {
 }
 
 void PayloadBuffer::InitFreeList() {
-  FreeBlockHeader *f = reinterpret_cast<FreeBlockHeader *>(this + 1);
-  f->length = full_size - sizeof(PayloadBuffer);
+  char *end_of_header = reinterpret_cast<char *>(this + 1);
+  size_t header_size = sizeof(PayloadBuffer);
+  if (magic == kMovableBufferMagic) {
+    end_of_header +=
+        sizeof(Resizer *); // Room for resizer function for movable buffers.
+    header_size += sizeof(Resizer *);
+  }
+  FreeBlockHeader *f = reinterpret_cast<FreeBlockHeader *>(end_of_header);
+  f->length = full_size - header_size;
   f->next = 0;
   free_list = ToOffset(f);
+  hwm = free_list;
 }
-
-// Expand the heap if we can.
-static FreeBlockHeader *ExpandHeap(void) { return nullptr; }
 
 uint32_t PayloadBuffer::TakeStartOfFreeBlock(FreeBlockHeader *block,
                                              uint32_t num_bytes,
@@ -169,8 +174,67 @@ void *PayloadBuffer::Allocate(PayloadBuffer **buffer, uint32_t n,
     prev = free_block;
     free_block = (*buffer)->ToAddress<FreeBlockHeader>(free_block->next);
     if (free_block == nullptr) {
-      // Expand the heap if we can.
-      free_block = ExpandHeap();
+      // Out of memory.  If we have a resizer we can reallocate the buffer.
+      Resizer *resizer = (*buffer)->GetResizer();
+      if (resizer == nullptr) {
+        // Really out of memory.
+        break;
+      }
+      size_t old_size = (*buffer)->full_size;
+      size_t new_size = old_size * 2;
+
+      // Call the resizer.  This will move *buffer.
+      (*resizer)(buffer, new_size);
+
+      // Set the new size in the newly allocated bigger buffer.
+      (*buffer)->full_size = new_size;
+
+      // OK, so now we have to find the end of the free list in the new block.
+      // The old pointers refer to the deallocated memory.
+      free_block = (*buffer)->FreeList();
+      prev = nullptr;
+      while (free_block != nullptr) {
+        prev = free_block;
+        free_block = (*buffer)->ToAddress<FreeBlockHeader>(free_block->next);
+      }
+
+      std::cout << "Before adding to free list\n";
+      (*buffer)->Dump(std::cout);
+
+      // 'prev' is either nullptr, which means we had no free list, or points
+      // to the last free block header in the new buffer.
+      // Expand the free list to include the new memory.
+      char *start_of_new_memory = reinterpret_cast<char *>(*buffer) + old_size;
+      std::cout << "start of new memory: " << (void *)start_of_new_memory
+                << std::endl;
+      bool free_list_expanded = false;
+      if (prev != nullptr) {
+        std::cout << "End of prev: " << (void *)((char *)prev + prev->length)
+                  << std::endl;
+        char *end_of_free_list = reinterpret_cast<char *>(prev) + prev->length;
+        if (start_of_new_memory == end_of_free_list) {
+          // Last free block is right at the end of the memory, so edxpand it
+          // include the new memory.  This is likely to be true.
+          prev->length += new_size - old_size;
+          free_list_expanded = true;
+        }
+      }
+
+      if (!free_list_expanded) {
+        // Need to add a new free block to the end of the free list.
+        FreeBlockHeader *new_block =
+            reinterpret_cast<FreeBlockHeader *>(start_of_new_memory);
+        new_block->next = 0;
+        new_block->length = new_size - old_size;
+        if (prev == nullptr) {
+          (*buffer)->free_list = (*buffer)->ToOffset(new_block);
+        } else {
+          prev->next = (*buffer)->ToOffset(new_block);
+        }
+      }
+      std::cout << "After adding to free list\n";
+      (*buffer)->Dump(std::cout);
+      return Allocate(buffer, n, alignment, clear);
     }
   }
   return nullptr;

@@ -1,5 +1,4 @@
-load("//davros:davros_serdes_library.bzl", "davros_serdes_library")
-load("//davros:davros_zeros_library.bzl", "davros_zeros_library")
+load("//davros:davros_library.bzl", "davros_serdes_library", "davros_zeros_library")
 
 package(default_visibility = ["//visibility:public"])
 

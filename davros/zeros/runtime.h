@@ -14,7 +14,7 @@ class Buffer;
 // 2. Binary format - sent over the wire in binary
 //
 // Source messages are used in the program to access the fields by the
-// program.  Binary messages are held in a PayloadBuffer and contain the
+// program.  Binary messages are held in a toolbelt::PayloadBuffer and contain the
 // actual data.  Accessing a source message field results in the data being
 // written or read in the binary message.  The source message does not
 // contain the values of the fields - just information about where to find
@@ -23,19 +23,19 @@ class Buffer;
 // All fields know both the source and binary offsets.  The source offset
 // is a positive integer containing the number of bytes from the source field
 // to the start of the enclosing message.  This is used to get access to the
-// PayloadBuffer containing the binary mesage.
+// toolbelt::PayloadBuffer containing the binary mesage.
 //
 // The binary offset in the field is the offset from the start of the
-// enclosing binary message to the field in the PayloadBuffer.
+// enclosing binary message to the field in the toolbelt::PayloadBuffer.
 //
-// The PayloadBuffer is organized as a header (of type PayloadBuffer)
+// The toolbelt::PayloadBuffer is organized as a header (of type toolbelt::PayloadBuffer)
 // and a memory allocation heap that allows variable sized memory blocks
 // to be allocated, reallocated and freed.  Everything in the buffer
 // is relocateable and can be moved around or sent to another process.
 //
 //        +-------------------+
 //        |                   |
-//        |  PayloadBuffer    |
+//        |  toolbelt::PayloadBuffer    |
 //        |                   |
 //        +-------------------+
 //        |                   |
@@ -110,9 +110,9 @@ class Buffer;
 //
 // Variable size primitive fields
 // ------------------------------
-// This is stored as an 8-byte VectorHeader consisting of:
+// This is stored as an 8-byte toolbelt::VectorHeader consisting of:
 // 1. uint32_t num_elements
-// 2. BufferOffset offset
+// 2. toolbelt::BufferOffset offset
 //
 // The offset refers to an allocated block of memory (in the buffer) that starts
 // out with sufficient space for 2 elements (2 * sizeof(T) bytes) and grows

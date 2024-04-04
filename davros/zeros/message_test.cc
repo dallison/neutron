@@ -6,11 +6,11 @@
 #include "davros/zeros/runtime.h"
 #include "toolbelt/hexdump.h"
 
-using PayloadBuffer = davros::zeros::PayloadBuffer;
-using BufferOffset = davros::zeros::BufferOffset;
+using PayloadBuffer = toolbelt::PayloadBuffer;
+using BufferOffset = toolbelt::BufferOffset;
 using Message = davros::zeros::Message;
-using VectorHeader = davros::zeros::VectorHeader;
-using StringHeader = davros::zeros::StringHeader;
+using VectorHeader = toolbelt::VectorHeader;
+using StringHeader = toolbelt::StringHeader;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Winvalid-offsetof"
@@ -22,17 +22,17 @@ struct InnerMessage : public Message {
       : str(offsetof(InnerMessage, str), 0),
         f(offsetof(InnerMessage, f),
           davros::zeros::AlignedOffset<uint64_t>(str.BinaryEndOffset())) {}
-  explicit InnerMessage(std::shared_ptr<PayloadBuffer *> buffer)
+  explicit InnerMessage(std::shared_ptr<toolbelt::PayloadBuffer *> buffer)
       : str(offsetof(InnerMessage, str), 0),
         f(offsetof(InnerMessage, f),
           davros::zeros::AlignedOffset<uint64_t>(str.BinaryEndOffset())) {
     this->buffer = buffer;
-    void *data = PayloadBuffer::Allocate(buffer.get(), BinarySize(), 8);
+    void *data = toolbelt::PayloadBuffer::Allocate(buffer.get(), BinarySize(), 8);
     this->absolute_binary_offset = (*buffer)->ToOffset(data);
     std::cout << "InnerMessage start: " << std::hex
               << this->absolute_binary_offset << std::dec << std::endl;
   }
-  InnerMessage(std::shared_ptr<PayloadBuffer *> buffer, BufferOffset offset)
+  InnerMessage(std::shared_ptr<toolbelt::PayloadBuffer *> buffer, toolbelt::BufferOffset offset)
       : Message(buffer, offset),
         str(offsetof(InnerMessage, str), 0),
         f(offsetof(InnerMessage, f),
@@ -43,13 +43,13 @@ struct InnerMessage : public Message {
 };
 
 struct TestMessage : public Message {
-  TestMessage(std::shared_ptr<PayloadBuffer *> buffer, BufferOffset offset)
+  TestMessage(std::shared_ptr<toolbelt::PayloadBuffer *> buffer, toolbelt::BufferOffset offset)
       : Message(buffer, offset),
         x(offsetof(TestMessage, x), 0),
         y(offsetof(TestMessage, y),
           davros::zeros::AlignedOffset<uint64_t>(x.BinaryEndOffset())),
         s(offsetof(TestMessage, s),
-          davros::zeros::AlignedOffset<StringHeader>(y.BinaryEndOffset())),
+          davros::zeros::AlignedOffset<toolbelt::StringHeader>(y.BinaryEndOffset())),
         m(buffer, offsetof(TestMessage, m),
           davros::zeros::AlignedOffset<uint64_t>(s.BinaryEndOffset())),
         arr(offsetof(TestMessage, arr),
@@ -81,40 +81,40 @@ struct TestMessage : public Message {
     offset =
         davros::zeros::AlignedOffset<uint32_t>(offset + sizeof(uint64_t));  // s
     offset = davros::zeros::AlignedOffset<uint64_t>(offset +
-                                                    sizeof(StringHeader));  // m
+                                                    sizeof(toolbelt::StringHeader));  // m
     offset = davros::zeros::AlignedOffset<uint32_t>(
         offset + InnerMessage::BinarySize());  // arr
     offset = davros::zeros::AlignedOffset<uint32_t>(offset + sizeof(uint32_t) *
                                                                  10);  // vec
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + sizeof(VectorHeader));  // marr
+        offset + sizeof(toolbelt::VectorHeader));  // marr
     offset = davros::zeros::AlignedOffset<uint32_t>(
         offset + InnerMessage::BinarySize() * 5);  // sarr
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + sizeof(StringHeader) * 20);  // mvec
+        offset + sizeof(toolbelt::StringHeader) * 20);  // mvec
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + sizeof(VectorHeader));  // svec
+        offset + sizeof(toolbelt::VectorHeader));  // svec
     offset = davros::zeros::AlignedOffset<uint32_t>(offset +
-                                                    sizeof(VectorHeader));  // e
+                                                    sizeof(toolbelt::VectorHeader));  // e
     offset = davros::zeros::AlignedOffset<uint32_t>(offset +
                                                     sizeof(uint32_t));  // earr
-    offset = davros::zeros::AlignedOffset<VectorHeader>(
+    offset = davros::zeros::AlignedOffset<toolbelt::VectorHeader>(
         offset + sizeof(uint16_t) * 10);  // evec
 
     offset = davros::zeros::AlignedOffset<int8_t>(
-        offset + sizeof(VectorHeader));  // carr
+        offset + sizeof(toolbelt::VectorHeader));  // carr
 
     offset = davros::zeros::AlignedOffset<int8_t>(offset +
                                                   sizeof(int8_t) * 32);  // cvec
 
     offset = davros::zeros::AlignedOffset<uint16_t>(
-        offset + sizeof(VectorHeader));  // END
+        offset + sizeof(toolbelt::VectorHeader));  // END
     return offset;
 
     // return 4 + 4 + 8 + 4 + 4 + InnerMessage::BinarySize() +
-    //        10 * sizeof(int32_t) + sizeof(VectorHeader) +
-    //        InnerMessage::BinarySize() * 5 + sizeof(BufferOffset) * 20 +
-    //        sizeof(VectorHeader) + sizeof(VectorHeader) +
+    //        10 * sizeof(int32_t) + sizeof(toolbelt::VectorHeader) +
+    //        InnerMessage::BinarySize() * 5 + sizeof(toolbelt::BufferOffset) * 20 +
+    //        sizeof(toolbelt::VectorHeader) + sizeof(toolbelt::VectorHeader) +
     //        sizeof(std::underlying_type<EnumTest>::type);
   }
 
@@ -131,7 +131,7 @@ struct TestMessage : public Message {
     std::cout << "s @" << s.BinaryOffset() << " " << s.BinaryEndOffset()
               << std::endl;
     offset = davros::zeros::AlignedOffset<uint64_t>(offset +
-                                                    sizeof(StringHeader));  // m
+                                                    sizeof(toolbelt::StringHeader));  // m
     std::cout << offset << std::endl;
     std::cout << "m @" << m.BinaryOffset() << std::endl;
     offset = davros::zeros::AlignedOffset<uint32_t>(
@@ -143,7 +143,7 @@ struct TestMessage : public Message {
     std::cout << offset << std::endl;
     std::cout << "vec @" << vec.BinaryOffset() << std::endl;
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + sizeof(VectorHeader));  // marr
+        offset + sizeof(toolbelt::VectorHeader));  // marr
     std::cout << offset << std::endl;
     std::cout << "marr @" << marr.BinaryOffset() << std::endl;
     offset = davros::zeros::AlignedOffset<uint32_t>(
@@ -151,15 +151,15 @@ struct TestMessage : public Message {
     std::cout << offset << std::endl;
     std::cout << "sarr @" << sarr.BinaryOffset() << std::endl;
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + sizeof(StringHeader) * 20);  // mvec
+        offset + sizeof(toolbelt::StringHeader) * 20);  // mvec
     std::cout << offset << std::endl;
     std::cout << "mvec @" << mvec.BinaryOffset() << std::endl;
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + sizeof(VectorHeader));  // svec
+        offset + sizeof(toolbelt::VectorHeader));  // svec
     std::cout << offset << std::endl;
     std::cout << "svec @" << svec.BinaryOffset() << std::endl;
     offset = davros::zeros::AlignedOffset<uint32_t>(offset +
-                                                    sizeof(VectorHeader));  // e
+                                                    sizeof(toolbelt::VectorHeader));  // e
     std::cout << offset << std::endl;
     std::cout << "earr @" << e.BinaryOffset() << std::endl;
     offset = davros::zeros::AlignedOffset<uint32_t>(offset +
@@ -167,14 +167,14 @@ struct TestMessage : public Message {
     std::cout << offset << std::endl;
     std::cout << "e @" << earr.BinaryOffset() << std::endl;
 
-    offset = davros::zeros::AlignedOffset<VectorHeader>(
+    offset = davros::zeros::AlignedOffset<toolbelt::VectorHeader>(
         offset + sizeof(uint16_t) * 10);  // evec
 
     std::cout << offset << std::endl;
     std::cout << "evec @" << evec.BinaryOffset() << std::endl;
 
     offset = davros::zeros::AlignedOffset<int8_t>(
-        offset + sizeof(VectorHeader));  // carr
+        offset + sizeof(toolbelt::VectorHeader));  // carr
     std::cout << offset << std::endl;
     std::cout << "carr @" << carr.BinaryOffset() << std::endl;
 
@@ -184,7 +184,7 @@ struct TestMessage : public Message {
     std::cout << "cvec @" << cvec.BinaryOffset() << std::endl;
 
     offset = davros::zeros::AlignedOffset<uint32_t>(
-        offset + sizeof(VectorHeader));  // END
+        offset + sizeof(toolbelt::VectorHeader));  // END
     std::cout << offset << std::endl;
     return offset;
   }
@@ -210,12 +210,12 @@ struct TestMessage : public Message {
 
 TEST(MessageTest, Basic) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
   msg.x = 1234;
   msg.y = 0xffff;
 
@@ -231,12 +231,12 @@ TEST(MessageTest, Basic) {
 
 TEST(MessageTest, String) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
   msg.x = 0xffffffff;
   msg.y = 0xeeeeeeeeeeeeeeee;
 
@@ -251,12 +251,12 @@ TEST(MessageTest, String) {
 
 TEST(MessageTest, Enum) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
   msg.e = EnumTest::BAR;
 
   pb->Dump(std::cout);
@@ -268,12 +268,12 @@ TEST(MessageTest, Enum) {
 
 TEST(MessageTest, Message) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
   msg.x = 0xffffffff;
   msg.y = 0xeeeeeeeeeeeeeeee;
   msg.s = "now is the time for all good men to come to the aid of the party";
@@ -297,12 +297,12 @@ TEST(MessageTest, Message) {
 
 TEST(MessageTest, Array) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
   for (int i = 0; i < 10; i++) {
     msg.arr[i] = i + 1;
   }
@@ -319,12 +319,12 @@ TEST(MessageTest, Array) {
 
 TEST(MessageTest, CharArray) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
   for (int i = 0; i < 32; i++) {
     msg.carr[i] = 'A' + i;
   }
@@ -341,14 +341,14 @@ TEST(MessageTest, CharArray) {
 
 TEST(MessageTest, MessageArray) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
   std::cout << "message size " << std::dec << TestMessage::BinarySize()
             << std::dec << std::endl;
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
   for (int i = 0; i < 5; i++) {
     pb->Dump(std::cout);
     toolbelt::Hexdump(pb, pb->hwm);
@@ -372,12 +372,12 @@ TEST(MessageTest, MessageArray) {
 
 TEST(MessageTest, StringArray) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
 
   for (int i = 0; i < 20; i++) {
     std::string ss = absl::StrFormat("dave-%d", i);
@@ -398,12 +398,12 @@ TEST(MessageTest, StringArray) {
 
 TEST(MessageTest, EnumArray) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
   for (int i = 0; i < 10; i++) {
     msg.earr[i] = EnumTest::BAR;
   }
@@ -418,12 +418,12 @@ TEST(MessageTest, EnumArray) {
 
 TEST(MessageTest, BasicVector) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
   msg.vec.push_back(0xffee);
 
   pb->Dump(std::cout);
@@ -435,12 +435,12 @@ TEST(MessageTest, BasicVector) {
 
 TEST(MessageTest, VectorExpansion) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
   for (int i = 0; i < 10; i++) {
     msg.arr[i] = 0xda;
   }
@@ -462,12 +462,12 @@ TEST(MessageTest, VectorExpansion) {
 
 TEST(MessageTest, VectorResize) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
   for (int i = 0; i < 10; i++) {
     msg.arr[i] = 0xda;
   }
@@ -496,12 +496,12 @@ TEST(MessageTest, VectorResize) {
 
 TEST(MessageTest, BasicMessageVector) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
 
   InnerMessage m(msg.buffer);
   m.f = 0xffee;
@@ -518,12 +518,12 @@ TEST(MessageTest, BasicMessageVector) {
 
 TEST(MessageTest, ExtendedMessageVector) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
 
   for (int i = 0; i < 10; i++) {
     InnerMessage m(msg.buffer);
@@ -545,17 +545,17 @@ TEST(MessageTest, ExtendedMessageVector) {
 
 TEST(MessageTest, MessageVectorReserve) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
   std::cout << "message size: " << TestMessage::BinarySize() << std::endl;
   std::cout << "message end "
             << (void *)(pb->ToAddress<char>(pb->message) +
                         TestMessage::BinarySize())
             << std::endl;
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
   msg.XBinarySize();
   std::cout << "sarr end: "
             << (void *)(pb->ToAddress<char>(msg.sarr.BinaryEndOffset()) +
@@ -590,12 +590,12 @@ TEST(MessageTest, MessageVectorReserve) {
 
 TEST(MessageTest, BasicStringVector) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
 
   msg.svec.push_back("foobar");
 
@@ -609,12 +609,12 @@ TEST(MessageTest, BasicStringVector) {
 
 TEST(MessageTest, StringVectorExpansion) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
 
   for (int i = 0; i < 20; i++) {
     msg.svec.push_back(absl::StrFormat("foobar-%d", i));
@@ -634,12 +634,12 @@ TEST(MessageTest, StringVectorExpansion) {
 
 TEST(MessageTest, EnumVector) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
   for (int i = 0; i < 30; i++) {
     msg.evec.push_back((i & 1) ? EnumTest::FOO : EnumTest::BAR);
   }
@@ -657,12 +657,12 @@ TEST(MessageTest, EnumVector) {
 
 TEST(MessageTest, CharVector) {
   char *buffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
 
-  TestMessage msg(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  TestMessage msg(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
   for (int i = 0; i < 100; i++) {
     msg.cvec.push_back('A' + i);
   }

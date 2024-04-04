@@ -145,11 +145,11 @@ public:
   bool empty() const { return N == 0; }
   size_t max_size() const { return N; }
 
-  BufferOffset BinaryEndOffset() const {
+  toolbelt::BufferOffset BinaryEndOffset() const {
     return relative_binary_offset_ + sizeof(T) * N;
   }
 
-  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+  toolbelt::BufferOffset BinaryOffset() const { return relative_binary_offset_; }
 
   bool operator==(const PrimitiveArrayField<T, N> &other) const {
     for (size_t i = 0; i < N; i++) {
@@ -168,23 +168,23 @@ public:
 private:
   friend FieldIterator<PrimitiveArrayField, T>;
   friend FieldIterator<PrimitiveArrayField, const T>;
-  BufferOffset BaseOffset() const {
+  toolbelt::BufferOffset BaseOffset() const {
     return Message::GetMessageBinaryStart(this, source_offset_) +
            relative_binary_offset_;
   }
-  PayloadBuffer *GetBuffer() const {
+  toolbelt::PayloadBuffer *GetBuffer() const {
     return Message::GetBuffer(this, source_offset_);
   }
 
-  PayloadBuffer **GetBufferAddr() const {
+  toolbelt::PayloadBuffer **GetBufferAddr() const {
     return Message::GetBufferAddr(this, source_offset_);
   }
-  BufferOffset GetMessageBinaryStart() const {
+  toolbelt::BufferOffset GetMessageBinaryStart() const {
     return Message::GetMessageBinaryStart(this, source_offset_);
   }
 
   uint32_t source_offset_;
-  BufferOffset relative_binary_offset_;
+  toolbelt::BufferOffset relative_binary_offset_;
 };
 
 // This is a fixed length array of T.  It looks like a std::array<T,N>.
@@ -231,11 +231,11 @@ public:
   bool empty() const { return N == 0; }
   size_t max_size() const { return N; }
 
-  BufferOffset BinaryEndOffset() const {
+  toolbelt::BufferOffset BinaryEndOffset() const {
     return relative_binary_offset_ + sizeof(T) * N;
   }
 
-  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+  toolbelt::BufferOffset BinaryOffset() const { return relative_binary_offset_; }
 
   bool operator==(const EnumArrayField<Enum, N> &other) const {
     for (size_t i = 0; i < N; i++) {
@@ -254,23 +254,23 @@ public:
 private:
   friend EnumFieldIterator<EnumArrayField, Enum>;
   friend EnumFieldIterator<EnumArrayField, const Enum>;
-  BufferOffset BaseOffset() const {
+  toolbelt::BufferOffset BaseOffset() const {
     return Message::GetMessageBinaryStart(this, source_offset_) +
            relative_binary_offset_;
   }
-  PayloadBuffer *GetBuffer() const {
+  toolbelt::PayloadBuffer *GetBuffer() const {
     return Message::GetBuffer(this, source_offset_);
   }
 
-  PayloadBuffer **GetBufferAddr() const {
+  toolbelt::PayloadBuffer **GetBufferAddr() const {
     return Message::GetBufferAddr(this, source_offset_);
   }
-  BufferOffset GetMessageBinaryStart() const {
+  toolbelt::BufferOffset GetMessageBinaryStart() const {
     return Message::GetMessageBinaryStart(this, source_offset_);
   }
 
   uint32_t source_offset_;
-  BufferOffset relative_binary_offset_;
+  toolbelt::BufferOffset relative_binary_offset_;
 };
 
 // This is a fixed array of messages.  T must be derived from davros::Message.
@@ -280,13 +280,13 @@ public:
   explicit MessageArrayField(uint32_t source_offset,
                              uint32_t relative_binary_offset)
       : relative_binary_offset_(relative_binary_offset) {
-    std::shared_ptr<PayloadBuffer *> buffer =
+    std::shared_ptr<toolbelt::PayloadBuffer *> buffer =
         Message::GetSharedBuffer(this, source_offset);
     // Construct the embedded messages.
     size_t index = 0;
     for (auto &msg : msgs_) {
       msg.buffer = buffer;
-      BufferOffset offset =
+      toolbelt::BufferOffset offset =
           Message::GetMessageBinaryStart(this, source_offset) +
           relative_binary_offset + T::BinarySize() * index;
       msg.absolute_binary_offset = offset;
@@ -314,10 +314,10 @@ public:
   T &back() { return msgs_.back(); }
   const T &back() const { return msgs_.back(); }
 
-  BufferOffset BinaryEndOffset() const {
+  toolbelt::BufferOffset BinaryEndOffset() const {
     return relative_binary_offset_ + T::BinarySize() * N;
   }
-  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+  toolbelt::BufferOffset BinaryOffset() const { return relative_binary_offset_; }
 
   bool operator==(const MessageArrayField<T, N> &other) const {
     return msgs_ != other.msgs_;
@@ -335,7 +335,7 @@ public:
   }
 
 private:
-  BufferOffset relative_binary_offset_;
+  toolbelt::BufferOffset relative_binary_offset_;
   std::array<T, N> msgs_;
 };
 
@@ -350,12 +350,12 @@ public:
         relative_binary_offset_(relative_binary_offset) {
     for (size_t i = 0; i < N; i++) {
       strings_[i].source_offset_ = source_offset + sizeof(uint32_t) +
-                                   sizeof(BufferOffset) +
+                                   sizeof(toolbelt::BufferOffset) +
                                    sizeof(StringField) * i;
       // Binary offset in the StringField is relative to the start of the
       // message, not the buffer start.
       strings_[i].relative_binary_offset_ =
-          relative_binary_offset + sizeof(BufferOffset) * i;
+          relative_binary_offset + sizeof(toolbelt::BufferOffset) * i;
     }
   }
 
@@ -376,10 +376,10 @@ public:
   size_t size() const { return N; }
   StringField *data() const { return strings_.data(); }
 
-  BufferOffset BinaryEndOffset() const {
-    return relative_binary_offset_ + sizeof(BufferOffset) * N;
+  toolbelt::BufferOffset BinaryEndOffset() const {
+    return relative_binary_offset_ + sizeof(toolbelt::BufferOffset) * N;
   }
-  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+  toolbelt::BufferOffset BinaryOffset() const { return relative_binary_offset_; }
 
   bool operator==(const StringArrayField<N> &other) const {
     return strings_ != other.strings_;
@@ -397,12 +397,12 @@ public:
   }
 
 private:
-  BufferOffset GetMessageBinaryStart() const {
+  toolbelt::BufferOffset GetMessageBinaryStart() const {
     return Message::GetMessageBinaryStart(this, source_offset_);
   }
 
   uint32_t source_offset_;
-  BufferOffset relative_binary_offset_;
+  toolbelt::BufferOffset relative_binary_offset_;
   std::array<StringField, N> strings_;
 };
 

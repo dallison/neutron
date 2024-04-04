@@ -148,7 +148,7 @@ static std::string FieldCType(FieldType type) {
     case FieldType::kDuration:
       return "davros::Duration";
     case FieldType::kString:
-      return "davros::zeros::StringHeader";
+      return "toolbelt::StringHeader";
     case FieldType::kBool:
       return "uint8_t";
     case FieldType::kMessage:
@@ -538,8 +538,8 @@ absl::Status Generator::GenerateDefaultConstructor(const Message &msg,
 absl::Status Generator::GenerateEmbeddedConstructor(const Message &msg,
                                                     std::ostream &os) {
   os << "  " << msg.Name()
-     << "(std::shared_ptr<davros::zeros::PayloadBuffer *> buffer, "
-        "davros::zeros::BufferOffset offset) : "
+     << "(std::shared_ptr<toolbelt::PayloadBuffer *> buffer, "
+        "toolbelt::BufferOffset offset) : "
         "Message(buffer, offset)";
   if (absl::Status status = GenerateFieldInitializers(msg, os, ", ");
       !status.ok()) {
@@ -552,14 +552,14 @@ absl::Status Generator::GenerateEmbeddedConstructor(const Message &msg,
 absl::Status Generator::GenerateNonEmbeddedConstructor(const Message &msg,
                                                        std::ostream &os) {
   os << "  " << msg.Name()
-     << "(std::shared_ptr<davros::zeros::PayloadBuffer *> buffer)";
+     << "(std::shared_ptr<toolbelt::PayloadBuffer *> buffer)";
   if (absl::Status status = GenerateFieldInitializers(msg, os); !status.ok()) {
     return status;
   }
   os << " {\n";
 
   os << "    this->buffer = buffer;\n";
-  os << "    void *data = davros::zeros::PayloadBuffer::Allocate(buffer.get(), "
+  os << "    void *data = toolbelt::PayloadBuffer::Allocate(buffer.get(), "
         "BinarySize(), "
         "8);\n";
   os << "    this->absolute_binary_offset = (*buffer)->ToOffset(data);\n";
@@ -619,7 +619,7 @@ absl::Status Generator::GenerateBinarySize(const Message &msg,
              << array->Size() << ");\n";
         }
       } else {
-        os << "sizeof(davros::zeros::VectorHeader));\n";
+        os << "sizeof(toolbelt::VectorHeader));\n";
       }
     } else {
       os << "sizeof(" << FieldCType(resolved_prev->Type()) << "));\n";

@@ -7,19 +7,19 @@
 #include "davros/zeros/test_msgs/All.h"
 #include "toolbelt/hexdump.h"
 
-using PayloadBuffer = davros::zeros::PayloadBuffer;
+using PayloadBuffer = toolbelt::PayloadBuffer;
 
 TEST(Runtime, ZeroToSerdes) {
   char *buffer = (char *)malloc(4096);
 
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb,
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb,
                                      other_msgs::zeros::Other::BinarySize());
 
   pb->Dump(std::cout);
-  other_msgs::zeros::Other other(std::make_shared<PayloadBuffer *>(pb),
+  other_msgs::zeros::Other other(std::make_shared<toolbelt::PayloadBuffer *>(pb),
                                  pb->message);
 
   other.header->seq = 255;
@@ -71,13 +71,13 @@ TEST(Runtime, Pipeline) {
 
   // Build a zero-copy message from the serialized message.
   char *zbuffer = (char *)malloc(4096);
-  PayloadBuffer *pb = new (zbuffer) PayloadBuffer(4096);
-  PayloadBuffer::AllocateMainMessage(&pb,
+  toolbelt::PayloadBuffer *pb = new (zbuffer) toolbelt::PayloadBuffer(4096);
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb,
                                      other_msgs::zeros::Other::BinarySize());
 
   std::cout << "binary size: " << other_msgs::zeros::Other::BinarySize()
             << std::endl;
-  other_msgs::zeros::Other zother(std::make_shared<PayloadBuffer *>(pb),
+  other_msgs::zeros::Other zother(std::make_shared<toolbelt::PayloadBuffer *>(pb),
                                   pb->message);
 
   status = zother.DeserializeFromArray(serdes_buffer1, length1);
@@ -116,12 +116,12 @@ TEST(Runtime, Pipeline) {
 TEST(Runtime, AllZeroToSerdes) {
   char *buffer = (char *)malloc(4096);
 
-  PayloadBuffer *pb = new (buffer) PayloadBuffer(4096);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
   // Allocate space for a message containing an offset for the string.
-  PayloadBuffer::AllocateMainMessage(&pb, test_msgs::zeros::All::BinarySize());
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, test_msgs::zeros::All::BinarySize());
 
-  test_msgs::zeros::All all(std::make_shared<PayloadBuffer *>(pb), pb->message);
+  test_msgs::zeros::All all(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
 
   // Set the fields.
   all.i8 = 1;

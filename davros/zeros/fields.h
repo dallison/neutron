@@ -42,10 +42,10 @@ class Buffer;
     void Set(type v) {                                                        \
       GetBuffer()->Set(GetMessageBinaryStart() + relative_binary_offset_, v); \
     }                                                                         \
-    BufferOffset BinaryEndOffset() const {                                    \
+    toolbelt::BufferOffset BinaryEndOffset() const {                                    \
       return relative_binary_offset_ + sizeof(type);                          \
     }                                                                         \
-    BufferOffset BinaryOffset() const { return relative_binary_offset_; }     \
+    toolbelt::BufferOffset BinaryOffset() const { return relative_binary_offset_; }     \
     bool operator==(const cname##Field &other) const {                        \
       return Get() == other.Get();                                            \
     }                                                                         \
@@ -55,14 +55,14 @@ class Buffer;
     size_t SerializedSize() const { return sizeof(type); }                    \
                                                                               \
    private:                                                                   \
-    PayloadBuffer *GetBuffer() const {                                        \
+    toolbelt::PayloadBuffer *GetBuffer() const {                                        \
       return Message::GetBuffer(this, source_offset_);                        \
     }                                                                         \
-    BufferOffset GetMessageBinaryStart() const {                              \
+    toolbelt::BufferOffset GetMessageBinaryStart() const {                              \
       return Message::GetMessageBinaryStart(this, source_offset_);            \
     }                                                                         \
     uint32_t source_offset_;                                                  \
-    BufferOffset relative_binary_offset_;                                     \
+    toolbelt::BufferOffset relative_binary_offset_;                                     \
   };
 
 DEFINE_PRIMITIVE_FIELD(Int8, int8_t)
@@ -94,19 +94,19 @@ class StringField {
   }
 
   StringField &operator=(const std::string &s) {
-    PayloadBuffer::SetString(GetBufferAddr(), s,
+    toolbelt::PayloadBuffer::SetString(GetBufferAddr(), s,
                              GetMessageBinaryStart() + relative_binary_offset_);
     return *this;
   }
 
   StringField &operator=(const char *s) {
-    PayloadBuffer::SetString(GetBufferAddr(), s, strlen(s),
+    toolbelt::PayloadBuffer::SetString(GetBufferAddr(), s, strlen(s),
                              GetMessageBinaryStart() + relative_binary_offset_);
     return *this;
   }
 
   StringField &operator=(std::string_view s) {
-    PayloadBuffer::SetString(GetBufferAddr(), s,
+    toolbelt::PayloadBuffer::SetString(GetBufferAddr(), s,
                              GetMessageBinaryStart() + relative_binary_offset_);
     return *this;
   }
@@ -117,15 +117,15 @@ class StringField {
   }
 
   void Set(const std::string &s) {
-    PayloadBuffer::SetString(GetBufferAddr(), s,
+    toolbelt::PayloadBuffer::SetString(GetBufferAddr(), s,
                              GetMessageBinaryStart() + relative_binary_offset_);
   }
 
-  BufferOffset BinaryEndOffset() const {
-    return relative_binary_offset_ + sizeof(BufferOffset);
+  toolbelt::BufferOffset BinaryEndOffset() const {
+    return relative_binary_offset_ + sizeof(toolbelt::BufferOffset);
   }
 
-  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+  toolbelt::BufferOffset BinaryOffset() const { return relative_binary_offset_; }
 
   bool operator==(const StringField &other) const {
     return Get() == other.Get();
@@ -148,29 +148,29 @@ class StringField {
   template <int N>
   friend class StringArrayField;
 
-  PayloadBuffer *GetBuffer() const {
+  toolbelt::PayloadBuffer *GetBuffer() const {
     return Message::GetBuffer(this, source_offset_);
   }
 
-  PayloadBuffer **GetBufferAddr() const {
+  toolbelt::PayloadBuffer **GetBufferAddr() const {
     return Message::GetBufferAddr(this, source_offset_);
   }
-  BufferOffset GetMessageBinaryStart() const {
+  toolbelt::BufferOffset GetMessageBinaryStart() const {
     return Message::GetMessageBinaryStart(this, source_offset_);
   }
 
   uint32_t source_offset_;
-  BufferOffset relative_binary_offset_;
+  toolbelt::BufferOffset relative_binary_offset_;
 };
 
 // This is a string field that is not embedded inside a message.  These will be
 // allocated from the heap, as is the case when used in a std::vector.  They
-// store the std::shared_ptr to the PayloadBuffer pointer instead of an offset
+// store the std::shared_ptr to the toolbelt::PayloadBuffer pointer instead of an offset
 // to the start of the message.
 class NonEmbeddedStringField {
  public:
   NonEmbeddedStringField() = default;
-  explicit NonEmbeddedStringField(std::shared_ptr<PayloadBuffer *> buffer,
+  explicit NonEmbeddedStringField(std::shared_ptr<toolbelt::PayloadBuffer *> buffer,
                                   uint32_t relative_binary_offset)
       : buffer_(buffer), relative_binary_offset_(relative_binary_offset) {}
 
@@ -179,21 +179,21 @@ class NonEmbeddedStringField {
   }
 
   NonEmbeddedStringField &operator=(const std::string &s) {
-    PayloadBuffer::SetString(GetBufferAddr(), s, relative_binary_offset_);
+    toolbelt::PayloadBuffer::SetString(GetBufferAddr(), s, relative_binary_offset_);
     return *this;
   }
 
-  BufferOffset BinaryEndOffset() const {
-    return relative_binary_offset_ + sizeof(BufferOffset);
+  toolbelt::BufferOffset BinaryEndOffset() const {
+    return relative_binary_offset_ + sizeof(toolbelt::BufferOffset);
   }
-  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+  toolbelt::BufferOffset BinaryOffset() const { return relative_binary_offset_; }
 
   std::string_view Get() const {
     return GetBuffer()->GetStringView(relative_binary_offset_);
   }
 
   void Set(const std::string &s) {
-    PayloadBuffer::SetString(GetBufferAddr(), s, relative_binary_offset_);
+    toolbelt::PayloadBuffer::SetString(GetBufferAddr(), s, relative_binary_offset_);
   }
 
   bool operator==(const NonEmbeddedStringField &other) const {
@@ -218,13 +218,13 @@ class NonEmbeddedStringField {
   template <int N>
   friend class StringArrayField;
 
-  PayloadBuffer *GetBuffer() const { return *buffer_; }
+  toolbelt::PayloadBuffer *GetBuffer() const { return *buffer_; }
 
-  PayloadBuffer **GetBufferAddr() const { return buffer_.get(); }
+  toolbelt::PayloadBuffer **GetBufferAddr() const { return buffer_.get(); }
 
-  std::shared_ptr<PayloadBuffer *> buffer_;
-  BufferOffset
-      relative_binary_offset_;  // Offset into PayloadBuffer of StringHeader
+  std::shared_ptr<toolbelt::PayloadBuffer *> buffer_;
+  toolbelt::BufferOffset
+      relative_binary_offset_;  // Offset into toolbelt::PayloadBuffer of toolbelt::StringHeader
 };
 
 template <typename Enum>
@@ -272,11 +272,11 @@ class EnumField {
     GetBuffer()->Set(GetMessageBinaryStart() + relative_binary_offset_, e);
   }
 
-  BufferOffset BinaryEndOffset() const {
+  toolbelt::BufferOffset BinaryEndOffset() const {
     return relative_binary_offset_ +
            sizeof(typename std::underlying_type<Enum>::type);
   }
-  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+  toolbelt::BufferOffset BinaryOffset() const { return relative_binary_offset_; }
 
   bool operator==(const EnumField &other) const {
     return static_cast<Enum>(*this) == static_cast<Enum>(other);
@@ -286,14 +286,14 @@ class EnumField {
   size_t SerializedSize() const { return sizeof(T); }
 
  private:
-  PayloadBuffer *GetBuffer() const {
+  toolbelt::PayloadBuffer *GetBuffer() const {
     return Message::GetBuffer(this, source_offset_);
   }
-  BufferOffset GetMessageBinaryStart() const {
+  toolbelt::BufferOffset GetMessageBinaryStart() const {
     return Message::GetMessageBinaryStart(this, source_offset_);
   }
   uint32_t source_offset_;
-  BufferOffset relative_binary_offset_;
+  toolbelt::BufferOffset relative_binary_offset_;
 };
 
 // A message field enapsulates a message that is held inline in the
@@ -306,8 +306,8 @@ template <typename MessageType>
 class MessageField {
  public:
   MessageField() = default;
-  MessageField(std::shared_ptr<PayloadBuffer *> buffer,
-               BufferOffset source_offset, BufferOffset relative_binary_offset)
+  MessageField(std::shared_ptr<toolbelt::PayloadBuffer *> buffer,
+               toolbelt::BufferOffset source_offset, toolbelt::BufferOffset relative_binary_offset)
       : relative_binary_offset_(relative_binary_offset),
         msg_(buffer, Message::GetMessageBinaryStart(this, source_offset) +
                          relative_binary_offset) {}
@@ -319,10 +319,10 @@ class MessageField {
   MessageType &Get() { return msg_; }
   const MessageType &Get() const { return msg_; }
 
-  BufferOffset BinaryEndOffset() const {
+  toolbelt::BufferOffset BinaryEndOffset() const {
     return relative_binary_offset_ + MessageType::BinarySize();
   }
-  BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+  toolbelt::BufferOffset BinaryOffset() const { return relative_binary_offset_; }
 
   absl::Status SerializeToBuffer(Buffer &buffer) const {
     return msg_.SerializeToBuffer(buffer);
@@ -345,7 +345,7 @@ class MessageField {
  private:
   template <typename T>
   friend class MessageVectorField;
-  BufferOffset relative_binary_offset_;
+  toolbelt::BufferOffset relative_binary_offset_;
   MessageType msg_;
 };
 
@@ -355,8 +355,8 @@ template <typename MessageType>
 class NonEmbeddedMessageField {
  public:
   NonEmbeddedMessageField() = default;
-  NonEmbeddedMessageField(std::shared_ptr<PayloadBuffer *> buffer,
-                          BufferOffset absolute_binary_offset)
+  NonEmbeddedMessageField(std::shared_ptr<toolbelt::PayloadBuffer *> buffer,
+                          toolbelt::BufferOffset absolute_binary_offset)
       : msg_(buffer, absolute_binary_offset) {}
 
   operator MessageType &() { return msg_; }
@@ -366,10 +366,10 @@ class NonEmbeddedMessageField {
   MessageType &Get() { return msg_; }
   const MessageType &Get() const { return msg_; }
 
-  BufferOffset BinaryEndOffset() const {
+  toolbelt::BufferOffset BinaryEndOffset() const {
     return msg_.absolute_binary_offset + MessageType::BinarySize();
   }
-  BufferOffset BinaryOffset() const { return msg_.absolute_binary_offset; }
+  toolbelt::BufferOffset BinaryOffset() const { return msg_.absolute_binary_offset; }
 
   bool operator==(const NonEmbeddedMessageField<MessageType> &other) const {
     return msg_ != other.msg_;

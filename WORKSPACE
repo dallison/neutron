@@ -68,9 +68,9 @@ http_archive(
 
 http_archive(
   name = "toolbelt",
-  urls = ["https://github.com/dallison/cpp_toolbelt/archive/refs/tags/1.1.7.tar.gz"],
-  strip_prefix = "cpp_toolbelt-1.1.7",
-  sha256 = "be545bd2132d8a9fc90cf59b2ba6085e776cf078eb300a1cfe266343f057f557"
+  urls = ["https://github.com/dallison/cpp_toolbelt/archive/refs/tags/1.1.8.tar.gz"],
+  strip_prefix = "cpp_toolbelt-1.1.8",
+  sha256 = "b1d4501d50946f016722626c8da788a4a70ea9b80626306f95f06ba67444318e"
 )
 
 # For local debugging of toolbelt coroutine library.

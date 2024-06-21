@@ -36,6 +36,7 @@ class Generator : public davros::Generator {
   absl::Status GenerateSerializer(const Message& msg, std::ostream& os);
   absl::Status GenerateDeserializer(const Message& msg, std::ostream& os);
   absl::Status GenerateLength(const Message& msg, std::ostream& os);
+  absl::Status GenerateCreators(const Message &msg, std::ostream &os);
 
   static std::shared_ptr<Field> ResolveField(std::shared_ptr<Field> field);
 

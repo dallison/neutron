@@ -2,11 +2,6 @@
 
 // Vector fields.
 
-#include <stdint.h>
-#include <stdlib.h>
-#include <string>
-#include <string_view>
-#include <vector>
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "davros/common_runtime.h"
@@ -14,6 +9,11 @@
 #include "davros/zeros/iterators.h"
 #include "davros/zeros/message.h"
 #include "toolbelt/payload_buffer.h"
+#include <stdint.h>
+#include <stdlib.h>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace davros::zeros {
 
@@ -71,39 +71,38 @@ namespace davros::zeros {
 // vtype: value type
 // rtype: relay type (like std::array<T,N>)
 // relay: member to relay through
-#define DECLARE_VECTOR_ARRAY_BITS(vtype, rtype, relay)                   \
-  using value_type = vtype;                                              \
-  using reference = value_type &;                                        \
-  using const_reference = value_type &;                                  \
-  using pointer = value_type *;                                          \
-  using const_pointer = const value_type *;                              \
-  using size_type = size_t;                                              \
-  using difference_type = ptrdiff_t;                                     \
-                                                                         \
-  using iterator = typename rtype::iterator;                             \
-  using const_iterator = typename rtype::const_iterator;                 \
-  using reverse_iterator = typename rtype::reverse_iterator;             \
-  using const_reverse_iterator = typename rtype::const_reverse_iterator; \
-                                                                         \
-  iterator begin() { return relay.begin(); }                             \
-  iterator end() { return relay.end(); }                                 \
-  reverse_iterator rbegin() { return relay.rbegin(); }                   \
-  reverse_iterator rend() { return relay.rend(); }                       \
-  const_iterator begin() const { return relay.begin(); }                 \
-  const_iterator end() const { return relay.end(); }                     \
-  const_iterator cbegin() const { return relay.begin(); }                \
-  const_iterator cend() const { return relay.end(); }                    \
-  const_reverse_iterator rbegin() const { return relay.rbegin(); }       \
-  const_reverse_iterator rend() const { return relay.rend(); }           \
-  const_reverse_iterator crbegin() const { return relay.crbegin(); }     \
+#define DECLARE_VECTOR_ARRAY_BITS(vtype, rtype, relay)                         \
+  using value_type = vtype;                                                    \
+  using reference = value_type &;                                              \
+  using const_reference = value_type &;                                        \
+  using pointer = value_type *;                                                \
+  using const_pointer = const value_type *;                                    \
+  using size_type = size_t;                                                    \
+  using difference_type = ptrdiff_t;                                           \
+                                                                               \
+  using iterator = typename rtype::iterator;                                   \
+  using const_iterator = typename rtype::const_iterator;                       \
+  using reverse_iterator = typename rtype::reverse_iterator;                   \
+  using const_reverse_iterator = typename rtype::const_reverse_iterator;       \
+                                                                               \
+  iterator begin() { return relay.begin(); }                                   \
+  iterator end() { return relay.end(); }                                       \
+  reverse_iterator rbegin() { return relay.rbegin(); }                         \
+  reverse_iterator rend() { return relay.rend(); }                             \
+  const_iterator begin() const { return relay.begin(); }                       \
+  const_iterator end() const { return relay.end(); }                           \
+  const_iterator cbegin() const { return relay.begin(); }                      \
+  const_iterator cend() const { return relay.end(); }                          \
+  const_reverse_iterator rbegin() const { return relay.rbegin(); }             \
+  const_reverse_iterator rend() const { return relay.rend(); }                 \
+  const_reverse_iterator crbegin() const { return relay.crbegin(); }           \
   const_reverse_iterator crend() const { return relay.crend(); }
 
 // This is a variable length vector of T.  It looks like a std::vector<T>.
-// The binary message contains a toolbelt::VectorHeader at the binary offset.  This
-// contains the number of elements and the base offset for the data.
-template <typename T>
-class PrimitiveVectorField {
- public:
+// The binary message contains a toolbelt::VectorHeader at the binary offset.
+// This contains the number of elements and the base offset for the data.
+template <typename T> class PrimitiveVectorField {
+public:
   PrimitiveVectorField() = default;
   explicit PrimitiveVectorField(uint32_t source_offset,
                                 uint32_t relative_binary_offset)
@@ -173,7 +172,9 @@ class PrimitiveVectorField {
   toolbelt::BufferOffset BinaryEndOffset() const {
     return relative_binary_offset_ + sizeof(toolbelt::VectorHeader);
   }
-  toolbelt::BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+  toolbelt::BufferOffset BinaryOffset() const {
+    return relative_binary_offset_;
+  }
 
   bool operator==(const PrimitiveVectorField<T> &other) const {
     size_t n = size();
@@ -190,7 +191,7 @@ class PrimitiveVectorField {
 
   size_t SerializedSize() const { return 4 + size() * sizeof(value_type); }
 
- private:
+private:
   friend FieldIterator<PrimitiveVectorField, T>;
   friend FieldIterator<PrimitiveVectorField, const T>;
   toolbelt::VectorHeader *Header() const {
@@ -218,9 +219,8 @@ class PrimitiveVectorField {
   toolbelt::BufferOffset relative_binary_offset_;
 };
 
-template <typename Enum>
-class EnumVectorField {
- public:
+template <typename Enum> class EnumVectorField {
+public:
   EnumVectorField() = default;
   explicit EnumVectorField(uint32_t source_offset,
                            uint32_t relative_binary_offset)
@@ -260,7 +260,8 @@ class EnumVectorField {
 #undef CTYPE
 
   void push_back(const Enum &v) {
-    toolbelt::PayloadBuffer::VectorPush<T>(GetBufferAddr(), Header(), static_cast<T>(v));
+    toolbelt::PayloadBuffer::VectorPush<T>(GetBufferAddr(), Header(),
+                                           static_cast<T>(v));
   }
 
   void reserve(size_t n) {
@@ -291,7 +292,9 @@ class EnumVectorField {
   toolbelt::BufferOffset BinaryEndOffset() const {
     return relative_binary_offset_ + sizeof(toolbelt::VectorHeader);
   }
-  toolbelt::BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+  toolbelt::BufferOffset BinaryOffset() const {
+    return relative_binary_offset_;
+  }
 
   bool operator==(const EnumVectorField<Enum> &other) const {
     size_t n = size();
@@ -308,7 +311,7 @@ class EnumVectorField {
 
   size_t SerializedSize() const { return 4 + size() * sizeof(T); }
 
- private:
+private:
   friend EnumFieldIterator<EnumVectorField, Enum>;
   friend EnumFieldIterator<EnumVectorField, const Enum>;
   toolbelt::VectorHeader *Header() const {
@@ -338,9 +341,8 @@ class EnumVectorField {
 
 // The vector contains a set of toolbelt::BufferOffsets allocated in the buffer,
 // each of which contains the absolute offset of the message.
-template <typename T>
-class MessageVectorField {
- public:
+template <typename T> class MessageVectorField {
+public:
   MessageVectorField() = default;
   explicit MessageVectorField(uint32_t source_offset,
                               uint32_t relative_binary_offset)
@@ -378,7 +380,8 @@ class MessageVectorField {
 
   void push_back(const T &v) {
     toolbelt::BufferOffset offset = v.absolute_binary_offset;
-    toolbelt::PayloadBuffer::VectorPush<toolbelt::BufferOffset>(GetBufferAddr(), Header(), offset);
+    toolbelt::PayloadBuffer::VectorPush<toolbelt::BufferOffset>(
+        GetBufferAddr(), Header(), offset);
     NonEmbeddedMessageField<T> field(GetSharedBuffer(), offset);
     field.msg_ = v;
     msgs_.push_back(std::move(field));
@@ -396,7 +399,8 @@ class MessageVectorField {
   }
 
   void reserve(size_t n) {
-    toolbelt::PayloadBuffer::VectorReserve<toolbelt::BufferOffset>(GetBufferAddr(), Header(), n);
+    toolbelt::PayloadBuffer::VectorReserve<toolbelt::BufferOffset>(
+        GetBufferAddr(), Header(), n);
     msgs_.reserve(n);
   }
 
@@ -405,16 +409,18 @@ class MessageVectorField {
     uint32_t current_size = hdr->num_elements;
 
     // Resize the vector data in the binary.  This contains BufferOffets.
-    toolbelt::PayloadBuffer::VectorResize<toolbelt::BufferOffset>(GetBufferAddr(), Header(), n);
+    toolbelt::PayloadBuffer::VectorResize<toolbelt::BufferOffset>(
+        GetBufferAddr(), Header(), n);
     msgs_.resize(n);
 
     // If the size has increased, allocate messages for the new entries and set
     // the offsets in the MessageFields in the source message.
     if (n > current_size) {
       for (uint32_t i = current_size; i < uint32_t(n); i++) {
-        void *binary =
-            toolbelt::PayloadBuffer::Allocate(GetBufferAddr(), T::BinarySize(), 8, true);
-        toolbelt::BufferOffset absolute_binary_offset = GetBuffer()->ToOffset(binary);
+        void *binary = toolbelt::PayloadBuffer::Allocate(
+            GetBufferAddr(), T::BinarySize(), 8, true);
+        toolbelt::BufferOffset absolute_binary_offset =
+            GetBuffer()->ToOffset(binary);
         auto &m = msgs_[i];
         m.msg_.buffer = GetSharedBuffer();
         m.msg_.absolute_binary_offset = absolute_binary_offset;
@@ -431,7 +437,9 @@ class MessageVectorField {
   toolbelt::BufferOffset BinaryEndOffset() const {
     return relative_binary_offset_ + sizeof(toolbelt::VectorHeader);
   }
-  toolbelt::BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+  toolbelt::BufferOffset BinaryOffset() const {
+    return relative_binary_offset_;
+  }
 
   bool operator==(const MessageVectorField<T> &other) const {
     return msgs_ != other.msgs_;
@@ -452,7 +460,7 @@ class MessageVectorField {
 
   const std::vector<NonEmbeddedMessageField<T>> &Get() const { return msgs_; }
 
- private:
+private:
   friend FieldIterator<MessageVectorField, T>;
   friend FieldIterator<MessageVectorField, const T>;
   toolbelt::VectorHeader *Header() const {
@@ -486,9 +494,10 @@ class MessageVectorField {
 };
 
 // This is a little more complex.  The binary vector contains a set of
-// toolbelt::BufferOffsets each of which contains the offset into the toolbelt::PayloadBuffer of a
-// toolbelt::StringHeader.  Each toolbelt::StringHeader contains the offset of the string data which
-// is a length followed by the string contents.
+// toolbelt::BufferOffsets each of which contains the offset into the
+// toolbelt::PayloadBuffer of a toolbelt::StringHeader.  Each
+// toolbelt::StringHeader contains the offset of the string data which is a
+// length followed by the string contents.
 //
 // +-----------+
 // |           |
@@ -500,14 +509,15 @@ class MessageVectorField {
 // |           |                             |   "data"    |
 // +-----------+                             +-------------+
 class StringVectorField {
- public:
+public:
   StringVectorField() = default;
   explicit StringVectorField(uint32_t source_offset,
                              uint32_t relative_binary_offset)
       : source_offset_(source_offset),
         relative_binary_offset_(relative_binary_offset) {
     toolbelt::VectorHeader *hdr = Header();
-    toolbelt::BufferOffset *data = GetBuffer()->ToAddress<toolbelt::BufferOffset>(hdr->data);
+    toolbelt::BufferOffset *data =
+        GetBuffer()->ToAddress<toolbelt::BufferOffset>(hdr->data);
     for (uint32_t i = 0; i < hdr->num_elements; i++) {
       if (data[i] == 0) {
         // If the vector says there's a string at this index but
@@ -543,14 +553,14 @@ class StringVectorField {
 
   void push_back(const std::string &s) {
     // Allocate string header in buffer.
-    void *str_hdr =
-        toolbelt::PayloadBuffer::Allocate(GetBufferAddr(), sizeof(toolbelt::StringHeader), 4);
+    void *str_hdr = toolbelt::PayloadBuffer::Allocate(
+        GetBufferAddr(), sizeof(toolbelt::StringHeader), 4);
     toolbelt::BufferOffset hdr_offset = GetBuffer()->ToOffset(str_hdr);
     toolbelt::PayloadBuffer::SetString(GetBufferAddr(), s, hdr_offset);
 
     // Add an offset for the new string to the binary.
-    toolbelt::PayloadBuffer::VectorPush<toolbelt::BufferOffset>(GetBufferAddr(), Header(),
-                                            hdr_offset);
+    toolbelt::PayloadBuffer::VectorPush<toolbelt::BufferOffset>(
+        GetBufferAddr(), Header(), hdr_offset);
 
     // Add a source string field.
     NonEmbeddedStringField field(Message::GetSharedBuffer(this, source_offset_),
@@ -565,12 +575,13 @@ class StringVectorField {
     if (addr == nullptr) {
       return 0;
     }
-    // Word before memory is size of memory in bytes.
-    return addr[-1] / sizeof(toolbelt::BufferOffset);
+    return toolbelt::PayloadBuffer::DecodeSize(addr) /
+           sizeof(toolbelt::BufferOffset);
   }
 
   void reserve(size_t n) {
-    toolbelt::PayloadBuffer::VectorReserve<toolbelt::BufferOffset>(GetBufferAddr(), Header(), n);
+    toolbelt::PayloadBuffer::VectorReserve<toolbelt::BufferOffset>(
+        GetBufferAddr(), Header(), n);
     strings_.reserve(n);
   }
 
@@ -579,14 +590,15 @@ class StringVectorField {
     uint32_t current_size = hdr->num_elements;
 
     // Resize the vector data in the binary.  This contains BufferOffets.
-    toolbelt::PayloadBuffer::VectorResize<toolbelt::BufferOffset>(GetBufferAddr(), Header(), n);
+    toolbelt::PayloadBuffer::VectorResize<toolbelt::BufferOffset>(
+        GetBufferAddr(), Header(), n);
     strings_.resize(n);
 
     // If the size has increased, allocate string headers for the new entries
     if (n > current_size) {
       for (uint32_t i = current_size; i < uint32_t(n); i++) {
-        void *str_hdr =
-            toolbelt::PayloadBuffer::Allocate(GetBufferAddr(), sizeof(toolbelt::StringHeader), 4);
+        void *str_hdr = toolbelt::PayloadBuffer::Allocate(
+            GetBufferAddr(), sizeof(toolbelt::StringHeader), 4);
         toolbelt::BufferOffset hdr_offset = GetBuffer()->ToOffset(str_hdr);
         NonEmbeddedStringField field(
             Message::GetSharedBuffer(this, source_offset_), hdr_offset);
@@ -600,7 +612,9 @@ class StringVectorField {
   toolbelt::BufferOffset BinaryEndOffset() const {
     return relative_binary_offset_ + sizeof(toolbelt::VectorHeader);
   }
-  toolbelt::BufferOffset BinaryOffset() const { return relative_binary_offset_; }
+  toolbelt::BufferOffset BinaryOffset() const {
+    return relative_binary_offset_;
+  }
 
   bool operator==(const StringVectorField &other) const {
     return strings_ == other.strings_;
@@ -617,7 +631,7 @@ class StringVectorField {
     return n;
   }
 
- private:
+private:
   toolbelt::VectorHeader *Header() const {
     return GetBuffer()->template ToAddress<toolbelt::VectorHeader>(
         Message::GetMessageBinaryStart(this, source_offset_) +

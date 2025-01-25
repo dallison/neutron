@@ -32,8 +32,8 @@ def _gemini_serdes_action(
         executable = ctx.executable.gemini_exe,
         outputs = outputs,
         arguments = [args],
-        progress_message = "Generating Davros message files %s" % ctx.label,
-        mnemonic = "Davros",
+        progress_message = "Generating Gemini message files %s" % ctx.label,
+        mnemonic = "Gemini",
     )
 
 def _gemini_serdes_impl(ctx):
@@ -123,8 +123,8 @@ def _gemini_zeros_action(
         executable = ctx.executable.gemini_exe,
         outputs = outputs,
         arguments = [args],
-        progress_message = "Generating Davros zeros message files %s" % ctx.label,
-        mnemonic = "Davros",
+        progress_message = "Generating Gemini zeros message files %s" % ctx.label,
+        mnemonic = "Gemini",
     )
 
 def _gemini_impl(ctx):

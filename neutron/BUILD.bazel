@@ -1,0 +1,359 @@
+load("//neutron:neutron_library.bzl", "neutron_serdes_library", "neutron_zeros_library")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "msglib",
+    srcs = [
+        "lex.cc",
+        "package.cc",
+        "syntax.cc",
+    ],
+    hdrs = [
+        "lex.h",
+        "package.h",
+        "syntax.h",
+    ],
+    deps = [
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_library(
+    name = "common_runtime",
+    hdrs = [
+        "common_runtime.h",
+    ],
+)
+
+cc_library(
+    name = "common_gen",
+    hdrs = [
+        "common_gen.h",
+    ],
+    deps = [
+        "@com_google_absl//absl/container:flat_hash_set",
+    ],
+)
+
+cc_test(
+    name = "lex_test",
+    srcs = [
+        "lex_test.cc",
+    ],
+    deps = [
+        ":msglib",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_test(
+    name = "syntax_test",
+    srcs = [
+        "syntax_test.cc",
+    ],
+    deps = [
+        ":msglib",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_test(
+    name = "package_test",
+    srcs = [
+        "package_test.cc",
+    ],
+    data = [
+        ":msgs",
+    ],
+    deps = [
+        ":msglib",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+filegroup(
+    name = "msgs",
+    srcs = glob(["testdata/**"]),
+)
+
+cc_library(
+    name = "serdes",
+    srcs = [
+        "serdes/gen.cc",
+    ],
+    hdrs = [
+        "serdes/gen.h",
+    ],
+    deps = [
+        ":common_gen",
+        ":common_runtime",
+        ":descriptor",
+        ":msglib",
+        "@com_google_absl//absl/container:flat_hash_set",
+    ],
+)
+
+cc_library(
+    name = "zeros_runtime",
+    hdrs = [
+        "zeros/arrays.h",
+        "zeros/buffer.h",
+        "zeros/fields.h",
+        "zeros/iterators.h",
+        "zeros/message.h",
+        "zeros/runtime.h",
+        "zeros/vectors.h",
+    ],
+    deps = [
+        ":common_runtime",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/types:span",
+        "@toolbelt//toolbelt",
+    ],
+)
+
+cc_library(
+    name = "zeros",
+    srcs = [
+        "zeros/gen.cc",
+    ],
+    hdrs = [
+        "zeros/gen.h",
+    ],
+    deps = [
+        ":common_gen",
+        ":descriptor",
+        ":msglib",
+        ":zeros_runtime",
+        "@com_google_absl//absl/container:flat_hash_set",
+    ],
+)
+
+cc_test(
+    name = "zeros_message_test",
+    srcs = [
+        "zeros/message_test.cc",
+    ],
+    data = [
+        ":msgs",
+    ],
+    deps = [
+        ":zeros",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_googletest//:gtest",
+        "@toolbelt//toolbelt",
+    ],
+)
+
+cc_test(
+    name = "serdes_gen_test",
+    srcs = [
+        "serdes/gen_test.cc",
+    ],
+    data = [
+        ":msgs",
+    ],
+    deps = [
+        ":serdes",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+neutron_serdes_library(
+    name = "serdes_std_msgs",
+    srcs = [
+        "testdata/std_msgs/msg/Header.msg",
+    ],
+    runtime = ":serdes_runtime",
+)
+
+neutron_zeros_library(
+    name = "zeros_std_msgs",
+    srcs = [
+        "testdata/std_msgs/msg/Header.msg",
+    ],
+    add_namespace = "zeros",
+    runtime = ":zeros_runtime",
+)
+
+neutron_serdes_library(
+    name = "serdes_other_msgs",
+    srcs = [
+        "testdata/other_msgs/msg/Enum.msg",
+        "testdata/other_msgs/msg/Other.msg",
+    ],
+    runtime = ":serdes_runtime",
+    deps = [
+        ":serdes_std_msgs",
+    ],
+)
+
+neutron_zeros_library(
+    name = "zeros_other_msgs",
+    srcs = [
+        "testdata/other_msgs/msg/Enum.msg",
+        "testdata/other_msgs/msg/Other.msg",
+    ],
+    add_namespace = "zeros",
+    runtime = ":zeros_runtime",
+    deps = [
+        ":zeros_std_msgs",
+    ],
+)
+
+neutron_serdes_library(
+    name = "serdes_test_msgs",
+    srcs = [
+        "testdata/test_msgs/msg/Pose.msg",
+        "testdata/test_msgs/msg/Vector.msg",
+    ],
+    runtime = ":serdes_runtime",
+    deps = [
+        ":serdes_other_msgs",
+    ],
+)
+
+cc_test(
+    name = "serdes_runtime_test",
+    srcs = [
+        "serdes_runtime_test.cc",
+    ],
+    data = [
+        ":msgs",
+    ],
+    deps = [
+        ":serdes_other_msgs",
+        ":serdes_runtime",
+        "@com_google_googletest//:gtest",
+        "@toolbelt//toolbelt",
+    ],
+)
+
+neutron_serdes_library(
+    name = "serdes_all_msgs",
+    srcs = [
+        "testdata/test_msgs/msg/All.msg",
+        "testdata/test_msgs/msg/Enum16.msg",
+        "testdata/test_msgs/msg/Enum32.msg",
+        "testdata/test_msgs/msg/Enum64.msg",
+        "testdata/test_msgs/msg/Enum8.msg",
+        "testdata/test_msgs/msg/Nested.msg",
+    ],
+    add_namespace = "serdes",
+    runtime = ":serdes_runtime",
+)
+
+neutron_zeros_library(
+    name = "zeros_all_msgs",
+    srcs = [
+        "testdata/test_msgs/msg/All.msg",
+        "testdata/test_msgs/msg/Enum16.msg",
+        "testdata/test_msgs/msg/Enum32.msg",
+        "testdata/test_msgs/msg/Enum64.msg",
+        "testdata/test_msgs/msg/Enum8.msg",
+        "testdata/test_msgs/msg/Nested.msg",
+    ],
+    add_namespace = "zeros",
+    runtime = ":zeros_runtime",
+)
+
+cc_test(
+    name = "zeros_runtime_test",
+    srcs = [
+        "zeros_runtime_test.cc",
+    ],
+    data = [
+        ":msgs",
+    ],
+    deps = [
+        ":serdes_all_msgs",
+        ":serdes_other_msgs",
+        ":serdes_runtime",
+        ":zeros_all_msgs",
+        ":zeros_other_msgs",
+        ":zeros_runtime",
+        "@com_google_googletest//:gtest",
+        "@toolbelt//toolbelt",
+    ],
+)
+
+cc_binary(
+    name = "neutron",
+    srcs = [
+        "main.cc",
+    ],
+    deps = [
+        ":msglib",
+        ":serdes",
+        ":zeros",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
+    ],
+)
+
+cc_library(
+    name = "serdes_runtime",
+    srcs = [
+        "serdes/runtime.h",
+    ],
+    deps = [
+        ":common_runtime",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+neutron_serdes_library(
+    name = "descriptor_msg",
+    srcs = [
+        "descriptor/msg/Descriptor.msg",
+        "descriptor/msg/Field.msg",
+    ],
+    runtime = ":serdes_runtime",
+)
+
+cc_library(
+    name = "descriptor",
+    srcs = [
+        "descriptor.cc",
+        "descriptor/Descriptor.cc",
+        "descriptor/Field.cc",
+    ],
+    hdrs = [
+        "descriptor.h",
+        "descriptor/Descriptor.h",
+        "descriptor/Field.h",
+    ],
+    deps = [
+        ":common_runtime",
+        ":msglib",
+        ":serdes_runtime",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/types:span",
+        "@toolbelt//toolbelt",
+    ],
+)
+
+cc_test(
+    name = "descriptor_test",
+    srcs = [
+        "descriptor_test.cc",
+    ],
+    data = [
+        ":msgs",
+    ],
+    deps = [
+        ":descriptor",
+        ":serdes_other_msgs",
+        "@com_google_googletest//:gtest",
+        "@toolbelt//toolbelt",
+    ],
+)

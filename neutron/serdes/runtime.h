@@ -13,6 +13,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/types/span.h"
 #include "neutron/common_runtime.h"
+#include "toolbelt/hexdump.h"
 
 namespace neutron::serdes {
 
@@ -40,7 +41,9 @@ class Buffer {
         start_(addr),
         size_(size),
         addr_(addr),
-        end_(addr + size) {}
+        end_(addr + size) {
+        toolbelt::Hexdump(addr, size);
+        }
 
   ~Buffer() {
     if (owned_) {
@@ -130,7 +133,7 @@ class Buffer {
     if (absl::Status status = HasSpaceFor(4); !status.ok()) {
       return status;
     }
-    uint32_t size = static_cast<uint32_t>(vec.size()) * sizeof(T);
+    uint32_t size = static_cast<uint32_t>(vec.size());
     memcpy(addr_, &size, sizeof(size));
     addr_ += 4;
     for (auto &v : vec) {

@@ -1,7 +1,8 @@
-#include <gtest/gtest.h>
+#include "neutron/serdes/descriptor/Descriptor.h"
 #include "neutron/serdes/other_msgs/Other.h"
 #include "neutron/serdes/runtime.h"
 #include "toolbelt/hexdump.h"
+#include <gtest/gtest.h>
 
 TEST(Runtime, FixedBuffer) {
   other_msgs::Other other;
@@ -53,6 +54,17 @@ TEST(Runtime, DynamicBuffer) {
   toolbelt::Hexdump(buffer2.data(), size);
 
   ASSERT_EQ(other, read);
+}
+
+TEST(Runtime, Descriptor) {
+  descriptor::Descriptor desc;
+  std::cerr << sizeof(other_msgs::Other::_descriptor) << std::endl;
+  auto status =
+      desc.DeserializeFromArray((char *)other_msgs::Other::_descriptor,
+                                sizeof(other_msgs::Other::_descriptor));
+  std::cerr << status << std::endl;
+  ASSERT_TRUE(status.ok());
+  std::cerr << desc.DebugString() << std::endl;
 }
 
 int main(int argc, char **argv) {

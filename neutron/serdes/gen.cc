@@ -346,8 +346,15 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
         os << "  }\n";
       }
     } else {
-      os << "  os << msg." << SanitizeFieldName(field->Name())
-         << " << std::endl;\n";
+      // For int8 and uint8, we want to print as a number, not a character.
+      if (field->Type() == FieldType::kInt8 ||
+          field->Type() == FieldType::kUint8) {
+        os << "  os << static_cast<int>(msg." << SanitizeFieldName(field->Name())
+           << ") << std::endl;\n";
+      } else {
+        os << "  os << msg." << SanitizeFieldName(field->Name())
+           << " << std::endl;\n";
+      }
     }
   }
   os << "  return os;\n";
@@ -575,9 +582,20 @@ absl::Status Generator::GenerateLength(const Message &msg, std::ostream &os) {
              << MessageFieldTypeName(msg, msg_field) << ");\n";
         }
       } else {
-        os << "  length += " << (array->IsFixedSize() ? 0 : 4) << " + this->"
-           << SanitizeFieldName(field->Name()) << ".size() * sizeof("
-           << FieldCType(array->Base()->Type()) << ");\n";
+        if (array->Base()->Type() == FieldType::kString) {
+          // Each element is a string with a 4-byte length prefix.
+          if (!array->IsFixedSize()) {
+            os << "  length += 4;\n";
+          }
+          os << "  for (auto& s : this->" << SanitizeFieldName(field->Name())
+             << ") {\n";
+          os << "    length += 4 + s.size();\n";
+          os << "  }\n";
+        } else {
+          os << "  length += " << (array->IsFixedSize() ? 0 : 4) << " + this->"
+             << SanitizeFieldName(field->Name()) << ".size() * sizeof("
+             << FieldCType(array->Base()->Type()) << ");\n";
+        }
       }
     } else {
       if (field->Type() == FieldType::kString) {

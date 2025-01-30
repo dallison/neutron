@@ -284,6 +284,45 @@ static std::string FieldAlignmentType(std::shared_ptr<Field> field) {
   }
 }
 
+static std::string SerdesFieldCType(FieldType type) {
+  switch (type) {
+  case FieldType::kInt8:
+    return "int8_t";
+  case FieldType::kUint8:
+    return "uint8_t";
+  case FieldType::kInt16:
+    return "int16_t";
+  case FieldType::kUint16:
+    return "uint16_t";
+  case FieldType::kInt32:
+    return "int32_t";
+  case FieldType::kUint32:
+    return "uint32_t";
+  case FieldType::kInt64:
+    return "int64_t";
+  case FieldType::kUint64:
+    return "uint64_t";
+  case FieldType::kFloat32:
+    return "float";
+  case FieldType::kFloat64:
+    return "double";
+  case FieldType::kTime:
+    return "neutron::Time";
+  case FieldType::kDuration:
+    return "neutron::Duration";
+  case FieldType::kString:
+    return "std::string";
+  case FieldType::kBool:
+    return "uint8_t";
+  case FieldType::kMessage:
+    std::cerr << "Can't use message field type here\n";
+    return "<message>";
+  case FieldType::kUnknown:
+    std::cerr << "Unknown field type " << int(type) << std::endl;
+    abort();
+  }
+}
+
 std::string
 Generator::MessageFieldTypeName(const Message &msg,
                                 std::shared_ptr<MessageField> field) {
@@ -874,16 +913,28 @@ absl::Status Generator::GenerateLength(const Message &msg, std::ostream &os) {
              << MessageFieldTypeName(msg, msg_field) << ");\n";
         }
       } else {
-        os << "  length += " << (array->IsFixedSize() ? 0 : 4) << " + this->"
-           << SanitizeFieldName(field->Name()) << ".size() * sizeof("
-           << FieldCType(array->Base()->Type()) << ");\n";
+        if (array->Base()->Type() == FieldType::kString) {
+          // Each element is a string with a 4-byte length prefix.
+          if (!array->IsFixedSize()) {
+            os << "  length += 4;\n";
+          }
+          os << "  for (auto& s : this->" << SanitizeFieldName(field->Name())
+             << ") {\n";
+          os << "    length += 4 + s.size();\n";
+          os << "  }\n";
+        } else {
+          os << "  length += " << (array->IsFixedSize() ? 0 : 4) << " + this->"
+             << SanitizeFieldName(field->Name()) << ".size() * sizeof("
+             << SerdesFieldCType(array->Base()->Type()) << ");\n";
+        }
       }
     } else {
       if (field->Type() == FieldType::kString) {
         os << "  length += 4 + this->" << SanitizeFieldName(field->Name())
            << ".size();\n";
       } else {
-        os << "  length += sizeof(" << FieldCType(field->Type()) << ");\n";
+        os << "  length += sizeof(" << SerdesFieldCType(field->Type())
+           << ");\n";
       }
     }
   }
@@ -942,6 +993,15 @@ absl::Status Generator::GenerateCreators(const Message &msg, std::ostream &os) {
         " [](void* p, size_t old_size, size_t new_size) -> "
         "absl::StatusOr<void*> { return ::realloc(p, new_size);});\n";
   os << "}\n\n";
+
+  os << "  // The buffer being used\n";
+  os << "  char* Buffer() const { return reinterpret_cast<char*>(*buffer); }\n";
+  os << "\n";
+
+  os << "  // Size of the full message in the payload buffer\n";
+  os << "  size_t Size() const { return (*buffer)->Size(); }\n";
+  os << "\n";
+
   return absl::OkStatus();
 }
 } // namespace neutron::zeros

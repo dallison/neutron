@@ -12,16 +12,17 @@ using PayloadBuffer = toolbelt::PayloadBuffer;
 TEST(Runtime, ZeroToSerdes) {
   char *buffer = (char *)malloc(4096);
 
-  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
+  // toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
 
-  // Allocate space for a message containing an offset for the string.
-  toolbelt::PayloadBuffer::AllocateMainMessage(&pb,
-                                     other_msgs::zeros::Other::BinarySize());
+  // // Allocate space for a message containing an offset for the string.
+  // toolbelt::PayloadBuffer::AllocateMainMessage(&pb,
+  //                                    other_msgs::zeros::Other::BinarySize());
 
-  pb->Dump(std::cout);
-  other_msgs::zeros::Other other(std::make_shared<toolbelt::PayloadBuffer *>(pb),
-                                 pb->message);
-
+  // pb->Dump(std::cout);
+  // other_msgs::zeros::Other other(std::make_shared<toolbelt::PayloadBuffer *>(pb),
+  //                                pb->message);
+          
+  other_msgs::zeros::Other other = other_msgs::zeros::Other::CreateMutable(buffer, 4096);
   other.header->seq = 255;
   other.header->frame_id = "frame1";
 
@@ -30,7 +31,7 @@ TEST(Runtime, ZeroToSerdes) {
 
   other.en = other_msgs::zeros::Enum::FOO;
 
-  toolbelt::Hexdump(buffer, pb->Size());
+  toolbelt::Hexdump(other.Buffer(), other.Size());
 
   size_t length = other.SerializedSize();
   std::cout << length << std::endl;

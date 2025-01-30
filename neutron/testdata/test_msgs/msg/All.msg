@@ -84,3 +84,9 @@ Enum64[] ve64
 
 int32 auto
 int64 virtual
+
+# Constants
+int8 const1 = 56
+float32 const2 = 99
+string const3 = foo bar
+

@@ -205,17 +205,23 @@ public:
   }
 
   template <typename T> absl::Status Compact(Buffer &dest) const {
+    // Check that we have a value to compact in the source buffer.
     if (absl::Status status = Check(sizeof(T)); !status.ok()) {
       return status;
     }
-    size_t size = UnsignedLeb128Size(*reinterpret_cast<T *>(addr_));
-    if (absl::Status status = dest.HasSpaceFor(size); !status.ok()) {
-      return status;
-    }
+
     T *v = reinterpret_cast<T *>(addr_);
     if constexpr (std::is_unsigned<T>::value) {
+      size_t size = UnsignedLeb128Size(*v);
+      if (absl::Status status = dest.HasSpaceFor(size); !status.ok()) {
+        return status;
+      }
       dest.WriteUnsignedLeb128(*v);
     } else {
+      size_t size = SignedLeb128Size(*v);
+      if (absl::Status status = dest.HasSpaceFor(size); !status.ok()) {
+        return status;
+      }
       dest.WriteSignedLeb128(*v);
     }
     addr_ += sizeof(T);
@@ -626,14 +632,15 @@ public:
   }
 
   // These are public because we need it for vector expansion.
+  // This checks that there is sufficient data in the source buffer.
   template <typename T> absl::Status ReadUnsignedLeb128(T &v) const {
+    if (absl::Status status = Check(UnsignedLeb128Size(v)); !status.ok()) {
+      return status;
+    }
     int shift = 0;
     uint8_t byte;
     v = 0;
     do {
-      if (absl::Status status = Check(1); !status.ok()) {
-        return status;
-      }
       byte = *addr_++;
       v |= (byte & 0x7f) << shift;
       shift += 7;
@@ -642,6 +649,7 @@ public:
     return absl::OkStatus();
   }
 
+  // The caller must have checked that there is space in the buffer.
   template <typename T> void WriteUnsignedLeb128(T v) {
     do {
       uint8_t byte = v & 0x7f;
@@ -690,6 +698,7 @@ private:
                         n, addr_, end_));
   }
 
+  // There caller must have checked that there is space in the buffer.
   template <typename T> void WriteSignedLeb128(T value) {
     bool more = true;
     while (more) {
@@ -707,16 +716,16 @@ private:
     }
   }
 
+  // This checks that there is data in the buffer to cover the value.
   template <typename T> absl::Status ReadSignedLeb128(T &value) const {
+    if (absl::Status status = Check(SignedLeb128Size(value)); !status.ok()) {
+      return status;
+    }
     int shift = 0;
     uint8_t byte;
     value = 0;
 
     do {
-      if (absl::Status status = Check(1); !status.ok()) {
-        return status;
-      }
-
       byte = *addr_++;
       value |= (byte & 0x7F) << shift;
       shift += 7;

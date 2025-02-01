@@ -5,7 +5,8 @@ messages and generates C++ structs corresponding to that message.  There's no
 point in having structs if you can't send them anywhere, so Neutron also generates a couple of ways to send the generated struct over a wire.
 
 1. Serialized ROS message format (serdes)
-2. Zero-copy message format (zeros)
+2. Serialized compact ROS message format (serdes)
+3. Zero-copy message format (zeros)
 
 ## ROS messages
 ROS messaging is pretty primitive by any standards.  The input IDL is a flat set of fields looking something like this:
@@ -41,7 +42,14 @@ takes each field in turn, in the order specified in the IDL input and writes it 
 
 When the message is received by a node it must first be converted from its serialized format into something that the node can use.  This is the reverse of serialization: deserialization and results in another copy of the received data to heap-allocated memory.
 
-Neutron's serialization system is 100% wire compatible with all other ROS serialization systems and thus messages can be exchanged with any traditional ROS (version 1, not DDS), system.
+There are two different versions of the serialization available:
+
+1. Standard ROS format
+2. Compacted format
+
+Neutron's standard ROS serialization system is 100% wire compatible with all other ROS serialization systems and thus messages can be exchanged with any traditional ROS (version 1, not DDS), system.
+
+The compacted serialization system uses [LEB128](https://en.wikipedia.org/wiki/LEB128) encoding for all integer types and, in general, will save 3 bytes per integer, including those uses for the lengths of strings and vectors.  This results in a smaller serialized message with the disadvantage of being incompatible with standard ROS messages.  Each message has a function provided to `Expand` a compacted serialized message into a standard ROS message (involves a copy).
 
 ## Generated files
 The input .msg files are convered to two C++ files.  Say the input .msg file is Foo.msg:
@@ -216,11 +224,14 @@ In addition to the struct definition, the following member functions are generat
 ```c++
   static const char* Name() { return "MESSAGE"; }
   static const char* FullName() { return "PACKAGE/MESSAGE"; }
-  absl::Status SerializeToArray(char* addr, size_t len) const;
-  absl::Status SerializeToBuffer(neutron::serdes::Buffer& buffer) const;
-  absl::Status DeserializeFromArray(const char* addr, size_t len);
-  absl::Status DeserializeFromBuffer(neutron::serdes::Buffer& buffer);
+  absl::Status SerializeToArray(char* addr, size_t len, bool compact = false) const;
+  absl::Status SerializeToBuffer(neutron::serdes::Buffer& buffer bool compact = false) const;
+  absl::Status DeserializeFromArray(const char* addr, size_t len bool compact = false);
+  absl::Status DeserializeFromBuffer(neutron::serdes::Buffer& buffer bool compact = false);
+  absl::Status Expand(const neutron::serdes::Buffer& src, neutron::serdes::Buffer& dest);
+
   size_t SerializedSize() const;
+  size_t CompactSerializedSize() const;
   bool operator==(const MESSAGE& m) const;
   bool operator!=(const MESSAGE& m) const {
     return !this->operator==(m);
@@ -228,9 +239,11 @@ In addition to the struct definition, the following member functions are generat
   std::string DebugString() const;
 ```
 
-The `Name()` and `FullName()` static functions give you the local and full names respectively.  You serialize the message to an array or a buffer by calling `SerializeToArray` and `SerializedToBuffer`.  A `Buffer` is defined below.
+The `Name()` and `FullName()` static functions give you the local and full names respectively.  You serialize the message to an array or a buffer by calling `SerializeToArray` and `SerializedToBuffer`.  A `Buffer` is defined below.  If the `compact` argument is set to true, the compacted serialized format will be generated.
 
-To deserialize from wire format, use `DeserializeFromArray` or `DeserializeFromBuffer`.  The size of the serialized wireformat data can be obtained by calling `SerializedSize`.  This can be used before the message is serialized in order to determine how much memory will be consumed by the wireformat data.
+To deserialize from wire format, use `DeserializeFromArray` or `DeserializeFromBuffer`. If the `compact` argument is set to true, the serialized data must be in compacted form.
+
+The size of the serialized wireformat data can be obtained by calling `SerializedSize` or `CompactSerializedSize`.  This can be used before the message is serialized in order to determine how much memory will be consumed by the wireformat data. 
 
 The `DebugString` function gives you a human readable string for debugging.
 
@@ -279,7 +292,37 @@ string msg_name       # Message field message name
 
 Thus an instance of the descriptor describes all the fields and types in a message.  Each message contains such a descriptor in its `_descriptor` member, which is serialized `Descriptor.msg` message.  In order to obtain a deserialized version of a message's descriptor, deserialize the `_descriptor` static member in the desired message type.
 
-## Wire Format
+## Serialization and deserialization
+You can serialize your message to either a fixed size array (or `neutron::serdes::Buffer`) or to an automatically expanded heap-allocated buffer.  The serialization can use either standard or compact format, with the latter generally resulting in smaller messages.
+
+To serialized to an automatically expanded buffer, create the buffer using the constructor that specifies initial size only.  The buffer is defined in [runtime.h](../serdes/runtime.h).  For example, to serialize in standard format into an automatically expanded buffer:
+
+```c++
+my_msgs::Foo foo;
+foo.x = 1;
+for.bar = "two";
+
+neutron::serdes::Buffer buffer;
+absl::Status status = foo.SerializeToBuffer(buffer);
+```
+
+To get the address and size of the buffer, you can use its `Data()` and `Size()` functions.  If you want to know how many bytes the serialized data will consume, you can call the `SerializedSize` or `CompactSerializedSize` functions. 
+
+When you receive a message and want to deserialize it, use the `DeserializeFromArray` or (rarely) `DeserializeFromBuffer` functions.  For example, to deserialize a compact format message provided in `buffer` with length `msglen`:
+
+```c++
+my_msgs::Foo;
+absl::Status status = foo.DeserializeFromArray(buffer, msglen, true);
+```
+
+## Expansion and compaction
+If you have received a message in compact format and want to convert it to standard wire format you can call the `Expand` function.  This takes a source buffer and a destination buffer and copies the compact data from the source to the destination in a CPU efficient manner (only one copy).
+
+If you are using compact format for your messages (to save on IPC memory, for example), you might want to convert these to standard format before recording them in a ROS bag (which requires standard messages in order to be compliant).
+
+If you want to do the reverse and convert a standard message into compacted form, use the `Compact` function.  This is useful if you have a bag containing standard messages and you want to publish them into your robot in compacted form.  Like expansion, this only involves a single copy of the data.
+
+## Standard Wire Format
 When the message is serialized, it is written into a buffer.  There is no alignment of any field type.  Message fields are written in the order specified in the `.msg` file.
 
 ### Integers
@@ -302,6 +345,33 @@ Written as a full inline message (all the message fields) in sequence.
 
 ### Time and Duration
 These are written as two 32-bit little endian fields.
+
+### Constants
+Not present in the wire-format.
+
+## Compact Wire Format
+When the message is serialized, it is written into a buffer.  There is no alignment of any field type.  Message fields are written in the order specified in the `.msg` file.
+
+### Integers
+These are written in LEB128 format.
+
+### Floating point
+Written in binary in little-endian format.
+
+### Strings.
+Written as unsigned LEB128 length followed immediately by the bytes of the string, with no terminating zero byte.
+
+### Arrays (fixed size)
+Written as a contiguous sequence of the array type.
+
+### Vectors (variable size)
+Written as an unsigned LEB128 number of elements followed by a contiguous sequence of elements.
+
+### Messages
+Written as a full inline message (all the message fields) in sequence.
+
+### Time and Duration
+These are written as two 32-bit LEB128 fields.
 
 ### Constants
 Not present in the wire-format.

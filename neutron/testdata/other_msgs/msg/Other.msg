@@ -5,10 +5,7 @@ string SCONST = string constant
 
 string bar      # offset 16
 int32 value     # offset 20
-int64[] arr     # offset 24 (length 8)
-int8[10] farr   # offset 32 (length 10)
+int64[] arr     # offset 24 (length 4)
+int8[10] farr   # offset 28 (length 10)
  
-Enum en         # offset 42
-# final offset 43 (aligned to 44)
-
-
+Enum en         # offset 38

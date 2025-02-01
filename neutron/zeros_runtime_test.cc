@@ -11,16 +11,6 @@ using PayloadBuffer = toolbelt::PayloadBuffer;
 
 TEST(Runtime, ZeroToSerdes) {
   char *buffer = (char *)malloc(4096);
-
-  // toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
-
-  // // Allocate space for a message containing an offset for the string.
-  // toolbelt::PayloadBuffer::AllocateMainMessage(&pb,
-  //                                    other_msgs::zeros::Other::BinarySize());
-
-  // pb->Dump(std::cout);
-  // other_msgs::zeros::Other other(std::make_shared<toolbelt::PayloadBuffer *>(pb),
-  //                                pb->message);
           
   other_msgs::zeros::Other other = other_msgs::zeros::Other::CreateMutable(buffer, 4096);
   other.header->seq = 255;

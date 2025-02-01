@@ -238,6 +238,7 @@ In addition to the struct definition, the following member functions are generat
     return !this->operator==(m);
   }
   std::string DebugString() const;
+  static absl::Span<const char> GetDescriptor();
 ```
 
 The `Name()` and `FullName()` static functions give you the local and full names respectively.  You serialize the message to an array or a buffer by calling `SerializeToArray` and `SerializedToBuffer`.  A `Buffer` is defined below.  If the `compact` argument is set to true, the compacted serialized format will be generated.
@@ -291,7 +292,13 @@ string msg_package    # Message field package
 string msg_name       # Message field message name
 ```
 
-Thus an instance of the descriptor describes all the fields and types in a message.  Each message contains such a descriptor in its `_descriptor` member, which is serialized `Descriptor.msg` message.  In order to obtain a deserialized version of a message's descriptor, deserialize the `_descriptor` static member in the desired message type.
+Thus an instance of the descriptor describes all the fields and types in a message.  Each message contains such a descriptor in its `_descriptor` member, which is serialized `Descriptor.msg` message.  
+
+The descriptor contains metadata for everything in a message.  To access the descriptor you can use the static member variable `_descriptor` in the message struct or you can get it as an `absl::Span` by calling `GetDescriptor`.  The descriptor data is encoded in compact serialized form (not standard format).
+
+Once you have the descriptor data, you can decode it using `neutron::DecodeDescriptor` passing either a pointer and length or the `absl::Span`.  You now have an instance of a `Descriptor` which you can query for things such as the fields.
+
+There is a convenience function `neutron::FieldNames(const Descriptor&)` that will give you all the field names.  Other metadata, such has the field details can be accessed directly from the `Descriptor` struct.
 
 ## Serialization and deserialization
 You can serialize your message to either a fixed size array (or `neutron::serdes::Buffer`) or to an automatically expanded heap-allocated buffer.  The serialization can use either standard or compact format, with the latter generally resulting in smaller messages.

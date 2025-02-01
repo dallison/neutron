@@ -19,20 +19,19 @@ namespace neutron::serdes {
 
 template <typename T> inline size_t SignedLeb128Size(const T &v) {
   size_t size = 0;
-  T value = v;
   bool more = true;
+  T value = v;
   while (more) {
-    uint8_t byte = value & 0x7F;
+    uint8_t byte = value & 0x7f;
     value >>= 7;
-
-    // Sign bit of byte is second high order bit (0x40)
-    if ((value == 0 && (byte & 0x40) == 0) ||
-        (value == -1 && (byte & 0x40) != 0)) {
+    bool sign_bit = (byte & 0x40) != 0;
+    if ((value == 0 && !sign_bit) || (value == -1 && sign_bit)) {
       more = false;
+    } else {
+      byte |= 0x80;
     }
     size++;
   }
-
   return size;
 }
 
@@ -161,13 +160,18 @@ public:
   }
 
   template <typename T> absl::Status WriteCompact(const T &v) {
-    size_t size = UnsignedLeb128Size(v);
-    if (absl::Status status = HasSpaceFor(size); !status.ok()) {
-      return status;
-    }
+
     if (std::is_unsigned<T>::value) {
+      size_t size = UnsignedLeb128Size(v);
+      if (absl::Status status = HasSpaceFor(size); !status.ok()) {
+        return status;
+      }
       WriteUnsignedLeb128(v);
     } else {
+      size_t size = SignedLeb128Size(v);
+      if (absl::Status status = HasSpaceFor(size); !status.ok()) {
+        return status;
+      }
       WriteSignedLeb128(v);
     }
     return absl::OkStatus();
@@ -717,7 +721,6 @@ private:
       value |= (byte & 0x7F) << shift;
       shift += 7;
 
-      // If the sign bit is set and this is the last byte, sign extend the value
       if ((byte & 0x80) == 0 && (byte & 0x40) != 0) {
         value |= -(1 << shift);
       }

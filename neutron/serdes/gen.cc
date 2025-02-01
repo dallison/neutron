@@ -324,6 +324,9 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
     return status;
   }
   os << "  };\n";
+  os << "  static absl::Span<const char> GetDescriptor() {\n";
+  os << "    return absl::Span<const char>(reinterpret_cast<const char*>(_descriptor), sizeof(_descriptor));\n";
+  os << "  }\n";
   os << "};\n";
 
   os << "inline std::ostream& operator<<(std::ostream& os, const " << msg.Name()

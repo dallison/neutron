@@ -1,4 +1,4 @@
-#include "neutron/serdes/descriptor/Descriptor.h"
+#include "neutron/descriptor.h"
 #include "neutron/serdes/other_msgs/Other.h"
 #include "neutron/serdes/runtime.h"
 #include "neutron/serdes/test_msgs/All.h"
@@ -132,14 +132,9 @@ TEST(Runtime, Expand) {
 }
 
 TEST(Runtime, Descriptor) {
-  descriptor::Descriptor desc;
-  std::cerr << sizeof(other_msgs::Other::_descriptor) << std::endl;
-  auto status =
-      desc.DeserializeFromArray((char *)other_msgs::Other::_descriptor,
-                                sizeof(other_msgs::Other::_descriptor));
-  std::cerr << status << std::endl;
-  ASSERT_TRUE(status.ok());
-  std::cerr << desc.DebugString() << std::endl;
+  auto descriptor = neutron::DecodeDescriptor(other_msgs::Other::GetDescriptor());
+  ASSERT_TRUE(descriptor.ok());
+  std::cerr << descriptor->DebugString() << std::endl;
 }
 
 static void FillAll(test_msgs::serdes::All& all) {
@@ -222,9 +217,19 @@ static void FillAll(test_msgs::serdes::All& all) {
 
   all.auto_ = 5678;
   all.virtual_ = 8765;
+
+  // Get all the the field names from the descriptor
+  auto descriptor = neutron::DecodeDescriptor(test_msgs::serdes::All::GetDescriptor());
+  ASSERT_TRUE(descriptor.ok());
+  std::vector<std::string> field = neutron::FieldNames(*descriptor);
+  for (auto& f : field) {
+    std::cout << f << std::endl;
+  }
+  std::cout << "descriptor size: " << test_msgs::serdes::All::GetDescriptor().size() << std::endl;
+
 }
 
-void CheckAll(const test_msgs::serdes::All& all) {
+static void CheckAll(const test_msgs::serdes::All& all) {
   ASSERT_EQ(all.i8, 1);
   ASSERT_EQ(all.ui8, 2);
   ASSERT_EQ(all.i16, 3);

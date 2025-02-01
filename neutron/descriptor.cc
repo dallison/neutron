@@ -7,39 +7,39 @@ namespace neutron {
 
 static int FromFieldType(FieldType t) {
   switch (t) {
-    case FieldType::kInt8:
-      return descriptor::Field::TYPE_INT8;
-    case FieldType::kUint8:
-      return descriptor::Field::TYPE_UINT8;
-    case FieldType::kInt16:
-      return descriptor::Field::TYPE_INT16;
-    case FieldType::kUint16:
-      return descriptor::Field::TYPE_UINT16;
-    case FieldType::kInt32:
-      return descriptor::Field::TYPE_INT32;
-    case FieldType::kUint32:
-      return descriptor::Field::TYPE_UINT32;
-    case FieldType::kInt64:
-      return descriptor::Field::TYPE_INT64;
-    case FieldType::kUint64:
-      return descriptor::Field::TYPE_UINT64;
-    case FieldType::kFloat32:
-      return descriptor::Field::TYPE_FLOAT32;
-    case FieldType::kFloat64:
-      return descriptor::Field::TYPE_FLOAT64;
-    case FieldType::kTime:
-      return descriptor::Field::TYPE_TIME;
-    case FieldType::kDuration:
-      return descriptor::Field::TYPE_DURATION;
-    case FieldType::kString:
-      return descriptor::Field::TYPE_STRING;
-    case FieldType::kBool:
-      return descriptor::Field::TYPE_BOOL;
-    case FieldType::kMessage:
-      return descriptor::Field::TYPE_MESSAGE;
-    case FieldType::kUnknown:
-      std::cerr << "Unknown field type " << int(t) << std::endl;
-      abort();
+  case FieldType::kInt8:
+    return descriptor::Field::TYPE_INT8;
+  case FieldType::kUint8:
+    return descriptor::Field::TYPE_UINT8;
+  case FieldType::kInt16:
+    return descriptor::Field::TYPE_INT16;
+  case FieldType::kUint16:
+    return descriptor::Field::TYPE_UINT16;
+  case FieldType::kInt32:
+    return descriptor::Field::TYPE_INT32;
+  case FieldType::kUint32:
+    return descriptor::Field::TYPE_UINT32;
+  case FieldType::kInt64:
+    return descriptor::Field::TYPE_INT64;
+  case FieldType::kUint64:
+    return descriptor::Field::TYPE_UINT64;
+  case FieldType::kFloat32:
+    return descriptor::Field::TYPE_FLOAT32;
+  case FieldType::kFloat64:
+    return descriptor::Field::TYPE_FLOAT64;
+  case FieldType::kTime:
+    return descriptor::Field::TYPE_TIME;
+  case FieldType::kDuration:
+    return descriptor::Field::TYPE_DURATION;
+  case FieldType::kString:
+    return descriptor::Field::TYPE_STRING;
+  case FieldType::kBool:
+    return descriptor::Field::TYPE_BOOL;
+  case FieldType::kMessage:
+    return descriptor::Field::TYPE_MESSAGE;
+  case FieldType::kUnknown:
+    std::cerr << "Unknown field type " << int(t) << std::endl;
+    abort();
   }
 }
 
@@ -98,10 +98,10 @@ absl::Status EncodeDescriptorAsHex(const descriptor::Descriptor &desc,
                                    int max_width, bool with_0x_prefix,
                                    std::ostream &os) {
   neutron::serdes::Buffer buffer;
-  if (absl::Status status = desc.SerializeToBuffer(buffer); !status.ok()) {
+  if (absl::Status status = desc.SerializeToBuffer(buffer, /*compact=*/true);
+      !status.ok()) {
     return status;
   }
-
   const char *addr = buffer.data();
   ssize_t length = buffer.Size();
 
@@ -127,8 +127,29 @@ absl::Status EncodeDescriptorAsHex(const descriptor::Descriptor &desc,
   return absl::OkStatus();
 }
 
-absl::StatusOr<descriptor::Descriptor> DecodeDescriptor(std::istream &is) {
+absl::StatusOr<descriptor::Descriptor> DecodeDescriptor(const char *addr,
+                                                        size_t len) {
   descriptor::Descriptor desc;
+  neutron::serdes::Buffer buffer(const_cast<char *>(addr), len);
+  if (absl::Status status =
+          desc.DeserializeFromBuffer(buffer, /*compact=*/true);
+      !status.ok()) {
+    return status;
+  }
   return desc;
 }
-}  // namespace neutron
+
+absl::StatusOr<descriptor::Descriptor>
+DecodeDescriptor(absl::Span<const char> span) {
+  return DecodeDescriptor(span.data(), span.size());
+}
+
+std::vector<std::string> FieldNames(const descriptor::Descriptor &desc) {
+  std::vector<std::string> fields;
+  for (auto &field : desc.fields) {
+    fields.push_back(field.name);
+  }
+  return fields;
+}
+
+} // namespace neutron

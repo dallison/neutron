@@ -227,6 +227,7 @@ cc_test(
         ":msgs",
     ],
     deps = [
+        ":descriptor",
         ":descriptor_msg",
         ":serdes_all_msgs",
         ":serdes_other_msgs",

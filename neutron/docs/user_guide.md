@@ -49,7 +49,7 @@ There are two different versions of the serialization available:
 
 Neutron's standard ROS serialization system is 100% wire compatible with all other ROS serialization systems and thus messages can be exchanged with any traditional ROS (version 1, not DDS), system.
 
-The compacted serialization system uses [LEB128](https://en.wikipedia.org/wiki/LEB128) encoding for all integer types and, in general, will save 3 bytes per integer, including those uses for the lengths of strings and vectors.  This results in a smaller serialized message with the disadvantage of being incompatible with standard ROS messages.  Each message has a function provided to `Expand` a compacted serialized message into a standard ROS message (involves a copy).
+The compacted serialization system uses [LEB128](https://en.wikipedia.org/wiki/LEB128) encoding for all integer types and, in general, will save 3 bytes per integer, including those uses for the lengths of strings and vectors.  This results in a smaller serialized message with the disadvantage of being incompatible with standard ROS messages.  Each message has a static function provided to `Expand` a compacted serialized message into a standard ROS message (involves a copy), and one to `Compact` from standard message into a compact form.
 
 ## Generated files
 The input .msg files are convered to two C++ files.  Say the input .msg file is Foo.msg:
@@ -228,7 +228,8 @@ In addition to the struct definition, the following member functions are generat
   absl::Status SerializeToBuffer(neutron::serdes::Buffer& buffer bool compact = false) const;
   absl::Status DeserializeFromArray(const char* addr, size_t len bool compact = false);
   absl::Status DeserializeFromBuffer(neutron::serdes::Buffer& buffer bool compact = false);
-  absl::Status Expand(const neutron::serdes::Buffer& src, neutron::serdes::Buffer& dest);
+  static absl::Status Expand(const neutron::serdes::Buffer& src, neutron::serdes::Buffer& dest);
+  static absl::Status Compact(const neutron::serdes::Buffer& src, neutron::serdes::Buffer& dest);
 
   size_t SerializedSize() const;
   size_t CompactSerializedSize() const;

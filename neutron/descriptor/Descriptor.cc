@@ -28,13 +28,16 @@ absl::Status Descriptor::WriteToBuffer(neutron::serdes::Buffer& buffer) const {
   return absl::OkStatus();
 }
 
-absl::Status Descriptor::WriteCompactToBuffer(neutron::serdes::Buffer& buffer) const {
+absl::Status Descriptor::WriteCompactToBuffer(neutron::serdes::Buffer& buffer, bool internal) const {
   if (absl::Status status = buffer.WriteCompact(this->package); !status.ok()) return status;
   if (absl::Status status = buffer.WriteCompact(this->name); !status.ok()) return status;
   if (absl::Status status = buffer.WriteCompact(this->imports); !status.ok()) return status;
   if (absl::Status status = buffer.WriteCompact(uint32_t(this->fields.size())); !status.ok()) return status;
   for (auto& m : this->fields) {
-    if (absl::Status status = m.WriteCompactToBuffer(buffer); !status.ok()) return status;
+    if (absl::Status status = m.WriteCompactToBuffer(buffer, true); !status.ok()) return status;
+  }
+  if (!internal) {
+     return buffer.FlushZeroes();
   }
   return absl::OkStatus();
 }
@@ -93,16 +96,21 @@ size_t Descriptor::SerializedSize() const {
   return length;
 }
 
-size_t Descriptor::CompactSerializedSize() const {
-  size_t length = 0;
-  length +=  neutron::serdes::Leb128Size(this->package);
-  length +=  neutron::serdes::Leb128Size(this->name);
-  length +=  neutron::serdes::Leb128Size(this->imports);
-  length +=  neutron::serdes::Leb128Size(this->fields.size());
+void Descriptor::CompactSerializedSize(neutron::serdes::SizeAccumulator& acc) const {
+  acc.Accumulate(this->package);
+  acc.Accumulate(this->name);
+  acc.Accumulate(this->imports);
+  acc.Accumulate(fields.size());
   for (auto& m : this->fields) {
-    length += m.CompactSerializedSize();
+    m.CompactSerializedSize(acc);
   }
-  return length;
+}
+
+size_t Descriptor::CompactSerializedSize() const {
+  neutron::serdes::SizeAccumulator acc;
+  CompactSerializedSize(acc);
+  acc.Close();
+  return acc.Size();
 }
 
 absl::Status Descriptor::Expand(const neutron::serdes::Buffer& src, neutron::serdes::Buffer& dest) {
@@ -121,18 +129,21 @@ absl::Status Descriptor::Expand(const neutron::serdes::Buffer& src, neutron::ser
   return absl::OkStatus();
 }
 
-absl::Status Descriptor::Compact(const neutron::serdes::Buffer& src, neutron::serdes::Buffer& dest) {
+absl::Status Descriptor::Compact(const neutron::serdes::Buffer& src, neutron::serdes::Buffer& dest, bool internal) {
   if (absl::Status status = src.Compact<std::string>(dest); !status.ok()) return status;
   if (absl::Status status = src.Compact<std::string>(dest); !status.ok()) return status;
   if (absl::Status status = src.Compact(std::vector<std::string>(), dest); !status.ok()) return status;
   {
     uint32_t size;
     if (absl::Status status = src.Read(size); !status.ok()) return status;
-    dest.WriteUnsignedLeb128(size);
+    if (absl::Status status = dest.WriteUnsignedLeb128(size); !status.ok()) return status;
     for (size_t i = 0; i < size_t(size); i++) {
-      if (absl::Status status = descriptor::Field::Compact(src, dest); !status.ok())
+      if (absl::Status status = descriptor::Field::Compact(src, dest, true); !status.ok())
         return status;
     }
+  }
+  if (!internal) {
+    return dest.FlushZeroes();
   }
   return absl::OkStatus();
 }

@@ -132,12 +132,13 @@ TEST(Runtime, Expand) {
 }
 
 TEST(Runtime, Descriptor) {
-  auto descriptor = neutron::DecodeDescriptor(other_msgs::Other::GetDescriptor());
+  auto descriptor =
+      neutron::DecodeDescriptor(other_msgs::Other::GetDescriptor());
   ASSERT_TRUE(descriptor.ok());
   std::cerr << descriptor->DebugString() << std::endl;
 }
 
-static void FillAll(test_msgs::serdes::All& all) {
+static void FillAll(test_msgs::serdes::All &all) {
   all.i8 = 1;
   all.ui8 = 2;
   all.i16 = 3;
@@ -219,17 +220,18 @@ static void FillAll(test_msgs::serdes::All& all) {
   all.virtual_ = 8765;
 
   // Get all the the field names from the descriptor
-  auto descriptor = neutron::DecodeDescriptor(test_msgs::serdes::All::GetDescriptor());
+  auto descriptor =
+      neutron::DecodeDescriptor(test_msgs::serdes::All::GetDescriptor());
   ASSERT_TRUE(descriptor.ok());
   std::vector<std::string> field = neutron::FieldNames(*descriptor);
-  for (auto& f : field) {
+  for (auto &f : field) {
     std::cout << f << std::endl;
   }
-  std::cout << "descriptor size: " << test_msgs::serdes::All::GetDescriptor().size() << std::endl;
-
+  std::cout << "descriptor size: "
+            << test_msgs::serdes::All::GetDescriptor().size() << std::endl;
 }
 
-static void CheckAll(const test_msgs::serdes::All& all) {
+static void CheckAll(const test_msgs::serdes::All &all) {
   ASSERT_EQ(all.i8, 1);
   ASSERT_EQ(all.ui8, 2);
   ASSERT_EQ(all.i16, 3);
@@ -340,7 +342,7 @@ TEST(Runtime, AllSerializeCompact) {
   // Set the fields.
   FillAll(all);
 
-  neutron::serdes::Buffer dest;
+  neutron::serdes::Buffer dest(256);
 
   size_t length = all.CompactSerializedSize();
   std::cout << length << std::endl;
@@ -349,8 +351,9 @@ TEST(Runtime, AllSerializeCompact) {
   std::cerr << status << std::endl;
   ASSERT_TRUE(status.ok());
   std::cout << "serialized:\n";
+  toolbelt::Hexdump(dest.data(), dest.size());
+
   ASSERT_EQ(length, dest.size());
-  toolbelt::Hexdump(dest.data(), length);
 
   // Deserialize from buffer and check it:
   test_msgs::serdes::All all2;
@@ -399,7 +402,6 @@ TEST(Runtime, AllCompact) {
   // std::cout << all.DebugString();
   CheckAll(all2);
 }
-
 
 TEST(Runtime, AllExpand) {
   test_msgs::serdes::All all;

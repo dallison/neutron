@@ -49,7 +49,7 @@ There are two different versions of the serialization available:
 
 Neutron's standard ROS serialization system is 100% wire compatible with all other ROS serialization systems and thus messages can be exchanged with any traditional ROS (version 1, not DDS), system.
 
-The compacted serialization system uses [LEB128](https://en.wikipedia.org/wiki/LEB128) encoding for all integer types and, in general, will save 3 bytes per integer, including those uses for the lengths of strings and vectors.  This results in a smaller serialized message with the disadvantage of being incompatible with standard ROS messages.  Each message has a static function provided to `Expand` a compacted serialized message into a standard ROS message (involves a copy), and one to `Compact` from standard message into a compact form.
+The compacted serialization system uses [LEB128](https://en.wikipedia.org/wiki/LEB128) encoding for all integer types and, in general, will save 3 bytes per integer, including those uses for the lengths of strings and vectors. In addition, runs of more than 1 zero is run-length encoded as two bytes.  This results in a smaller serialized message with the disadvantage of being incompatible with standard ROS messages.  Each message has a static function provided to `Expand` a compacted serialized message into a standard ROS message (involves a copy), and one to `Compact` from standard message into a compact form.
 
 ## Generated files
 The input .msg files are convered to two C++ files.  Say the input .msg file is Foo.msg:
@@ -224,15 +224,19 @@ In addition to the struct definition, the following member functions are generat
 ```c++
   static const char* Name() { return "MESSAGE"; }
   static const char* FullName() { return "PACKAGE/MESSAGE"; }
-  absl::Status SerializeToArray(char* addr, size_t len, bool compact = false) const;
-  absl::Status SerializeToBuffer(neutron::serdes::Buffer& buffer bool compact = false) const;
-  absl::Status DeserializeFromArray(const char* addr, size_t len bool compact = false);
-  absl::Status DeserializeFromBuffer(neutron::serdes::Buffer& buffer bool compact = false);
-  static absl::Status Expand(const neutron::serdes::Buffer& src, neutron::serdes::Buffer& dest);
-  static absl::Status Compact(const neutron::serdes::Buffer& src, neutron::serdes::Buffer& dest);
-
+  absl::Status SerializeToArray(char* addr, size_t len, bool compact=false) const;
+  absl::Status SerializeToBuffer(neutron::serdes::Buffer& buffer, bool compact = false) const;
+  absl::Status DeserializeFromArray(const char* addr, size_t len, bool compact = false);
+  absl::Status DeserializeFromBuffer(neutron::serdes::Buffer& buffer, bool compact = false);
   size_t SerializedSize() const;
   size_t CompactSerializedSize() const;
+  void CompactSerializedSize(neutron::serdes::SizeAccumulator& acc) const;
+  absl::Status WriteToBuffer(neutron::serdes::Buffer& buffer) const;
+  absl::Status WriteCompactToBuffer(neutron::serdes::Buffer& buffer, bool internal = false) const;
+  absl::Status ReadFromBuffer(neutron::serdes::Buffer& buffer);
+  absl::Status ReadCompactFromBuffer(neutron::serdes::Buffer& buffer);
+  static absl::Status Expand(const neutron::serdes::Buffer& src, neutron::serdes::Buffer& dest);
+  static absl::Status Compact(const neutron::serdes::Buffer& src, neutron::serdes::Buffer& dest, bool internal = false);
   bool operator==(const MESSAGE& m) const;
   bool operator!=(const MESSAGE& m) const {
     return !this->operator==(m);
@@ -330,6 +334,7 @@ If you are using compact format for your messages (to save on IPC memory, for ex
 
 If you want to do the reverse and convert a standard message into compacted form, use the `Compact` function.  This is useful if you have a bag containing standard messages and you want to publish them into your robot in compacted form.  Like expansion, this only involves a single copy of the data.
 
+
 ## Standard Wire Format
 When the message is serialized, it is written into a buffer.  There is no alignment of any field type.  Message fields are written in the order specified in the `.msg` file.
 
@@ -358,22 +363,26 @@ These are written as two 32-bit little endian fields.
 Not present in the wire-format.
 
 ## Compact Wire Format
-When the message is serialized, it is written into a buffer.  There is no alignment of any field type.  Message fields are written in the order specified in the `.msg` file.
+When the message is serialized, it is written into a buffer.  There is no alignment of any field type.  Message fields are written in the order specified in the `.msg` file.  The encoding has the following characteristics:
+
+1. Integers and floating point numbers (including length of strings and vectors) are encoded in LEB128 form.
+2. Arrays and the body of vectors of `uint8_t` are not encoded and are handled as a contiguous sequence of bytes
+3. A run of more than one zero is encoded as two bytes (0xfa, N) where `N` is two less than the number of zeroes in the run.  If a value of 0xfa is written, it is encoded as (0xfa, 0xfa).  There is a maximum of 0xfb (251) zeroes in a single run using this encoding.
 
 ### Integers
 These are written in LEB128 format.
 
 ### Floating point
-Written in binary in little-endian format.
+Written in unsigned LEB128 format.
 
 ### Strings.
 Written as unsigned LEB128 length followed immediately by the bytes of the string, with no terminating zero byte.
 
 ### Arrays (fixed size)
-Written as a contiguous sequence of the array type.
+Written as a contiguous sequence of the array type, unless the type is `uint8_t` in which case it's written verbatim.
 
 ### Vectors (variable size)
-Written as an unsigned LEB128 number of elements followed by a contiguous sequence of elements.
+Written as an unsigned LEB128 number of elements followed by a contiguous sequence of elements.  If the type is `uint8_t`, the body is written as a sequence of unencoded bytes.
 
 ### Messages
 Written as a full inline message (all the message fields) in sequence.

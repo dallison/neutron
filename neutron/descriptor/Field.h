@@ -3,7 +3,6 @@
 #pragma once
 #include "neutron/serdes/runtime.h"
 
-
 namespace descriptor {
 struct Field {
   static constexpr int16_t FIELD_PRIMITIVE = -2;

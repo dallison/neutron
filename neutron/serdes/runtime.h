@@ -17,6 +17,9 @@
 
 namespace neutron::serdes {
 
+// Base class for all messages.
+class SerdesMessage {};
+
 constexpr uint8_t kZeroMarker = 0xfa;
 // The max number of zeroes in a run is one more than than the zero marker since
 // the zero marker is followed by the number of zeroes - 2
@@ -114,8 +117,6 @@ template <size_t N> inline size_t Leb128Size(const std::array<uint8_t, N> &v) {
 class SizeAccumulator {
 public:
   template <typename T> void Accumulate(const T &v) {
-    // std::cerr << "accumulating value: " << std::hex << v
-    //           << " starting at offset: " << size_ << std::dec << std::endl;
     if (v == 0) {
       if (num_zeroes_ == kMaxZeroes) {
         size_ += 2;
@@ -147,9 +148,6 @@ public:
   }
 
   template <> void Accumulate(const std::string &s) {
-    // std::cerr << "accumulating string: " << s << " starting at offset: " <<
-    // std::hex << size_ << std::dec
-    //           << std::endl;
     Accumulate(s.size());
     size_ += s.size();
   }
@@ -261,6 +259,15 @@ public:
   }
 
   void Rewind() { addr_ = start_; }
+
+  absl::Status CheckAtEnd() const {
+    if (addr_ != end_) {
+      return absl::InternalError(
+          absl::StrFormat("Extra data in buffer: start: %p, addr: %p, end_ %p",
+                          start_, addr_, end_));
+    }
+    return absl::OkStatus();
+  }
 
   // Alignment is not guaranteed for any copies so to comply with
   // norms we use memcpy.  Although all modern CPUs allow non-aligned
@@ -430,8 +437,6 @@ public:
   }
 
   template <> absl::Status WriteCompact(const std::string &v) {
-    // std::cerr << "writing string: " << v << " at " << (void*)addr_ <<
-    // std::endl;
     if (absl::Status status = WriteUnsignedLeb128(v.size()); !status.ok()) {
       return status;
     }
@@ -735,8 +740,6 @@ public:
 
   template <size_t N>
   absl::Status WriteCompact(const std::array<uint8_t, N> &vec) {
-    // std::cerr << "writing compact array of size: " << N << " at "
-    //           << (void *)addr_ << std::endl;
     if (absl::Status status = FlushZeroes(); !status.ok()) {
       return status;
     }
@@ -756,8 +759,6 @@ public:
 
   template <size_t N>
   absl::Status ReadCompact(std::array<uint8_t, N> &vec) const {
-    // std::cerr << "reading compact array of size: " << N << " at "
-    //           << (void *)addr_ << std::endl;
     return Read(vec);
   }
 
@@ -969,20 +970,16 @@ public:
         if (absl::Status status = HasSpaceFor(1); !status.ok()) {
           return status;
         }
-        // std::cerr << "one zero at " << (void *)addr_ << std::endl;
         *addr_++ = 0;
       } else {
         if (absl::Status status = HasSpaceFor(2); !status.ok()) {
           return status;
         }
-        // std::cerr << (num_zeroes_) << " zeroes at " << (void *)addr_
-        //           << std::endl;
         *addr_++ = kZeroMarker;     // Add zero marker.
         *addr_++ = num_zeroes_ - 2; // Marker is followed by count - 2.
       }
       num_zeroes_ = 0;
     }
-    // std::cerr << "length is " << (addr_ - start_) << std::endl;
     return absl::OkStatus();
   }
 

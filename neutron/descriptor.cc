@@ -64,7 +64,7 @@ absl::StatusOr<descriptor::Descriptor> MakeDescriptor(const Message &msg) {
       auto msg_field = std::static_pointer_cast<MessageField>(field);
       f.msg_package = msg_field->MsgPackage().empty() ? msg.Package()->Name()
                                                       : msg_field->MsgPackage();
-      f.msg_name = msg_field->Msg()->Name();
+      f.msg_name = msg_field->MsgName();
       f.array_size = descriptor::Field::FIELD_PRIMITIVE;
       imports.insert(f.msg_package + "/" + f.msg_name);
     } else if (field->IsArray()) {
@@ -80,7 +80,7 @@ absl::StatusOr<descriptor::Descriptor> MakeDescriptor(const Message &msg) {
         f.msg_package = msg_field->MsgPackage().empty()
                             ? msg.Package()->Name()
                             : msg_field->MsgPackage();
-        f.msg_name = msg_field->Msg()->Name();
+        f.msg_name = msg_field->MsgName();
         imports.insert(f.msg_package + "/" + f.msg_name);
       }
     } else {

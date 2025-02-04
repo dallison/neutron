@@ -190,6 +190,8 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
   os << "#pragma once\n";
   os << "#include \"" << (runtime_path_.empty() ? "" : (runtime_path_ + "/"))
      << "neutron/serdes/runtime.h\"\n";
+  os << "#include \"" << (runtime_path_.empty() ? "" : (runtime_path_ + "/"))
+     << "neutron/serdes/mux.h\"\n";
   os << "\n";
   // Include files for message fields
   absl::flat_hash_set<std::string> hdrs;
@@ -237,7 +239,8 @@ absl::Status Generator::GenerateEnum(const Message &msg, std::ostream &os) {
 }
 
 absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
-  os << "struct " << msg.Name() << " {\n";
+  os << "struct " << msg.Name()
+     << " : public ::neutron::serdes::SerdesMessage {\n";
 
   // Constants.
   for (auto & [ name, c ] : msg.Constants()) {
@@ -332,6 +335,9 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
   os << "    return absl::Span<const char>(reinterpret_cast<const "
         "char*>(_descriptor), sizeof(_descriptor));\n";
   os << "  }\n";
+
+  os << " void StreamTo(std::ostream& os) const;\n";
+
   os << "};\n";
 
   os << "inline std::ostream& operator<<(std::ostream& os, const " << msg.Name()
@@ -381,6 +387,11 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
     }
   }
   os << "  return os;\n";
+  os << "}\n\n";
+
+  os << "inline void " << msg.Name()
+     << "::StreamTo(std::ostream& os) const {\n";
+  os << "  os << *this;\n";
   os << "}\n";
   return absl::OkStatus();
 }
@@ -419,6 +430,10 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
 
   if (absl::Status status = GenerateExpanderAndCompactor(msg, os);
       !status.ok()) {
+    return status;
+  }
+
+  if (absl::Status status = GenerateMux(msg, os); !status.ok()) {
     return status;
   }
 
@@ -530,9 +545,11 @@ absl::Status Generator::GenerateDeserializer(const Message &msg,
      << "::DeserializeFromBuffer(neutron::serdes::Buffer& buffer, bool "
         "compact) {\n";
   os << "  if (compact) {\n";
-  os << "    return ReadCompactFromBuffer(buffer);\n";
+  os << "    if (absl::Status status = ReadCompactFromBuffer(buffer); !status.ok()) return status;\n";
+  os << "  } else {\n";
+  os << "    if (absl::Status status =  ReadFromBuffer(buffer); !status.ok()) return status;\n";
   os << "  }\n";
-  os << "  return ReadFromBuffer(buffer);\n";
+  os << "    return buffer.CheckAtEnd();\n";
   os << "}\n\n";
 
   for (std::string read : {"Read", "ReadCompact"}) {
@@ -756,7 +773,8 @@ absl::Status Generator::GenerateExpanderAndCompactor(const Message &msg,
         } else {
           os << "  if (absl::Status status = "
              << MessageFieldTypeName(msg, msg_field) << "::" << func
-             << "(src, dest" << (is_compact ? ", true" : "") << "); !status.ok()) return "
+             << "(src, dest" << (is_compact ? ", true" : "")
+             << "); !status.ok()) return "
                 "status;\n";
         }
       } else if (field->IsArray()) {
@@ -799,7 +817,8 @@ absl::Status Generator::GenerateExpanderAndCompactor(const Message &msg,
             // Array or vector of messages.
             os << "      if (absl::Status status = "
                << MessageFieldTypeName(*msg_field->Msg(), msg_field)
-               << "::" << func << "(src, dest" << (is_compact ? ", true" : "") << "); !status.ok())\n";
+               << "::" << func << "(src, dest" << (is_compact ? ", true" : "")
+               << "); !status.ok())\n";
             os << "        return status;\n";
           }
           os << "    }\n"; // Close for loop
@@ -834,4 +853,119 @@ absl::Status Generator::GenerateExpanderAndCompactor(const Message &msg,
   return absl::OkStatus();
 }
 
+absl::Status Generator::GenerateMux(const Message &msg, std::ostream &os) {
+  std::string msg_name = msg.Name();
+  os << "static absl::Span<const char> " << msg_name
+     << "GetDescriptor() "
+        "{\n";
+  os << "  return " << msg_name << "::GetDescriptor();\n";
+  os << "}\n\n";
+
+  os << "static absl::Status " << msg_name
+     << "SerializeToArray(const ::neutron::serdes::SerdesMessage& msg, char* "
+        "buf, size_t size, bool compact) "
+        "{\n";
+  os << "  const " << msg_name << " *m = static_cast<const " << msg_name
+     << "*>(&msg);\n";
+  os << "  return m->SerializeToArray(buf, size, compact);\n";
+  os << "}\n\n";
+
+  os << "static absl::Status " << msg_name
+     << "SerializeToBuffer(const ::neutron::serdes::SerdesMessage& msg, "
+        "::neutron::serdes::Buffer& buffer, bool compact) "
+        "{\n";
+  os << "  const " << msg_name << " *m = static_cast<const " << msg_name
+     << "*>(&msg);\n";
+  os << "  return m->SerializeToBuffer(buffer, compact);\n";
+  os << "}\n\n";
+
+  os << "static absl::Status " << msg_name
+     << "DeserializeFromArray(::neutron::serdes::SerdesMessage& msg, const "
+        "char* buf, size_t size, bool compact) "
+        "{\n";
+  os << "  " << msg_name << " *m = static_cast<" << msg_name << "*>(&msg);\n";
+  os << "  return m->DeserializeFromArray(buf, size, compact);\n";
+  os << "}\n\n";
+
+  os << "static absl::Status " << msg_name
+     << "DeserializeFromBuffer(::neutron::serdes::SerdesMessage& msg, "
+        "::neutron::serdes::Buffer& buffer, bool compact) "
+        "{\n";
+  os << "  " << msg_name << " *m = static_cast<" << msg_name << "*>(&msg);\n";
+  os << "  return m->DeserializeFromBuffer(buffer, compact);\n";
+  os << "}\n\n";
+
+  os << "static size_t " << msg_name
+     << "SerializedSize(const ::neutron::serdes::SerdesMessage& msg) "
+        "{\n";
+  os << "  const " << msg_name << " *m = static_cast<const " << msg_name
+     << "*>(&msg);\n";
+  os << "  return m->SerializedSize();\n";
+  os << "}\n\n";
+
+  os << "static size_t " << msg_name
+     << "CompactSerializedSize(const ::neutron::serdes::SerdesMessage& msg) "
+        "{\n";
+  os << "  const " << msg_name << " *m = static_cast<const " << msg_name
+     << "*>(&msg);\n";
+  os << "  return m->CompactSerializedSize();\n";
+  os << "}\n\n";
+
+  os << "static void " << msg_name
+     << "StreamTo(const ::neutron::serdes::SerdesMessage& msg, std::ostream& "
+        "os) "
+        "{\n";
+  os << "  const " << msg_name << " *m = static_cast<const " << msg_name
+     << "*>(&msg);\n";
+  os << "  m->StreamTo(os);\n";
+  os << "}\n\n";
+
+  os << "static std::string " << msg_name
+     << "DebugString(const ::neutron::serdes::SerdesMessage& msg) "
+        "{\n";
+  os << "  const " << msg_name << " *m = static_cast<const " << msg_name
+     << "*>(&msg);\n";
+  os << "  return m->DebugString();\n";
+  os << "}\n\n";
+
+  os << "static absl::Status " << msg_name
+     << "Expand(const ::neutron::serdes::Buffer& src, "
+        "::neutron::serdes::Buffer& dest) "
+        "{\n";
+  os << "  return " << msg_name << "::Expand(src, dest);\n";
+  os << "}\n\n";
+
+  os << "static absl::Status " << msg_name
+     << "Compact(const ::neutron::serdes::Buffer& src, "
+        "::neutron::serdes::Buffer& dest) "
+        "{\n";
+  os << "  return " << msg_name << "::Compact(src, dest, false);\n";
+  os << "}\n\n";
+
+  os << "static ::neutron::serdes::MessageMetadata " << msg_name
+     << "Metadata = {\n";
+  os << "  .get_descriptor = " << msg_name << "GetDescriptor,\n";
+
+  os << "  .serialize_to_array = " << msg_name << "SerializeToArray,\n";
+  os << "  .serialize_to_buffer = " << msg_name << "SerializeToBuffer,\n";
+  os << "  .deserialize_from_array = " << msg_name << "DeserializeFromArray,\n";
+  os << "  .deserialize_from_buffer = " << msg_name
+     << "DeserializeFromBuffer,\n";
+  os << "  .serialized_size = " << msg_name << "SerializedSize,\n";
+  os << "  .compact_serialized_size = " << msg_name
+     << "CompactSerializedSize,\n";
+  os << "   .debug_string = " << msg_name << "DebugString,\n";
+  os << "   .stream_to = " << msg_name << "StreamTo,\n";
+  os << "   .compact = " << msg_name << "Compact,\n";
+  os << "   .expand = " << msg_name << "Expand,\n";
+  os << "};\n\n";
+
+  os << "static struct " << msg_name << "MuxInitializer {\n";
+  os << "  " << msg_name << "MuxInitializer() {\n";
+  os << "    ::neutron::serdes::MessageMux::Instance().Register(" << msg_name
+     << "::FullName(), " << msg_name << "Metadata);\n";
+  os << "  }\n";
+  os << "} " << msg_name << "MuxInitializer;\n";
+  return absl::OkStatus();
+}
 } // namespace neutron::serdes

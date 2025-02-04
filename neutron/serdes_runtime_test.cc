@@ -28,6 +28,11 @@ TEST(Runtime, FixedBuffer) {
   ASSERT_TRUE(status.ok());
   toolbelt::Hexdump(buffer, size);
 
+  // Try deserializating with the wrong size.
+  status = read.DeserializeFromArray(buffer, size+1);
+  std::cerr << "bad deserialize " << status << std::endl;
+  ASSERT_FALSE(status.ok());
+
   ASSERT_EQ(other, read);
 }
 
@@ -441,6 +446,41 @@ TEST(Runtime, AllExpand) {
   ASSERT_TRUE(status.ok());
   // std::cout << all.DebugString();
   CheckAll(all2);
+}
+
+TEST(Runtime, Mux) {
+  auto bad = neutron::serdes::MessageMux::Instance().GetDescriptor("bad");
+  ASSERT_FALSE(bad.ok());
+
+  auto desc =
+      neutron::serdes::MessageMux::Instance().GetDescriptor("test_msgs/All");
+  ASSERT_TRUE(desc.ok());
+
+  test_msgs::serdes::All all;
+
+  // Set the fields.
+  FillAll(all);
+
+  neutron::serdes::Buffer dest;
+  auto status = neutron::serdes::MessageMux::Instance().SerializeToBuffer(
+      "test_msgs/All", all, dest, true);
+  ASSERT_TRUE(desc.ok());
+  toolbelt::Hexdump(dest.data(), dest.size());
+
+  dest.Rewind();
+
+  neutron::serdes::Buffer expanded;
+  status = neutron::serdes::MessageMux::Instance().Expand("test_msgs/All", dest,
+                                                          expanded);
+  ASSERT_TRUE(status.ok());
+  toolbelt::Hexdump(expanded.data(), expanded.size());
+  expanded.Rewind();
+
+  neutron::serdes::Buffer compacted;
+  status = neutron::serdes::MessageMux::Instance().Compact("test_msgs/All",
+                                                           expanded, compacted);
+  ASSERT_TRUE(status.ok());
+  toolbelt::Hexdump(compacted.data(), compacted.size());
 }
 
 int main(int argc, char **argv) {

@@ -210,6 +210,7 @@ TEST(Runtime, AllZeroToSerdes) {
   // Deserialize from buffer and print it:
   test_msgs::serdes::All sall;
   status = sall.DeserializeFromArray(serdes_buffer, length);
+  std::cerr << status << std::endl;
   ASSERT_TRUE(status.ok());
   std::cout << sall.DebugString();
 

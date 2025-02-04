@@ -464,7 +464,7 @@ TEST(Runtime, Mux) {
   neutron::serdes::Buffer dest;
   auto status = neutron::serdes::MessageMux::Instance().SerializeToBuffer(
       "test_msgs/All", all, dest, true);
-  ASSERT_TRUE(desc.ok());
+  ASSERT_TRUE(status.ok());
   toolbelt::Hexdump(dest.data(), dest.size());
 
   dest.Rewind();

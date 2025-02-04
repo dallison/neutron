@@ -889,6 +889,7 @@ absl::Status Generator::GenerateDeserializer(const Message &msg,
 }
 
 absl::Status Generator::GenerateLength(const Message &msg, std::ostream &os) {
+  // Non-compact (ROS) serialized size.
   os << "size_t " << msg.Name() << "::SerializedSize() const {\n";
   os << "  size_t length = 0;\n";
   for (auto &field : msg.Fields()) {
@@ -905,12 +906,18 @@ absl::Status Generator::GenerateLength(const Message &msg, std::ostream &os) {
       if (array->Base()->Type() == FieldType::kMessage) {
         auto msg_field = std::static_pointer_cast<MessageField>(array->Base());
         if (msg_field->Msg()->IsEnum()) {
-          os << "  length += this->" << SanitizeFieldName(field->Name())
-             << ".size() * " << EnumCSize(*msg_field->Msg()) << ";\n";
-        } else {
           os << "  length += " << (array->IsFixedSize() ? 0 : 4) << " + this->"
-             << SanitizeFieldName(field->Name()) << ".size() * sizeof("
-             << MessageFieldTypeName(msg, msg_field) << ");\n";
+             << SanitizeFieldName(field->Name()) << ".size() * "
+             << EnumCSize(*msg_field->Msg()) << ";\n";
+        } else {
+
+          if (!array->IsFixedSize()) {
+            os << "  length += 4;\n";
+          }
+          os << "  for (auto& m : this->" << SanitizeFieldName(field->Name())
+             << ") {\n";
+          os << "    length += m.SerializedSize();\n";
+          os << "  }\n";
         }
       } else {
         if (array->Base()->Type() == FieldType::kString) {

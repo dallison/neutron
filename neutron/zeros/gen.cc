@@ -524,6 +524,11 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
     return status;
   }
   os << "  };\n";
+
+  os << "  static const std::string MD5() {\n";
+  os << "    return \"" << msg.Md5() << "\";\n";
+  os << "}\n\n";
+
   os << "};\n";
   os << "#pragma clang diagnostic pop\n\n";
 
@@ -731,9 +736,6 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "  return DeserializeFromBuffer(buffer);\n";
   os << "}\n\n";
 
-  os << "  static const std::string& MD5() {\n";
-  os << "    return \"" << msg.Md5() << "\";\n";
-  os << "}\n\n";
   if (absl::Status status = GenerateSerializer(msg, os); !status.ok()) {
     return status;
   }

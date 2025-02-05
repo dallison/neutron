@@ -332,7 +332,7 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
     return status;
   }
   os << "  };\n";
-  os << "  static const std::string& MD5() {\n";
+  os << "  static const std::string MD5() {\n";
   os << "    return \"" << msg.Md5() << "\";\n";
   os << "}\n\n";
 

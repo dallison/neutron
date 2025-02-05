@@ -4,6 +4,7 @@
 #include "absl/strings/str_format.h"
 #include "neutron/common_gen.h"
 #include "neutron/descriptor.h"
+#include "neutron/md5.h"
 #include <fstream>
 
 namespace neutron::serdes {
@@ -331,6 +332,10 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
     return status;
   }
   os << "  };\n";
+  os << "  static const std::string& MD5() {\n";
+  os << "    return \"" << msg.Md5() << "\";\n";
+  os << "}\n\n";
+
   os << "  static absl::Span<const char> GetDescriptor() {\n";
   os << "    return absl::Span<const char>(reinterpret_cast<const "
         "char*>(_descriptor), sizeof(_descriptor));\n";
@@ -545,9 +550,11 @@ absl::Status Generator::GenerateDeserializer(const Message &msg,
      << "::DeserializeFromBuffer(neutron::serdes::Buffer& buffer, bool "
         "compact) {\n";
   os << "  if (compact) {\n";
-  os << "    if (absl::Status status = ReadCompactFromBuffer(buffer); !status.ok()) return status;\n";
+  os << "    if (absl::Status status = ReadCompactFromBuffer(buffer); "
+        "!status.ok()) return status;\n";
   os << "  } else {\n";
-  os << "    if (absl::Status status =  ReadFromBuffer(buffer); !status.ok()) return status;\n";
+  os << "    if (absl::Status status =  ReadFromBuffer(buffer); !status.ok()) "
+        "return status;\n";
   os << "  }\n";
   os << "    return buffer.CheckAtEnd();\n";
   os << "}\n\n";

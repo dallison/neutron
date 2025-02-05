@@ -132,8 +132,8 @@ class Generator {
 
 class Message {
  public:
-  Message(std::shared_ptr<Package> package, std::string name)
-      : package_(std::move(package)), name_(std::move(name)) {}
+  Message(std::shared_ptr<Package> package, std::string name, std::string md5)
+      : package_(std::move(package)), name_(std::move(name)), md5_(std::move(md5)) {}
 
   virtual ~Message() = default;
 
@@ -154,6 +154,8 @@ class Message {
 
   bool IsEnum() const;
 
+  const std::string Md5() const { return md5_; }
+  
  private:
   std::shared_ptr<class Package> package_;
   std::string name_;
@@ -165,6 +167,7 @@ class Message {
   std::map<std::string, std::shared_ptr<Constant>> constants_;
 
   static absl::flat_hash_map<Token, FieldType> field_types_;
+  std::string md5_;
 };
 
 }  // namespace neutron

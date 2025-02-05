@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <fstream>
 #include "absl/strings/str_format.h"
+#include "neutron/md5.h"
 
 namespace neutron {
 
@@ -122,6 +123,13 @@ absl::StatusOr<std::shared_ptr<Message>> PackageScanner::ResolveImport(
 
 absl::StatusOr<std::shared_ptr<Message>> Package::ParseMessage(
     std::filesystem::path file) {
+
+  absl::StatusOr<std::string> md5 = CalculateMD5Checksum(file.string());
+  if (!md5.ok()) {
+    return absl::InternalError(
+        absl::StrFormat("Unable to calculate MD5 checksum for %s: %s", file.string(), md5.status().ToString()));
+  }
+
   std::ifstream in(file);
   if (!in) {
     return absl::InternalError(
@@ -129,7 +137,7 @@ absl::StatusOr<std::shared_ptr<Message>> Package::ParseMessage(
   }
   LexicalAnalyzer lex(file.string(), in);
   std::string msg_name = file.stem().string();
-  auto msg = std::make_shared<Message>(shared_from_this(), msg_name);
+  auto msg = std::make_shared<Message>(shared_from_this(), msg_name, std::move(*md5));
 
   if (absl::Status status = msg->Parse(lex); !status.ok()) {
     return status;

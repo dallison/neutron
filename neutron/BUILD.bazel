@@ -8,11 +8,13 @@ cc_library(
         "lex.cc",
         "package.cc",
         "syntax.cc",
+        "md5.cc",
     ],
     hdrs = [
         "lex.h",
         "package.h",
         "syntax.h",
+        "md5.h",
     ],
     deps = [
         "@com_google_absl//absl/container:flat_hash_map",

@@ -9,7 +9,7 @@ TEST(SyntaxTest, SingleField) {
 
   neutron::LexicalAnalyzer lex("stdin", input,
                               [](const std::string &error) { FAIL(); });
-  neutron::Message msg(nullptr, "Foo");
+  neutron::Message msg("Foo");
 
   absl::Status status = msg.Parse(lex);
   ASSERT_TRUE(status.ok());
@@ -39,7 +39,7 @@ duration d
 
   neutron::LexicalAnalyzer lex("stdin", input,
                               [](const std::string &error) { FAIL(); });
-  neutron::Message msg(nullptr, "Foo");
+  neutron::Message msg("Foo");
 
   absl::Status status = msg.Parse(lex);
   ASSERT_TRUE(status.ok());
@@ -56,7 +56,7 @@ byte b
 
   neutron::LexicalAnalyzer lex("stdin", input,
                               [](const std::string &error) { FAIL(); });
-  neutron::Message msg(nullptr, "Foo");
+  neutron::Message msg("Foo");
 
   absl::Status status = msg.Parse(lex);
   ASSERT_TRUE(status.ok());
@@ -76,7 +76,7 @@ foo/Msg msg
 
   neutron::LexicalAnalyzer lex("stdin", input,
                               [](const std::string &error) { FAIL(); });
-  neutron::Message msg(nullptr, "Foo");
+  neutron::Message msg("Foo");
 
   absl::Status status = msg.Parse(lex);
   ASSERT_TRUE(status.ok());
@@ -95,7 +95,7 @@ string s = this is a string
 
   neutron::LexicalAnalyzer lex("stdin", input,
                               [](const std::string &error) { FAIL(); });
-  neutron::Message msg(nullptr, "Foo");
+  neutron::Message msg("Foo");
 
   absl::Status status = msg.Parse(lex);
   ASSERT_TRUE(status.ok());
@@ -114,7 +114,7 @@ foo/baz[6] i4
 
   neutron::LexicalAnalyzer lex("stdin", input,
                               [](const std::string &error) { FAIL(); });
-  neutron::Message msg(nullptr, "Foo");
+  neutron::Message msg("Foo");
 
   absl::Status status = msg.Parse(lex);
   ASSERT_TRUE(status.ok());
@@ -156,10 +156,10 @@ TEST(SyntaxTest, Errors) {
   neutron::LexicalAnalyzer lex("stdin", input,
                               [&num_errors, &errors](const std::string &error) {
                                 std::cerr << error << std::endl;
-                                ASSERT_NE(nullptr, errors[num_errors]);
+                                ASSERT_NE(errors[num_errors]);
                                 ASSERT_EQ(errors[num_errors++], error);
                               });
-  neutron::Message msg(nullptr, "Foo");
+  neutron::Message msg("Foo");
 
   absl::Status status = msg.Parse(lex);
   ASSERT_FALSE(status.ok());

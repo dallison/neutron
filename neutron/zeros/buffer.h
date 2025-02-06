@@ -146,7 +146,9 @@ class Buffer {
     }
     uint32_t size = static_cast<uint32_t>(v.size());
     memcpy(addr_, &size, sizeof(size));
-    memcpy(addr_ + 4, v.data(), v.size());
+    if (v.size() > 0) {
+      memcpy(addr_ + 4, v.data(), v.size());
+    }
     addr_ += v.SerializedSize();
     return absl::OkStatus();
   }
@@ -161,8 +163,10 @@ class Buffer {
       return status;
     }
     std::string s;
-    s.resize(size);
-    memcpy(s.data(), addr_ + 4, size);
+    if (size > 0) {
+      s.resize(size);
+      memcpy(s.data(), addr_ + 4, size);
+    }
     addr_ += 4 + s.size();
     v = s;
     return absl::OkStatus();
@@ -175,7 +179,9 @@ class Buffer {
 
     uint32_t size = static_cast<uint32_t>(v.size());
     memcpy(addr_, &size, sizeof(size));
-    memcpy(addr_ + 4, v.data(), v.size());
+    if (v.size() > 0) {
+      memcpy(addr_ + 4, v.data(), v.size());
+    }
     addr_ += v.SerializedSize();
     return absl::OkStatus();
   }
@@ -190,8 +196,10 @@ class Buffer {
       return status;
     }
     std::string s;
-    s.resize(size);
-    memcpy(s.data(), addr_ + 4, size);
+    if (size > 0) {
+      s.resize(size);
+      memcpy(s.data(), addr_ + 4, size);
+    }
     addr_ += 4 + s.size();
     v = s;
     return absl::OkStatus();
@@ -236,7 +244,9 @@ class Buffer {
     }
     uint32_t size = static_cast<uint32_t>(vec.size());
     memcpy(addr_, &size, sizeof(size));
-    memcpy(addr_ + 4, vec.data(), size * sizeof(T));
+    if (size > 0) {
+      memcpy(addr_ + 4, vec.data(), size * sizeof(T));
+    }
     addr_ += vec.SerializedSize();
     return absl::OkStatus();
   }
@@ -249,9 +259,11 @@ class Buffer {
     uint32_t size = 0;
     memcpy(&size, addr_, sizeof(size));
     addr_ += 4;
-    vec.resize(size);
-    memcpy(vec.data(), addr_, size * sizeof(T));
-    addr_ += size * sizeof(T);
+    if (size > 0) {
+      vec.resize(size);
+      memcpy(vec.data(), addr_, size * sizeof(T));
+      addr_ += size * sizeof(T);
+    }
     return absl::OkStatus();
   }
 

@@ -276,7 +276,7 @@ static std::string FieldAlignmentType(std::shared_ptr<Field> field) {
       auto msg_field = std::static_pointer_cast<MessageField>(field);
       return EnumCType(*msg_field->Msg());
     }
-    return "int32_t";
+    return "int64_t";
   case FieldType::kUnknown:
     std::cerr << "Unknown field type for " << field->Name() << " "
               << int(field->Type()) << std::endl;
@@ -601,8 +601,7 @@ absl::Status Generator::GenerateNonEmbeddedConstructor(const Message &msg,
 
   os << "    this->buffer = buffer;\n";
   os << "    void *data = toolbelt::PayloadBuffer::Allocate(buffer.get(), "
-        "BinarySize(), "
-        "8);\n";
+        "BinarySize());\n";
   os << "    this->absolute_binary_offset = (*buffer)->ToOffset(data);\n";
   os << "  }\n\n";
   return absl::OkStatus();

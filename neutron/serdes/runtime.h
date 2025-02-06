@@ -318,17 +318,17 @@ public:
     if (absl::Status status = dest.HasSpaceFor(sizeof(T)); !status.ok()) {
       return status;
     }
-    T *copyaddr = reinterpret_cast<T *>(dest.addr_);
+    T v;
     if constexpr (std::is_unsigned<T>::value) {
-      if (absl::Status status = ReadUnsignedLeb128(*copyaddr); !status.ok()) {
+      if (absl::Status status = ReadUnsignedLeb128(v); !status.ok()) {
         return status;
       }
     } else {
-      if (absl::Status status = ReadSignedLeb128(*copyaddr); !status.ok()) {
+      if (absl::Status status = ReadSignedLeb128(v); !status.ok()) {
         return status;
       }
     }
-
+    memcpy(dest.addr_, &v, sizeof(v));
     dest.addr_ += sizeof(T);
     return absl::OkStatus();
   }
@@ -339,13 +339,14 @@ public:
       return status;
     }
 
-    T *v = reinterpret_cast<T *>(addr_);
+    T v;
+    memcpy(&v, addr_, sizeof(v));
     if constexpr (std::is_unsigned<T>::value) {
-      if (absl::Status status = dest.WriteUnsignedLeb128(*v); !status.ok()) {
+      if (absl::Status status = dest.WriteUnsignedLeb128(v); !status.ok()) {
         return status;
       }
     } else {
-      if (absl::Status status = dest.WriteSignedLeb128(*v); !status.ok()) {
+      if (absl::Status status = dest.WriteSignedLeb128(v); !status.ok()) {
         return status;
       }
     }
@@ -390,9 +391,10 @@ public:
   }
 
   template <> absl::Status Compact<float>(Buffer &dest) const {
-    uint32_t *v = reinterpret_cast<uint32_t *>(addr_);
+    uint32_t v;
+    memcpy(&v, addr, sizeof(v));
     addr_ += sizeof(float);
-    return dest.WriteCompact(*v);
+    return dest.WriteCompact(v);
   }
 
   template <> absl::Status Expand<double>(Buffer &dest) const {
@@ -404,9 +406,10 @@ public:
   }
 
   template <> absl::Status Compact<double>(Buffer &dest) const {
-    uint64_t *v = reinterpret_cast<uint64_t *>(addr_);
+    uint64_t v;
+    memcpy(&v, addr, sizeof(v));
     addr_ += sizeof(double);
-    return dest.WriteCompact(*v);
+    return dest.WriteCompact(v);
   }
 
   template <> absl::Status Write(const std::string &v) {
@@ -479,7 +482,8 @@ public:
   }
 
   template <> absl::Status Compact<std::string>(Buffer &dest) const {
-    uint32_t size = *reinterpret_cast<uint32_t *>(addr_);
+    uint32_t size;
+    memcpy(&size, addr, sizeof(size));
     if (absl::Status status = Check(4 + size); !status.ok()) {
       return status;
     }
@@ -645,7 +649,8 @@ public:
     if (absl::Status status = Check(4); !status.ok()) {
       return status;
     }
-    uint32_t size = *reinterpret_cast<uint32_t *>(addr_);
+    uint32_t size;
+    memcpy(&size, addr_, sizeof(size));
     if (absl::Status status = dest.WriteUnsignedLeb128(size); !status.ok()) {
       return status;
     }
@@ -664,7 +669,8 @@ public:
     if (absl::Status status = Check(4); !status.ok()) {
       return status;
     }
-    uint32_t size = *reinterpret_cast<uint32_t *>(addr_);
+    uint32_t size;
+    memcpy(&size, addr_, sizeof(size));
     if (size == 0) {
       // Empty vector has a zero length and no body.  No need to flush
       // the zeroes.

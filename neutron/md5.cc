@@ -118,6 +118,8 @@ std::string TrimLine(const std::string &line) {
   while (start < end && std::isspace(line[start])) {
     ++start;
   }
+  // Remove consecutive whitespace characters from line.
+
   // Find the first comment character (#) and remove the rest of the line.
   for (size_t i = start; i < end; ++i) {
     if (line[i] == '#') {

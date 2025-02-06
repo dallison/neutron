@@ -71,7 +71,7 @@ void GenerateSerialization(const std::vector<std::filesystem::path> &files) {
     std::string package_name = dir.filename();
     std::shared_ptr<neutron::Package> pkg = scanner->FindPackage(package_name);
     if (pkg == nullptr) {
-      pkg = std::make_shared<neutron::Package>(nullptr, package_name);
+      pkg = std::make_shared<neutron::Package>(package_name);
       scanner->AddPackage(pkg);
     }
     auto msg = pkg->ParseMessage(file);
@@ -164,7 +164,7 @@ void GenerateZeroCopy(const std::vector<std::filesystem::path> &files) {
     std::string package_name = dir.filename();
     std::shared_ptr<neutron::Package> pkg = scanner->FindPackage(package_name);
     if (pkg == nullptr) {
-      pkg = std::make_shared<neutron::Package>(nullptr, package_name);
+      pkg = std::make_shared<neutron::Package>(package_name);
       scanner->AddPackage(pkg);
     }
     auto msg = pkg->ParseMessage(file);

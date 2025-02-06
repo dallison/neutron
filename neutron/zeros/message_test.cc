@@ -27,7 +27,7 @@ struct InnerMessage : public Message {
         f(offsetof(InnerMessage, f),
           neutron::zeros::AlignedOffset<uint64_t>(str.BinaryEndOffset())) {
     this->buffer = buffer;
-    void *data = toolbelt::PayloadBuffer::Allocate(buffer.get(), BinarySize(), 8);
+    void *data = toolbelt::PayloadBuffer::Allocate(buffer.get(), BinarySize());
     this->absolute_binary_offset = (*buffer)->ToOffset(data);
     std::cout << "InnerMessage start: " << std::hex
               << this->absolute_binary_offset << std::dec << std::endl;
@@ -227,6 +227,7 @@ TEST(MessageTest, Basic) {
 
   uint64_t y = msg.y;
   ASSERT_EQ(0xffff, y);
+  free(buffer);
 }
 
 TEST(MessageTest, String) {
@@ -247,6 +248,7 @@ TEST(MessageTest, String) {
 
   std::string_view s = msg.s;
   ASSERT_EQ("hello world", s);
+  free(buffer);
 }
 
 TEST(MessageTest, Enum) {
@@ -264,6 +266,7 @@ TEST(MessageTest, Enum) {
 
   EnumTest e = msg.e;
   ASSERT_EQ(EnumTest::BAR, e);
+  free(buffer);
 }
 
 TEST(MessageTest, Message) {
@@ -293,6 +296,7 @@ TEST(MessageTest, Message) {
   ASSERT_EQ("hello world", s);
 
   ASSERT_EQ(0xaaaaaaaaaaaaaaaa, uint64_t(msg.m->f));
+  free(buffer);
 }
 
 TEST(MessageTest, Array) {
@@ -315,6 +319,7 @@ TEST(MessageTest, Array) {
     ASSERT_EQ(x, i);
     x++;
   }
+  free(buffer);
 }
 
 TEST(MessageTest, CharArray) {
@@ -337,6 +342,7 @@ TEST(MessageTest, CharArray) {
     ASSERT_EQ(x, i);
     x++;
   }
+  free(buffer);
 }
 
 TEST(MessageTest, MessageArray) {
@@ -368,6 +374,7 @@ TEST(MessageTest, MessageArray) {
     ASSERT_EQ(x * 2, uint64_t(m.f));
     x++;
   }
+  free(buffer);
 }
 
 TEST(MessageTest, StringArray) {
@@ -394,6 +401,7 @@ TEST(MessageTest, StringArray) {
     ASSERT_EQ(s, sv);
     x++;
   }
+  free(buffer);
 }
 
 TEST(MessageTest, EnumArray) {
@@ -414,6 +422,7 @@ TEST(MessageTest, EnumArray) {
   for (auto &i : msg.earr) {
     ASSERT_EQ(EnumTest::BAR, i);
   }
+  free(buffer);
 }
 
 TEST(MessageTest, BasicVector) {
@@ -431,6 +440,7 @@ TEST(MessageTest, BasicVector) {
 
   ASSERT_EQ(1, msg.vec.size());
   ASSERT_EQ(0xffee, msg.vec[0]);
+  free(buffer);
 }
 
 TEST(MessageTest, VectorExpansion) {
@@ -458,6 +468,7 @@ TEST(MessageTest, VectorExpansion) {
     x++;
   }
   ASSERT_EQ(16, msg.vec.capacity());
+  free(buffer);
 }
 
 TEST(MessageTest, VectorResize) {
@@ -492,6 +503,7 @@ TEST(MessageTest, VectorResize) {
   ASSERT_EQ(11, msg.vec.size());
   ASSERT_EQ(100, uint32_t(msg.vec[10]));
   ASSERT_EQ(20, msg.vec.capacity());
+  free(buffer);
 }
 
 TEST(MessageTest, BasicMessageVector) {
@@ -514,6 +526,7 @@ TEST(MessageTest, BasicMessageVector) {
   ASSERT_EQ(1, msg.mvec.size());
   InnerMessage &mv = msg.mvec[0];
   ASSERT_EQ(0xffee, uint64_t(mv.f));
+  free(buffer);
 }
 
 TEST(MessageTest, ExtendedMessageVector) {
@@ -541,6 +554,7 @@ TEST(MessageTest, ExtendedMessageVector) {
     ASSERT_EQ(i, f);
     i++;
   }
+  free(buffer);
 }
 
 TEST(MessageTest, MessageVectorReserve) {
@@ -586,6 +600,7 @@ TEST(MessageTest, MessageVectorReserve) {
     ASSERT_EQ(i, f);
     i++;
   }
+  free(buffer);
 }
 
 TEST(MessageTest, BasicStringVector) {
@@ -605,6 +620,7 @@ TEST(MessageTest, BasicStringVector) {
   ASSERT_EQ(1, msg.svec.size());
   std::string_view sv = msg.svec[0];
   ASSERT_EQ("foobar", sv);
+  free(buffer);
 }
 
 TEST(MessageTest, StringVectorExpansion) {
@@ -630,6 +646,7 @@ TEST(MessageTest, StringVectorExpansion) {
     ASSERT_EQ(s, sv);
     index++;
   }
+  free(buffer);
 }
 
 TEST(MessageTest, EnumVector) {
@@ -653,6 +670,7 @@ TEST(MessageTest, EnumVector) {
     ASSERT_EQ((index & 1) ? EnumTest::FOO : EnumTest::BAR, e);
     index++;
   }
+  free(buffer);
 }
 
 TEST(MessageTest, CharVector) {
@@ -675,6 +693,7 @@ TEST(MessageTest, CharVector) {
     ASSERT_EQ(x, i);
     x++;
   }
+  free(buffer);
 }
 
 int main(int argc, char **argv) {

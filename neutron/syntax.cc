@@ -342,14 +342,15 @@ absl::Status Message::Resolve(std::shared_ptr<PackageScanner> scanner) {
     std::shared_ptr<Message> msg;
     if (msg_field->MsgPackage().empty()) {
       // No package, look in same package.
-      if (package_ == nullptr) {
+      if (package_.expired()) {
         return absl::InternalError(
             absl::StrFormat("No package set for %s", Name()));
       }
-      msg = package_->FindMessage(msg_field->MsgName());
+      std::shared_ptr<class Package> package = package_.lock();
+      msg = package->FindMessage(msg_field->MsgName());
       if (msg == nullptr) {
         absl::StatusOr<std::shared_ptr<Message>> m =
-            scanner->ResolveImport(package_->Name(), msg_field->MsgName());
+            scanner->ResolveImport(package->Name(), msg_field->MsgName());
         if (!m.ok()) {
           return m.status();
         }

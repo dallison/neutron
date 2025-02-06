@@ -13,8 +13,10 @@ class PackageScanner;
 
 class Package : public std::enable_shared_from_this<Package> {
  public:
-  Package(std::shared_ptr<PackageScanner> scanner, std::string name)
+  Package(std::weak_ptr<PackageScanner> scanner, std::string name)
       : scanner_(scanner), name_(std::move(name)) {}
+  Package(std::string name)
+      : name_(std::move(name)) {}
 
   std::shared_ptr<Message> FindMessage(const std::string &name);
 
@@ -36,7 +38,7 @@ class Package : public std::enable_shared_from_this<Package> {
       std::filesystem::path file);
 
  private:
-  std::shared_ptr<PackageScanner> scanner_;
+  std::weak_ptr<PackageScanner> scanner_;
   std::string name_ = "";
   absl::flat_hash_map<std::string, std::shared_ptr<Message>> messages_;
 };

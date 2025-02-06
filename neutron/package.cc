@@ -39,7 +39,7 @@ absl::Status PackageScanner::ParseAllMessagesFrom(std::filesystem::path path) {
       // For a directory called "msg", parse all the files with the suffix
       // ".msg".
       if (dir.path().filename().string() == "msg") {
-        auto package = std::make_shared<Package>(shared_from_this(),
+        auto package = std::make_shared<Package>(weak_from_this(),
                                                  path.filename().string());
         AddPackage(package);
 
@@ -71,7 +71,7 @@ absl::Status PackageScanner::ScanForMessagesFrom(std::filesystem::path path) {
       if (dir.path().filename().string() == "msg") {
         std::string package_name = path.filename().string();
         auto package =
-            std::make_shared<Package>(shared_from_this(), package_name);
+            std::make_shared<Package>(weak_from_this(), package_name);
         AddPackage(package);
         for (auto &file : std::filesystem::directory_iterator(dir)) {
           if (file.path().extension() == ".msg") {
@@ -137,7 +137,7 @@ absl::StatusOr<std::shared_ptr<Message>> Package::ParseMessage(
   }
   LexicalAnalyzer lex(file.string(), in);
   std::string msg_name = file.stem().string();
-  auto msg = std::make_shared<Message>(shared_from_this(), msg_name, std::move(*md5));
+  auto msg = std::make_shared<Message>(weak_from_this(), msg_name, std::move(*md5));
 
   if (absl::Status status = msg->Parse(lex); !status.ok()) {
     return status;

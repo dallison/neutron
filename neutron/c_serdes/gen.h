@@ -25,9 +25,6 @@ class Generator : public neutron::Generator {
 
   absl::Status GenerateSerializer(const Message &msg, std::ostream &os);
   absl::Status GenerateDeserializer(const Message &msg, std::ostream &os);
-  absl::Status GenerateLength(const Message &msg, std::ostream &os);
-  absl::Status GenerateExpanderAndCompactor(const Message &msg, std::ostream &os);
-  absl::Status GenerateMux(const Message &msg, std::ostream &os);
 
   static std::shared_ptr<Field> ResolveField(std::shared_ptr<Field> field);
   std::string Namespace(bool prefix_underscore);

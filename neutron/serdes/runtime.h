@@ -392,7 +392,7 @@ public:
 
   template <> absl::Status Compact<float>(Buffer &dest) const {
     uint32_t v;
-    memcpy(&v, addr, sizeof(v));
+    memcpy(&v, addr_, sizeof(v));
     addr_ += sizeof(float);
     return dest.WriteCompact(v);
   }
@@ -407,7 +407,7 @@ public:
 
   template <> absl::Status Compact<double>(Buffer &dest) const {
     uint64_t v;
-    memcpy(&v, addr, sizeof(v));
+    memcpy(&v, addr_, sizeof(v));
     addr_ += sizeof(double);
     return dest.WriteCompact(v);
   }
@@ -483,7 +483,7 @@ public:
 
   template <> absl::Status Compact<std::string>(Buffer &dest) const {
     uint32_t size;
-    memcpy(&size, addr, sizeof(size));
+    memcpy(&size, addr_, sizeof(size));
     if (absl::Status status = Check(4 + size); !status.ok()) {
       return status;
     }

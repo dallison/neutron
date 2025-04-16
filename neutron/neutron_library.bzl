@@ -10,9 +10,11 @@ def _neutron_serdes_action(
         imports,
         other_srcs,
         outputs,
-        add_namespace):
+        add_namespace,
+        lang):
     inputs = depset(direct = srcs, transitive = [depset(imports + other_srcs)])
-    neutron_args = ["--ros", "--out={}/{}/serdes".format(out_dir, package_name), "--runtime_path=", "--msg_path={}".format(package_name)]
+    prefix = "serdes" if lang == "c++" else "c_serdes"
+    neutron_args = ["--ros", "--out={}/{}/{}".format(out_dir, package_name, prefix), "--runtime_path=", "--msg_path={}".format(package_name), "--lang=" + lang]
     if add_namespace:
         neutron_args.append("--add_namespace=" + add_namespace)
     if imports:
@@ -51,9 +53,11 @@ def _neutron_serdes_impl(ctx):
 
         # file is something like std_msgs/msg/Header.msg
         filename = paths.basename(file.path)
-        dir = paths.join("serdes", paths.basename(paths.dirname(paths.dirname(file.path))))
-        
-        filename = paths.replace_extension(filename, ".cc")
+        prefix = "serdes" if ctx.attr.lang == "c++" else "c_serdes"
+        dir = paths.join(prefix, paths.basename(paths.dirname(paths.dirname(file.path))))
+        print(dir)
+        filename = paths.replace_extension(filename, ".cc" if ctx.attr.lang == "c++" else ".c")
+
         cc_out = ctx.actions.declare_file(paths.join(dir, filename))
         outputs.append(cc_out)
 
@@ -73,6 +77,7 @@ def _neutron_serdes_impl(ctx):
             srcs,
             outputs,
             ctx.attr.add_namespace,
+            ctx.attr.lang,
         )
 
     return [DefaultInfo(files = depset(output_files + srcs)), MessageInfo(messages = srcs + imports)]
@@ -89,6 +94,7 @@ _neutron_serdes_gen = rule(
         ),
         "package_name": attr.string(),
         "add_namespace": attr.string(),
+        "lang": attr.string(default = "c++"),
     },
     implementation = _neutron_serdes_impl,
 )
@@ -200,7 +206,7 @@ _split_files = rule(
     implementation = _split_files_impl,
 )
 
-def neutron_serdes_library(name, srcs = [], deps = [], runtime = "@neutron//neutron:serdes_runtime", add_namespace = ""):
+def neutron_serdes_library(name, srcs = [], deps = [], runtime = "@neutron//neutron:serdes_runtime", add_namespace = "", lang = "c++"):
     """
     Generate a cc_libary for ROS messages specified in srcs.
 
@@ -210,6 +216,7 @@ def neutron_serdes_library(name, srcs = [], deps = [], runtime = "@neutron//neut
         deps: dependencies
         runtime: label for serdes runtime.
         add_namespace: add namespace to the message types
+        lang: language to generate (only c and c++ supported)
     """
     neutron = name + "_neutron_serdes"
     neutron_deps = []
@@ -222,12 +229,13 @@ def neutron_serdes_library(name, srcs = [], deps = [], runtime = "@neutron//neut
         deps = deps + neutron_deps,
         package_name = native.package_name(),
         add_namespace = add_namespace,
+        lang = lang,
     )
 
     srcs = name + "_srcs"
     _split_files(
         name = srcs,
-        ext = "cc",
+        ext = "cc" if lang == "c++" else "c",
         deps = [neutron],
     )
 

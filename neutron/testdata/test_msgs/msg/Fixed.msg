@@ -1,0 +1,11 @@
+int32 foo
+uint8[10] name
+SubFixed sub
+SubFixed[4] asub
+int8 i8
+Enum8 e8
+Enum16 e16
+Enum32 e32
+Enum64 e64
+float32[10] afloat
+float64[20] adouble

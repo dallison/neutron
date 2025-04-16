@@ -100,6 +100,23 @@ cc_library(
 )
 
 cc_library(
+    name = "c_serdes",
+    srcs = [
+        "c_serdes/gen.cc",
+    ],
+    hdrs = [
+        "c_serdes/gen.h",
+    ],
+    deps = [
+        ":common_gen",
+        ":common_runtime",
+        ":descriptor",
+        ":msglib",
+        "@com_google_absl//absl/container:flat_hash_set",
+    ],
+)
+
+cc_library(
     name = "zeros_runtime",
     hdrs = [
         "zeros/arrays.h",
@@ -174,6 +191,20 @@ neutron_serdes_library(
     runtime = ":serdes_runtime",
 )
 
+neutron_serdes_library(
+    name = "c_serdes_fixed_msgs",
+    srcs = [
+        "testdata/test_msgs/msg/Fixed.msg",
+        "testdata/test_msgs/msg/SubFixed.msg",
+        "testdata/test_msgs/msg/Enum16.msg",
+        "testdata/test_msgs/msg/Enum32.msg",
+        "testdata/test_msgs/msg/Enum64.msg",
+        "testdata/test_msgs/msg/Enum8.msg",
+    ],
+    runtime = ":serdes_c_runtime",
+    lang = "c",
+)
+
 neutron_zeros_library(
     name = "zeros_std_msgs",
     srcs = [
@@ -239,6 +270,20 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "c_runtime_test",
+    srcs = [
+        "c_runtime_test.cc",
+    ],
+    deps = [
+        ":c_serdes_fixed_msgs",
+        ":serdes_all_msgs",
+        ":serdes_c_runtime",
+        "@com_google_googletest//:gtest_main",
+        "@toolbelt//toolbelt",
+    ],
+)
+
 neutron_serdes_library(
     name = "serdes_all_msgs",
     srcs = [
@@ -248,6 +293,8 @@ neutron_serdes_library(
         "testdata/test_msgs/msg/Enum64.msg",
         "testdata/test_msgs/msg/Enum8.msg",
         "testdata/test_msgs/msg/Nested.msg",
+        "testdata/test_msgs/msg/Fixed.msg",
+        "testdata/test_msgs/msg/SubFixed.msg",
     ],
     add_namespace = "serdes",
     runtime = ":serdes_runtime",
@@ -295,6 +342,7 @@ cc_binary(
     deps = [
         ":msglib",
         ":serdes",
+        ":c_serdes",
         ":zeros",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/flags:parse",
@@ -318,6 +366,16 @@ cc_library(
         "@toolbelt//toolbelt",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/container:flat_hash_map",
+    ],
+)
+
+cc_library(
+    name = "serdes_c_runtime",
+    srcs = [
+        "c_serdes/runtime.cc",
+    ],
+    hdrs = [
+        "c_serdes/runtime.h",
     ],
 )
 

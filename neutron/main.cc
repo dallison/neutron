@@ -4,6 +4,7 @@
 
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
+#include "neutron/c_serdes/gen.h"
 #include "neutron/package.h"
 #include "neutron/serdes/gen.h"
 #include "neutron/zeros/gen.h"
@@ -23,6 +24,7 @@ ABSL_FLAG(bool, ros, false, "Generate regular serializable ROS messages");
 ABSL_FLAG(bool, zeros, false, "Generate zero-copy ROS messages");
 ABSL_FLAG(std::string, add_namespace, "",
           "Add a namespace to the message classes");
+ABSL_FLAG(std::string, lang, "c++", "Language to generate for");
 
 void GenerateSerialization(const std::vector<std::filesystem::path> &files) {
   if (absl::GetFlag(FLAGS_all)) {
@@ -33,17 +35,37 @@ void GenerateSerialization(const std::vector<std::filesystem::path> &files) {
       std::cerr << status << std::endl;
       exit(1);
     }
-    neutron::serdes::Generator gen(
-        absl::GetFlag(FLAGS_out), absl::GetFlag(FLAGS_runtime_path),
-        absl::GetFlag(FLAGS_msg_path), absl::GetFlag(FLAGS_add_namespace));
-    for (auto & [ pname, package ] : scanner->Packages()) {
-      for (auto & [ mname, msg ] : package->Messages()) {
-        absl::Status s = msg->Generate(gen);
-        if (!status.ok()) {
-          std::cerr << status << std::endl;
-          exit(1);
+    std::cerr << "Language: " << absl::GetFlag(FLAGS_lang) << std::endl;
+    if (absl::GetFlag(FLAGS_lang) == "c++") {
+      neutron::serdes::Generator gen(
+          absl::GetFlag(FLAGS_out), absl::GetFlag(FLAGS_runtime_path),
+          absl::GetFlag(FLAGS_msg_path), absl::GetFlag(FLAGS_add_namespace));
+      for (auto & [ pname, package ] : scanner->Packages()) {
+        for (auto & [ mname, msg ] : package->Messages()) {
+          absl::Status s = msg->Generate(gen);
+          if (!status.ok()) {
+            std::cerr << status << std::endl;
+            exit(1);
+          }
         }
       }
+    } else if (absl::GetFlag(FLAGS_lang) == "c") {
+      std::cerr << "generating C code" << std::endl;
+      neutron::c_serdes::Generator gen(
+          absl::GetFlag(FLAGS_out), absl::GetFlag(FLAGS_runtime_path),
+          absl::GetFlag(FLAGS_msg_path), absl::GetFlag(FLAGS_add_namespace));
+      for (auto & [ pname, package ] : scanner->Packages()) {
+        for (auto & [ mname, msg ] : package->Messages()) {
+          absl::Status s = msg->Generate(gen);
+          if (!status.ok()) {
+            std::cerr << status << std::endl;
+            exit(1);
+          }
+        }
+      }
+    } else {
+      std::cerr << "Unknown language: " << absl::GetFlag(FLAGS_lang)
+                << std::endl;
     }
     exit(0);
   }
@@ -105,13 +127,27 @@ void GenerateSerialization(const std::vector<std::filesystem::path> &files) {
   }
 
   for (auto &msg : messages) {
-    neutron::serdes::Generator gen(
-        absl::GetFlag(FLAGS_out), absl::GetFlag(FLAGS_runtime_path),
-        absl::GetFlag(FLAGS_msg_path), absl::GetFlag(FLAGS_add_namespace));
-    absl::Status s = msg->Generate(gen);
-    if (!s.ok()) {
-      std::cerr << s << std::endl;
-      exit(1);
+    if (absl::GetFlag(FLAGS_lang) == "c++") {
+      neutron::serdes::Generator gen(
+          absl::GetFlag(FLAGS_out), absl::GetFlag(FLAGS_runtime_path),
+          absl::GetFlag(FLAGS_msg_path), absl::GetFlag(FLAGS_add_namespace));
+      absl::Status s = msg->Generate(gen);
+      if (!s.ok()) {
+        std::cerr << s << std::endl;
+        exit(1);
+      }
+    } else if (absl::GetFlag(FLAGS_lang) == "c") {
+      neutron::c_serdes::Generator gen(
+          absl::GetFlag(FLAGS_out), absl::GetFlag(FLAGS_runtime_path),
+          absl::GetFlag(FLAGS_msg_path), absl::GetFlag(FLAGS_add_namespace));
+      absl::Status s = msg->Generate(gen);
+      if (!s.ok()) {
+        std::cerr << s << std::endl;
+        exit(1);
+      }
+    } else {
+      std::cerr << "Unknown language: " << absl::GetFlag(FLAGS_lang)
+                << std::endl;
     }
   }
   exit(0);

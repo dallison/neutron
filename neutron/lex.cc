@@ -156,7 +156,7 @@ void LexicalAnalyzer::ReadLine() {
     }
   }
   // Make sure line ends in newline.
-  if (line_.back() != '\n') {
+  if (!line_.empty() && line_.back() != '\n') {
     line_ += '\n';
   }
   lineno_++;

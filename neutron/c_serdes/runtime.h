@@ -16,21 +16,15 @@ typedef struct {
 } NeutronDuration;
 
 typedef struct {
-
-} NeutronSizeAccumulator;
-
-const uint8_t kZeroMarker = 0xfa;
-// The max number of zeroes in a run is one more than than the zero marker since
-// the zero marker is followed by the number of zeroes - 2
-const size_t kMaxZeroes = kZeroMarker + 1;
-
-typedef struct {
   char *start;
   char *addr;
   size_t size;
   size_t num_zeroes;
 } NeutronBuffer;
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
 void NeutronBufferInit(NeutronBuffer *buffer, char *addr, size_t size);
 size_t NeutronBufferSize(NeutronBuffer *buffer);
 
@@ -109,7 +103,7 @@ PUT_ARRAY(double, Double)
 PUT_ARRAY(bool, Bool)
 PUT_ARRAY(NeutronTime, Time)
 PUT_ARRAY(NeutronDuration, Duration)
-#undef PUT_ARRAY_INT
+#undef PUT_ARRAY
 
 // Get array of Fields.
 #define GET_ARRAY(type, type_name)                                             \
@@ -128,6 +122,8 @@ GET_ARRAY(double, Double)
 GET_ARRAY(bool, Bool)
 GET_ARRAY(NeutronTime, Time)
 GET_ARRAY(NeutronDuration, Duration)
-#undef GET_ARRAY_INT
+#undef GET_ARRAY
 
-
+#if defined(__cplusplus)
+}  // extern "C"
+#endif

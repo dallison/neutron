@@ -1,5 +1,8 @@
 #include "neutron/c_serdes/runtime.h"
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
 void NeutronBufferInit(NeutronBuffer *buffer, char *addr, size_t size) {
   buffer->start = addr;
   buffer->addr = addr;
@@ -25,86 +28,6 @@ bool NeutronBufferHasSpaceFor(NeutronBuffer *buffer, size_t n) {
   if (next > buffer->start + buffer->size) {
     return false;
   }
-  return true;
-}
-
-bool NeutronBufferFlushZeroes(NeutronBuffer *buffer) {
-  if (buffer->num_zeroes > 0) {
-    if (buffer->num_zeroes == 1) {
-      if (!NeutronBufferHasSpaceFor(buffer, 1)) {
-        return false;
-      }
-      *buffer->addr++ = 0;
-    } else {
-      if (!NeutronBufferHasSpaceFor(buffer, 2)) {
-        return false;
-      }
-      *buffer->addr++ = kZeroMarker; // Add zero marker.
-      *buffer->addr++ =
-          buffer->num_zeroes - 2; // Marker is followed by count - 2.
-    }
-    buffer->num_zeroes = 0;
-  }
-  return true;
-}
-
-bool NeutronBufferWrite(NeutronBuffer *buffer, uint8_t ch) {
-  if (buffer->num_zeroes > 0) {
-    // We are running through a run of zeroes.
-    buffer->num_zeroes--;
-    return false;
-  }
-  if (!NeutronBufferHasSpaceFor(buffer, 1)) {
-    return false;
-  }
-  // Look at next char.
-  if (ch == kZeroMarker) {
-    // Need to escape kZeroMarker because it is a zero-run marker.
-    // kZeroMarker is written as kZeroMarker, kZeroMarker
-    if (!NeutronBufferHasSpaceFor(buffer, 2)) {
-      return false;
-    }
-    *buffer->addr++ = kZeroMarker;
-    *buffer->addr++ = kZeroMarker;
-    return true;
-  }
-  if (!NeutronBufferHasSpaceFor(buffer, 1)) {
-    return false;
-  }
-  *buffer->addr++ = ch;
-  return true;
-}
-
-bool NeutronBufferRead(NeutronBuffer *buffer, uint8_t *v) {
-  if (buffer->num_zeroes > 0) {
-    // We are running through a run of zeroes.
-    buffer->num_zeroes--;
-    *v = 0;
-    return true;
-  }
-  if (!NeutronBufferHasSpaceFor(buffer, 1)) {
-    return false;
-  }
-  // Look at next char.
-  uint8_t ch = (uint8_t)*buffer->addr++;
-  // If we have a zero marker, this means that we have a run of zeroes.  The
-  // next byte is the count of zeroes - 2.
-  // Also, kZeroMarker followed by kZeroMarker is a literal kZeroMarker.
-  if (ch == kZeroMarker) {
-    if (!NeutronBufferHasSpaceFor(buffer, 1)) {
-      return false;
-    }
-    ch = (uint8_t)*buffer->addr++;
-    if (ch == kZeroMarker) {
-      // kZeroMarker is written as kZeroMarker, kZeroMarker
-      *v = kZeroMarker;
-      return true;
-    }
-    buffer->num_zeroes = ch + 1; // +1 because we will have consumed one zero.
-    *v = 0;
-    return true;
-  }
-  *v = ch;
   return true;
 }
 
@@ -301,3 +224,6 @@ GET_ARRAY(NeutronTime, Time)
 GET_ARRAY(NeutronDuration, Duration)
 #undef GET_ARRAY_INT
 
+#if defined(__cplusplus)
+}  // extern "C"
+#endif

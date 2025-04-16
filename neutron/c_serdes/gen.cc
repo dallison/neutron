@@ -149,13 +149,13 @@ static std::string FieldCType(FieldType type) {
   case FieldType::kFloat64:
     return "double";
   case FieldType::kTime:
-    return "neutron_Time";
+    return "NeutronTime";
   case FieldType::kDuration:
-    return "neutron_Duration";
+    return "NeutronDuration";
   case FieldType::kString:
     return "char";
   case FieldType::kBool:
-    return "uint8_t";
+    return "bool";
   case FieldType::kMessage:
     std::cerr << "Can't use message field type in FieldCType\n";
     return "<message>";
@@ -204,7 +204,7 @@ static std::string FieldCTypeName(FieldType type) {
 }
 
 static std::string SanitizeFieldName(const std::string &name) {
-  return name + (IsCppReservedWord(name) ? "_" : "");
+  return name + (IsCReservedWord(name) ? "_" : "");
 }
 
 std::string
@@ -266,6 +266,9 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
   }
   os << "\n";
 
+  os << "#if defined(__cplusplus)\n";
+  os << "extern \"C\" {\n";
+  os << "#endif\n";
   if (msg.IsEnum()) {
     // Enumeration.
     if (absl::Status status = GenerateEnum(msg, os); !status.ok()) {
@@ -276,7 +279,9 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
       return status;
     }
   }
-
+  os << "#if defined(__cplusplus)\n";
+  os << "}\n";
+  os << "#endif\n";
   return absl::OkStatus();
 }
 
@@ -326,8 +331,7 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
       if (array->Base()->Type() == FieldType::kMessage) {
         auto msg_field = std::static_pointer_cast<MessageField>(array->Base());
         if (msg_field->Msg()->IsEnum()) {
-          os << "  " << EnumCType(*msg_field->Msg()) << " "
-             << SanitizeFieldName(field->Name());
+          os << "  " << EnumCType(*msg_field->Msg());
         } else {
           os << "  " << MessageFieldTypeName(msg, msg_field);
         }
@@ -352,11 +356,10 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
   os << "} " << FullMessageName(msg) << ";\n";
 
   os << "\n";
-  os << "const char* " << msg.Name() << "_"
-     << "Name() { return \"" << msg.Name() << "\"; }\n";
-  os << "const char* " << msg.Name() << "_"
-     << "FullName() { return \"" << msg.Package()->Name() << "/" << msg.Name()
-     << "\"; }\n";
+  os << "const char* " << FullMessageName(msg) << "_"
+     << "Name();\n";
+  os << "const char* " << FullMessageName(msg) << "_"
+     << "FullName();\n";
   os << "bool " << FullMessageName(msg) << "_"
      << "SerializeToArray(const " << FullMessageName(msg)
      << "* msg, char* addr, size_t len);\n";
@@ -372,20 +375,9 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
      << "DeserializeFromBuffer(" << FullMessageName(msg)
      << "* msg, NeutronBuffer* "
         "buffer);\n";
-  os << "bool " << FullMessageName(msg) << "_"
-     << "WriteToBuffer(const " << FullMessageName(msg)
-     << "* msg, NeutronBuffer* buffer)"
-        ";\n";
-
-  os << "bool " << FullMessageName(msg) << "_"
-     << "ReadFromBuffer(" << FullMessageName(msg)
-     << "* msg, NeutronBuffer* "
-        "buffer);\n";
 
   os << "const char* " << FullMessageName(msg) << "_"
-     << "MD5() {\n";
-  os << "  return \"" << msg.Md5() << "\";\n";
-  os << "}\n\n";
+     << "MD5();\n";
 
   return absl::OkStatus();
 } // namespace neutron::c_serdes
@@ -397,6 +389,21 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   if (msg.IsEnum()) {
     return absl::OkStatus();
   }
+  os << "#if defined(__cplusplus)\n";
+  os << "extern \"C\" {\n";
+  os << "#endif\n";
+
+  os << "const char* " << FullMessageName(msg) << "_"
+     << "Name() { return \"" << msg.Name() << "\"; }\n";
+  os << "const char* " << FullMessageName(msg) << "_"
+     << "FullName() { return \"" << msg.Package()->Name() << "/" << msg.Name()
+     << "\"; }\n";
+
+  os << "const char* " << FullMessageName(msg) << "_"
+     << "MD5() {\n";
+  os << "  return \"" << msg.Md5() << "\";\n";
+  os << "}\n\n";
+
   os << "bool " << FullMessageName(msg) << "_SerializeToArray(const "
      << FullMessageName(msg) << "*msg, char* addr, size_t len) {\n";
   os << "  NeutronBuffer buffer;\n";
@@ -422,6 +429,9 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
     return status;
   }
 
+  os << "#if defined(__cplusplus)\n";
+  os << "}\n";
+  os << "#endif\n";
   return absl::OkStatus();
 }
 
@@ -448,7 +458,7 @@ absl::Status Generator::GenerateSerializer(const Message &msg,
            << "; if (!status) return status;\n";
       } else {
         os << "  status = " << MessageFieldTypeName(msg, msg_field) << "_"
-           << write << "ToBuffer(&msg->" << SanitizeFieldName(field->Name())
+           << "SerializeToBuffer(&msg->" << SanitizeFieldName(field->Name())
            << ", buffer)"
            << "; if (!status) return status;\n";
       }
@@ -468,7 +478,7 @@ absl::Status Generator::GenerateSerializer(const Message &msg,
           os << "    const " << MessageFieldTypeName(msg, msg_field)
              << "* m = &msg->" << SanitizeFieldName(field->Name()) << "[i];\n";
           os << "    status = " << MessageFieldTypeName(msg, msg_field) << "_"
-             << write << "ToBuffer(m, buffer)"
+             <<  "SerializeToBuffer(m, buffer)"
              << "; if (!status) return status;\n";
           os << "  }\n";
         }
@@ -516,7 +526,7 @@ absl::Status Generator::GenerateDeserializer(const Message &msg,
               "if (!status) return status;\n";
       } else {
         os << "  status = " << MessageFieldTypeName(msg, msg_field)
-           << "_ReadFromBuffer(&msg->" << SanitizeFieldName(field->Name())
+           << "_DeserializeFromBuffer(&msg->" << SanitizeFieldName(field->Name())
            << ", buffer)"
            << "; if (!status) return "
               "status;\n";
@@ -537,7 +547,7 @@ absl::Status Generator::GenerateDeserializer(const Message &msg,
                 "return status;\n";
         } else {
           os << "      status = " << MessageFieldTypeName(msg, msg_field) << "_"
-             << "ReadFromBuffer(&msg->" << SanitizeFieldName(field->Name())
+             << "DeserializeFromBuffer(&msg->" << SanitizeFieldName(field->Name())
              << "[i], buffer)"
              << "; if (!status) return status;\n";
         }

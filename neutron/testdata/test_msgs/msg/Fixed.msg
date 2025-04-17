@@ -1,5 +1,5 @@
-// Only fixed size field types are allowed here.
-// Strings and vectors are disallowed.  String constants are OK.
+# Only fixed size field types are allowed here.
+# Strings and vectors are disallowed.  String constants are OK.
 int32 foo
 uint8[10] name
 SubFixed sub

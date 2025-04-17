@@ -287,9 +287,9 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
 
 absl::Status Generator::GenerateEnum(const Message &msg, std::ostream &os) {
   for (auto & [ name, c ] : msg.Constants()) {
-    os << "const " << EnumCType(msg) << " " << FullMessageName(msg) << "_"
-       << SanitizeFieldName(c->Name()) << " = " << std::get<0>(c->Value())
-       << ";\n";
+    os << "#define " << FullMessageName(msg) << "_"
+       << SanitizeFieldName(c->Name()) << " ((" << EnumCType(msg) << ")" << std::get<0>(c->Value())
+       << ")\n";
   }
   return absl::OkStatus();
 }
@@ -299,18 +299,18 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
   // Constants.
   for (auto & [ name, c ] : msg.Constants()) {
     if (c->Type() == FieldType::kString) {
-      os << "const char " << FullMessageName(msg) << "_"
-         << SanitizeFieldName(c->Name()) << "[] = ";
+      os << "#define " << FullMessageName(msg) << "_"
+         << SanitizeFieldName(c->Name()) << " ";
     } else {
-      os << "const " << FieldCType(c->Type()) << " " << FullMessageName(msg)
-         << "_" << SanitizeFieldName(c->Name()) << " = ";
+      os << "#define " << FullMessageName(msg)
+         << "_" << SanitizeFieldName(c->Name()) << " ((" << FieldCType(c->Type()) << ")";
     }
 
-    std::visit(overloaded{[&os](int64_t v) { os << v; },
-                          [&os](double v) { os << v; },
+    std::visit(overloaded{[&os](int64_t v) { os << v << ")"; },
+                          [&os](double v) { os << v << ")"; },
                           [&os](std::string v) { os << '"' << v << '"'; }},
                c->Value());
-    os << ";" << std::endl;
+    os << std::endl;
   }
   os << std::endl;
 
@@ -357,9 +357,9 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
 
   os << "\n";
   os << "const char* " << FullMessageName(msg) << "_"
-     << "Name();\n";
+     << "Name(void);\n";
   os << "const char* " << FullMessageName(msg) << "_"
-     << "FullName();\n";
+     << "FullName(void);\n";
   os << "bool " << FullMessageName(msg) << "_"
      << "SerializeToArray(const " << FullMessageName(msg)
      << "* msg, char* addr, size_t len);\n";
@@ -377,7 +377,7 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
         "buffer);\n";
 
   os << "const char* " << FullMessageName(msg) << "_"
-     << "MD5();\n";
+     << "MD5(void);\n";
 
   return absl::OkStatus();
 } // namespace neutron::c_serdes
@@ -394,13 +394,13 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "#endif\n";
 
   os << "const char* " << FullMessageName(msg) << "_"
-     << "Name() { return \"" << msg.Name() << "\"; }\n";
+     << "Name(void) { return \"" << msg.Name() << "\"; }\n";
   os << "const char* " << FullMessageName(msg) << "_"
-     << "FullName() { return \"" << msg.Package()->Name() << "/" << msg.Name()
+     << "FullName(void) { return \"" << msg.Package()->Name() << "/" << msg.Name()
      << "\"; }\n";
 
   os << "const char* " << FullMessageName(msg) << "_"
-     << "MD5() {\n";
+     << "MD5(void) {\n";
   os << "  return \"" << msg.Md5() << "\";\n";
   os << "}\n\n";
 

@@ -50,13 +50,13 @@ PUT_INT(int32_t, Int32)
 PUT_INT(bool, Bool)
 PUT_INT(NeutronTime, Time)
 PUT_INT(NeutronDuration, Duration)
-#if __ARM_ARCH != 7
+#if !defined(__ARM_ARCH) || __ARM_ARCH != 7
 PUT_INT(uint64_t, Uint64)
 PUT_INT(int64_t, Int64)
 #endif
 #undef PUT_INT
 
-#if __ARM_ARCH == 7
+#if defined(__ARM_ARCH) && __ARM_ARCH == 7
 // 64 bit for unaligned on armv7 needs to to split into two 32 bit writes.
 bool NeutronBufferWriteInt64Field(NeutronBuffer *buffer, int64_t v) {
   if (!NeutronBufferHasSpaceFor(buffer, sizeof(v))) {
@@ -99,14 +99,14 @@ GET_INT(bool, Bool)
 GET_INT(NeutronTime, Time)
 GET_INT(NeutronDuration, Duration)
 
-#if __ARM_ARCH != 7
+#if !defined(__ARM_ARCH) || __ARM_ARCH != 7
 GET_INT(uint64_t, Uint64)
 GET_INT(int64_t, Int64)
 #endif
 
 #undef GET_INT
 
-#if __ARM_ARCH == 7
+#if defined(__ARM_ARCH) && __ARM_ARCH == 7
 // 64 bit for unaligned on armv7 needs to to split into two 32 bit reads.
 bool NeutronBufferReadInt64Field(NeutronBuffer *buffer, int64_t *v) {
   if (!NeutronBufferHasSpaceFor(buffer, sizeof(*v))) {

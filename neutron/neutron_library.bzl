@@ -55,7 +55,6 @@ def _neutron_serdes_impl(ctx):
         filename = paths.basename(file.path)
         prefix = "serdes" if ctx.attr.lang == "c++" else "c_serdes"
         dir = paths.join(prefix, paths.basename(paths.dirname(paths.dirname(file.path))))
-        print(dir)
         filename = paths.replace_extension(filename, ".cc" if ctx.attr.lang == "c++" else ".c")
 
         cc_out = ctx.actions.declare_file(paths.join(dir, filename))

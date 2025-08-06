@@ -160,7 +160,7 @@ std::shared_ptr<Message> Package::FindMessage(const std::string &name) {
 
 void Package::Dump(std::ostream &os) {
   for (auto & [ name, msg ] : messages_) {
-    os << "**** Message " << msg->Package()->Name() << "/" << msg->Name()
+    os << "**** Message " << msg->GetPackage()->Name() << "/" << msg->Name()
        << std::endl;
     msg->Dump(os);
     os << "****\n";

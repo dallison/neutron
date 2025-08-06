@@ -156,7 +156,6 @@ TEST(SyntaxTest, Errors) {
   neutron::LexicalAnalyzer lex("stdin", input,
                               [&num_errors, &errors](const std::string &error) {
                                 std::cerr << error << std::endl;
-                                ASSERT_NE(errors[num_errors]);
                                 ASSERT_EQ(errors[num_errors++], error);
                               });
   neutron::Message msg("Foo");

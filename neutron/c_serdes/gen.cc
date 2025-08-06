@@ -26,7 +26,7 @@ std::string Generator::Namespace(bool prefix_underscore) {
 
 absl::Status Generator::Generate(const Message &msg) {
   std::filesystem::path dir =
-      root_ / std::filesystem::path(msg.Package()->Name());
+      root_ / std::filesystem::path(msg.GetPackage()->Name());
   if (!std::filesystem::exists(dir) &&
       !std::filesystem::create_directories(dir)) {
     return absl::InternalError(
@@ -212,7 +212,7 @@ Generator::MessageFieldTypeName(const Message &msg,
                                 std::shared_ptr<MessageField> field) {
   std::string name;
   if (field->MsgPackage().empty()) {
-    return msg.Package()->Name() + "_" + Namespace(false) + field->MsgName();
+    return msg.GetPackage()->Name() + "_" + Namespace(false) + field->MsgName();
   }
   return field->MsgPackage() + "_" + Namespace(false) + field->MsgName();
 }
@@ -221,7 +221,7 @@ static std::string
 MessageFieldIncludeFile(const Message &msg,
                         std::shared_ptr<MessageField> field) {
   if (field->MsgPackage().empty()) {
-    return "c_serdes/" + msg.Package()->Name() + "/" + field->MsgName() + ".h";
+    return "c_serdes/" + msg.GetPackage()->Name() + "/" + field->MsgName() + ".h";
   }
   return "c_serdes/" + field->MsgPackage() + "/" + field->MsgName() + ".h";
 }
@@ -384,7 +384,7 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
 
 absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "#include \"" << (msg_path_.empty() ? "" : (msg_path_ + "/"))
-     << "c_serdes/" << msg.Package()->Name() << "/" << msg.Name() << ".h\"\n";
+     << "c_serdes/" << msg.GetPackage()->Name() << "/" << msg.Name() << ".h\"\n";
 
   if (msg.IsEnum()) {
     return absl::OkStatus();
@@ -396,7 +396,7 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "const char* " << FullMessageName(msg) << "_"
      << "Name(void) { return \"" << msg.Name() << "\"; }\n";
   os << "const char* " << FullMessageName(msg) << "_"
-     << "FullName(void) { return \"" << msg.Package()->Name() << "/" << msg.Name()
+     << "FullName(void) { return \"" << msg.GetPackage()->Name() << "/" << msg.Name()
      << "\"; }\n";
 
   os << "const char* " << FullMessageName(msg) << "_"

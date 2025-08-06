@@ -44,7 +44,7 @@ static bool IsEnum(std::shared_ptr<Field> field) {
 
 absl::Status Generator::Generate(const Message &msg) {
   std::filesystem::path dir =
-      root_ / std::filesystem::path(msg.Package()->Name());
+      root_ / std::filesystem::path(msg.GetPackage()->Name());
   if (!std::filesystem::exists(dir) &&
       !std::filesystem::create_directories(dir)) {
     return absl::InternalError(
@@ -328,7 +328,7 @@ Generator::MessageFieldTypeName(const Message &msg,
                                 std::shared_ptr<MessageField> field) {
   std::string name;
   if (field->MsgPackage().empty()) {
-    return msg.Package()->Name() + "::" + Namespace(false) + field->MsgName();
+    return msg.GetPackage()->Name() + "::" + Namespace(false) + field->MsgName();
   }
   return field->MsgPackage() + "::" + Namespace(false) + field->MsgName();
 }
@@ -337,7 +337,7 @@ static std::string
 MessageFieldIncludeFile(const Message &msg,
                         std::shared_ptr<MessageField> field) {
   if (field->MsgPackage().empty()) {
-    return "zeros/" + msg.Package()->Name() + "/" + field->MsgName() + ".h";
+    return "zeros/" + msg.GetPackage()->Name() + "/" + field->MsgName() + ".h";
   }
   return "zeros/" + field->MsgPackage() + "/" + field->MsgName() + ".h";
 }
@@ -372,7 +372,7 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
     }
   }
   os << "\n";
-  os << "namespace " << msg.Package()->Name() << Namespace(true) << " {\n";
+  os << "namespace " << msg.GetPackage()->Name() << Namespace(true) << " {\n";
 
   if (msg.IsEnum()) {
     // Enumeration.
@@ -390,7 +390,7 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
       return status;
     }
   }
-  os << "}    // namespace " << msg.Package()->Name() << Namespace(true)
+  os << "}    // namespace " << msg.GetPackage()->Name() << Namespace(true)
      << "\n";
   return absl::OkStatus();
 }
@@ -499,7 +499,7 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
     os << " " << SanitizeFieldName(field->Name()) << " = {};\n";
   }
   os << "  static const char* Name() { return \"" << msg.Name() << "\"; }\n";
-  os << "  static const char* FullName() { return \"" << msg.Package()->Name()
+  os << "  static const char* FullName() { return \"" << msg.GetPackage()->Name()
      << "/" << msg.Name() << "\"; }\n";
   os << "  absl::Status SerializeToArray(char* addr, size_t len) const;\n";
   os << "  absl::Status SerializeToBuffer(neutron::zeros::Buffer& buffer) "
@@ -606,7 +606,7 @@ absl::Status Generator::GenerateNonEmbeddedConstructor(const Message &msg,
 
   os << "    this->buffer = buffer;\n";
   os << "    void *data = toolbelt::PayloadBuffer::Allocate(buffer.get(), "
-        "BinarySize());\n";
+        "BinarySize(), true);\n";
   os << "    this->absolute_binary_offset = (*buffer)->ToOffset(data);\n";
   os << "  }\n\n";
   return absl::OkStatus();
@@ -718,12 +718,12 @@ absl::Status Generator::GenerateEnumStreamer(const Message &msg,
 
 absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "#include \"" << (msg_path_.empty() ? "" : (msg_path_ + "/"))
-     << "zeros/" << msg.Package()->Name() << "/" << msg.Name() << ".h\"\n";
+     << "zeros/" << msg.GetPackage()->Name() << "/" << msg.Name() << ".h\"\n";
 
   if (msg.IsEnum()) {
     return absl::OkStatus();
   }
-  os << "namespace " << msg.Package()->Name() << Namespace(true) << " {\n";
+  os << "namespace " << msg.GetPackage()->Name() << Namespace(true) << " {\n";
   os << "absl::Status " << msg.Name()
      << "::SerializeToArray(char* addr, size_t len) const {\n";
   os << "  neutron::zeros::Buffer buffer(addr, len);\n";
@@ -761,7 +761,7 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "  s << *this;\n";
   os << "  return s.str();\n";
   os << "}\n";
-  os << "}    // namespace " << msg.Package()->Name() << Namespace(true)
+  os << "}    // namespace " << msg.GetPackage()->Name() << Namespace(true)
      << "\n";
 
   return absl::OkStatus();

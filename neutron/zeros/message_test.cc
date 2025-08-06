@@ -27,7 +27,7 @@ struct InnerMessage : public Message {
         f(offsetof(InnerMessage, f),
           neutron::zeros::AlignedOffset<uint64_t>(str.BinaryEndOffset())) {
     this->buffer = buffer;
-    void *data = toolbelt::PayloadBuffer::Allocate(buffer.get(), BinarySize());
+    void *data = toolbelt::PayloadBuffer::Allocate(buffer.get(), BinarySize(), true);
     this->absolute_binary_offset = (*buffer)->ToOffset(data);
     std::cout << "InnerMessage start: " << std::hex
               << this->absolute_binary_offset << std::dec << std::endl;

@@ -134,7 +134,7 @@ class Message {
  public:
   Message(std::weak_ptr<Package> package, std::string name, std::string md5)
       : package_(std::move(package)), name_(std::move(name)), md5_(std::move(md5)) {}
-  Message(std::string name, std::string md5)
+  Message(std::string name, std::string md5 = "")
       : name_(std::move(name)), md5_(std::move(md5)) {}
   virtual ~Message() = default;
 
@@ -142,7 +142,7 @@ class Message {
 
   void Dump(std::ostream &os) const;
 
-  const std::shared_ptr<Package> Package() const { return package_.lock(); }
+  const std::shared_ptr<Package> GetPackage() const { return package_.lock(); }
   const std::string Name() const { return name_; }
   const std::vector<std::shared_ptr<Field>> &Fields() const { return fields_; }
   const std::map<std::string, std::shared_ptr<Constant>> &Constants() const {

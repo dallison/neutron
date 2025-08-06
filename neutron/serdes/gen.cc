@@ -26,7 +26,7 @@ std::string Generator::Namespace(bool prefix_colon_colon) {
 
 absl::Status Generator::Generate(const Message &msg) {
   std::filesystem::path dir =
-      root_ / std::filesystem::path(msg.Package()->Name());
+      root_ / std::filesystem::path(msg.GetPackage()->Name());
   if (!std::filesystem::exists(dir) &&
       !std::filesystem::create_directories(dir)) {
     return absl::InternalError(
@@ -157,7 +157,7 @@ Generator::MessageFieldTypeName(const Message &msg,
                                 std::shared_ptr<MessageField> field) {
   std::string name;
   if (field->MsgPackage().empty()) {
-    return msg.Package()->Name() + "::" + Namespace(false) + field->MsgName();
+    return msg.GetPackage()->Name() + "::" + Namespace(false) + field->MsgName();
   }
   return field->MsgPackage() + "::" + Namespace(false) + field->MsgName();
 }
@@ -166,7 +166,7 @@ static std::string
 MessageFieldIncludeFile(const Message &msg,
                         std::shared_ptr<MessageField> field) {
   if (field->MsgPackage().empty()) {
-    return "serdes/" + msg.Package()->Name() + "/" + field->MsgName() + ".h";
+    return "serdes/" + msg.GetPackage()->Name() + "/" + field->MsgName() + ".h";
   }
   return "serdes/" + field->MsgPackage() + "/" + field->MsgName() + ".h";
 }
@@ -210,7 +210,7 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
     }
   }
   os << "\n";
-  os << "namespace " << msg.Package()->Name() << Namespace(true) << " {\n";
+  os << "namespace " << msg.GetPackage()->Name() << Namespace(true) << " {\n";
 
   if (msg.IsEnum()) {
     // Enumeration.
@@ -223,7 +223,7 @@ absl::Status Generator::GenerateHeader(const Message &msg, std::ostream &os) {
     }
   }
 
-  os << "}    // namespace " << msg.Package()->Name() << Namespace(true)
+  os << "}    // namespace " << msg.GetPackage()->Name() << Namespace(true)
      << "\n";
 
   return absl::OkStatus();
@@ -288,7 +288,7 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
   }
   os << "\n";
   os << "  static const char* Name() { return \"" << msg.Name() << "\"; }\n";
-  os << "  static const char* FullName() { return \"" << msg.Package()->Name()
+  os << "  static const char* FullName() { return \"" << msg.GetPackage()->Name()
      << "/" << msg.Name() << "\"; }\n";
   os << "  absl::Status SerializeToArray(char* addr, size_t len, bool "
         "compact=false) const;\n";
@@ -403,12 +403,12 @@ absl::Status Generator::GenerateStruct(const Message &msg, std::ostream &os) {
 
 absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "#include \"" << (msg_path_.empty() ? "" : (msg_path_ + "/"))
-     << "serdes/" << msg.Package()->Name() << "/" << msg.Name() << ".h\"\n";
+     << "serdes/" << msg.GetPackage()->Name() << "/" << msg.Name() << ".h\"\n";
 
   if (msg.IsEnum()) {
     return absl::OkStatus();
   }
-  os << "namespace " << msg.Package()->Name() << Namespace(true) << " {\n";
+  os << "namespace " << msg.GetPackage()->Name() << Namespace(true) << " {\n";
   os << "absl::Status " << msg.Name()
      << "::SerializeToArray(char* addr, size_t len, bool compact) const {\n";
   os << "  neutron::serdes::Buffer buffer(addr, len);\n";
@@ -456,7 +456,7 @@ absl::Status Generator::GenerateSource(const Message &msg, std::ostream &os) {
   os << "  s << *this;\n";
   os << "  return s.str();\n";
   os << "}\n";
-  os << "}    // namespace " << msg.Package()->Name() << Namespace(true)
+  os << "}    // namespace " << msg.GetPackage()->Name() << Namespace(true)
      << "\n";
 
   return absl::OkStatus();

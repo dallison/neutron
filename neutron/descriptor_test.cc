@@ -5,7 +5,7 @@
 
 TEST(DescriptorTest, OneLine) {
   std::shared_ptr<neutron::Package> pkg =
-      std::make_shared<neutron::Package>(nullptr, "other_msgs");
+      std::make_shared<neutron::Package>("other_msgs");
   auto msg = pkg->ParseMessage("./neutron/testdata/other_msgs/msg/Other.msg");
   ASSERT_TRUE(msg.ok());
 

@@ -45,7 +45,7 @@ static int FromFieldType(FieldType t) {
 
 absl::StatusOr<descriptor::Descriptor> MakeDescriptor(const Message &msg) {
   descriptor::Descriptor desc;
-  desc.package = msg.Package()->Name();
+  desc.package = msg.GetPackage()->Name();
   desc.name = msg.Name();
   int index = 0;
   absl::flat_hash_set<std::string> imports;
@@ -62,7 +62,7 @@ absl::StatusOr<descriptor::Descriptor> MakeDescriptor(const Message &msg) {
     f.name = field->Name();
     if (field->Type() == FieldType::kMessage) {
       auto msg_field = std::static_pointer_cast<MessageField>(field);
-      f.msg_package = msg_field->MsgPackage().empty() ? msg.Package()->Name()
+      f.msg_package = msg_field->MsgPackage().empty() ? msg.GetPackage()->Name()
                                                       : msg_field->MsgPackage();
       f.msg_name = msg_field->MsgName();
       f.array_size = descriptor::Field::FIELD_PRIMITIVE;
@@ -78,7 +78,7 @@ absl::StatusOr<descriptor::Descriptor> MakeDescriptor(const Message &msg) {
         // Array of messages.
         auto msg_field = std::static_pointer_cast<MessageField>(array->Base());
         f.msg_package = msg_field->MsgPackage().empty()
-                            ? msg.Package()->Name()
+                            ? msg.GetPackage()->Name()
                             : msg_field->MsgPackage();
         f.msg_name = msg_field->MsgName();
         imports.insert(f.msg_package + "/" + f.msg_name);

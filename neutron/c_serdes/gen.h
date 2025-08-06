@@ -32,7 +32,7 @@ class Generator : public neutron::Generator {
   std::string MessageFieldTypeName(const Message &msg,
                                    std::shared_ptr<MessageField> field);
   std::string FullMessageName(const Message &msg) {
-    return msg.Package()->Name() + Namespace(true) + "_" +msg.Name();
+    return msg.GetPackage()->Name() + Namespace(true) + "_" +msg.Name();
   }
   std::filesystem::path root_;
   std::string runtime_path_;

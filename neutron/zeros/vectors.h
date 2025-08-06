@@ -166,7 +166,7 @@ public:
       return 0;
     }
     // Word before memory is size of memory in bytes.
-    return toolbelt::PayloadBuffer::DecodedSize(addr) / sizeof(value_type);
+    return toolbelt::PayloadBuffer::DecodeSize(addr) / sizeof(value_type);
   }
 
   toolbelt::BufferOffset BinaryEndOffset() const {
@@ -286,7 +286,7 @@ public:
       return 0;
     }
     // Word before memory is size of memory in bytes.
-    return toolbelt::PayloadBuffer::DecodedSize(addr) / sizeof(T);
+    return toolbelt::PayloadBuffer::DecodeSize(addr) / sizeof(T);
   }
 
   toolbelt::BufferOffset BinaryEndOffset() const {
@@ -395,7 +395,7 @@ public:
       return 0;
     }
     // Word before memory is size of memory in bytes.
-    return toolbelt::PayloadBuffer::DecodedSize(addr) / sizeof(toolbelt::BufferOffset);
+    return toolbelt::PayloadBuffer::DecodeSize(addr) / sizeof(toolbelt::BufferOffset);
   }
 
   void reserve(size_t n) {

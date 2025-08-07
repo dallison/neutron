@@ -18,10 +18,10 @@ absl::Status Descriptor::SerializeToBuffer(neutron::serdes::Buffer& buffer, bool
 }
 
 absl::Status Descriptor::WriteToBuffer(neutron::serdes::Buffer& buffer) const {
-  if (absl::Status status = buffer.Write(this->package); !status.ok()) return status;
-  if (absl::Status status = buffer.Write(this->name); !status.ok()) return status;
-  if (absl::Status status = buffer.Write(this->imports); !status.ok()) return status;
-  if (absl::Status status = buffer.Write(uint32_t(this->fields.size())); !status.ok()) return status;
+  if (absl::Status status = Write(buffer, this->package); !status.ok()) return status;
+  if (absl::Status status = Write(buffer, this->name); !status.ok()) return status;
+  if (absl::Status status = Write(buffer, this->imports); !status.ok()) return status;
+  if (absl::Status status = Write(buffer, uint32_t(this->fields.size())); !status.ok()) return status;
   for (auto& m : this->fields) {
     if (absl::Status status = m.WriteToBuffer(buffer); !status.ok()) return status;
   }
@@ -29,10 +29,10 @@ absl::Status Descriptor::WriteToBuffer(neutron::serdes::Buffer& buffer) const {
 }
 
 absl::Status Descriptor::WriteCompactToBuffer(neutron::serdes::Buffer& buffer, bool internal) const {
-  if (absl::Status status = buffer.WriteCompact(this->package); !status.ok()) return status;
-  if (absl::Status status = buffer.WriteCompact(this->name); !status.ok()) return status;
-  if (absl::Status status = buffer.WriteCompact(this->imports); !status.ok()) return status;
-  if (absl::Status status = buffer.WriteCompact(uint32_t(this->fields.size())); !status.ok()) return status;
+  if (absl::Status status = WriteCompact(buffer, this->package); !status.ok()) return status;
+  if (absl::Status status = WriteCompact(buffer, this->name); !status.ok()) return status;
+  if (absl::Status status = WriteCompact(buffer, this->imports); !status.ok()) return status;
+  if (absl::Status status = WriteCompact(buffer, uint32_t(this->fields.size())); !status.ok()) return status;
   for (auto& m : this->fields) {
     if (absl::Status status = m.WriteCompactToBuffer(buffer, true); !status.ok()) return status;
   }
@@ -50,12 +50,12 @@ absl::Status Descriptor::DeserializeFromBuffer(neutron::serdes::Buffer& buffer, 
 }
 
 absl::Status Descriptor::ReadFromBuffer(neutron::serdes::Buffer& buffer) {
-  if (absl::Status status = buffer.Read(this->package); !status.ok()) return status;
-  if (absl::Status status = buffer.Read(this->name); !status.ok()) return status;
-  if (absl::Status status = buffer.Read(this->imports); !status.ok()) return status;
+  if (absl::Status status = Read(buffer, this->package); !status.ok()) return status;
+  if (absl::Status status = Read(buffer, this->name); !status.ok()) return status;
+  if (absl::Status status = Read(buffer, this->imports); !status.ok()) return status;
   {
     int32_t size;
-    if (absl::Status status = buffer.Read(size); !status.ok()) return status;
+    if (absl::Status status = Read(buffer, size); !status.ok()) return status;
     for (int32_t i = 0; i < size; i++) {
       descriptor::Field tmp;
       if (absl::Status status = tmp.ReadFromBuffer(buffer); !status.ok()) return status;
@@ -66,12 +66,12 @@ absl::Status Descriptor::ReadFromBuffer(neutron::serdes::Buffer& buffer) {
 }
 
 absl::Status Descriptor::ReadCompactFromBuffer(neutron::serdes::Buffer& buffer) {
-  if (absl::Status status = buffer.ReadCompact(this->package); !status.ok()) return status;
-  if (absl::Status status = buffer.ReadCompact(this->name); !status.ok()) return status;
-  if (absl::Status status = buffer.ReadCompact(this->imports); !status.ok()) return status;
+  if (absl::Status status = ReadCompact(buffer, this->package); !status.ok()) return status;
+  if (absl::Status status = ReadCompact(buffer, this->name); !status.ok()) return status;
+  if (absl::Status status = ReadCompact(buffer, this->imports); !status.ok()) return status;
   {
     int32_t size;
-    if (absl::Status status = buffer.ReadCompact(size); !status.ok()) return status;
+    if (absl::Status status = ReadCompact(buffer, size); !status.ok()) return status;
     for (int32_t i = 0; i < size; i++) {
       descriptor::Field tmp;
       if (absl::Status status = tmp.ReadCompactFromBuffer(buffer); !status.ok()) return status;
@@ -97,10 +97,10 @@ size_t Descriptor::SerializedSize() const {
 }
 
 void Descriptor::CompactSerializedSize(neutron::serdes::SizeAccumulator& acc) const {
-  acc.Accumulate(this->package);
-  acc.Accumulate(this->name);
-  acc.Accumulate(this->imports);
-  acc.Accumulate(fields.size());
+  Accumulate(acc, this->package);
+  Accumulate(acc, this->name);
+  Accumulate(acc, this->imports);
+  Accumulate(acc, fields.size());
   for (auto& m : this->fields) {
     m.CompactSerializedSize(acc);
   }
@@ -114,13 +114,13 @@ size_t Descriptor::CompactSerializedSize() const {
 }
 
 absl::Status Descriptor::Expand(const neutron::serdes::Buffer& src, neutron::serdes::Buffer& dest) {
-  if (absl::Status status = src.Expand<std::string>(dest); !status.ok()) return status;
-  if (absl::Status status = src.Expand<std::string>(dest); !status.ok()) return status;
-  if (absl::Status status = src.Expand(std::vector<std::string>(), dest); !status.ok()) return status;
+  if (absl::Status status = ExpandField(src, dest, std::string{}); !status.ok()) return status;
+  if (absl::Status status = ExpandField(src, dest, std::string{}); !status.ok()) return status;
+  if (absl::Status status = ExpandField(src, std::vector<std::string>(), dest); !status.ok()) return status;
   {
     uint32_t size;
     if (absl::Status status = src.ReadUnsignedLeb128(size); !status.ok()) return status;
-    if (absl::Status status = dest.Write(size); !status.ok()) return status;
+    if (absl::Status status = Write(dest, size); !status.ok()) return status;
     for (size_t i = 0; i < size_t(size); i++) {
       if (absl::Status status = descriptor::Field::Expand(src, dest); !status.ok())
         return status;
@@ -130,12 +130,12 @@ absl::Status Descriptor::Expand(const neutron::serdes::Buffer& src, neutron::ser
 }
 
 absl::Status Descriptor::Compact(const neutron::serdes::Buffer& src, neutron::serdes::Buffer& dest, bool internal) {
-  if (absl::Status status = src.Compact<std::string>(dest); !status.ok()) return status;
-  if (absl::Status status = src.Compact<std::string>(dest); !status.ok()) return status;
-  if (absl::Status status = src.Compact(std::vector<std::string>(), dest); !status.ok()) return status;
+  if (absl::Status status = CompactField(src, dest, std::string{}); !status.ok()) return status;
+  if (absl::Status status = CompactField(src, dest, std::string{}); !status.ok()) return status;
+  if (absl::Status status = CompactField(src, std::vector<std::string>(), dest); !status.ok()) return status;
   {
     uint32_t size;
-    if (absl::Status status = src.Read(size); !status.ok()) return status;
+    if (absl::Status status = Read(src, size); !status.ok()) return status;
     if (absl::Status status = dest.WriteUnsignedLeb128(size); !status.ok()) return status;
     for (size_t i = 0; i < size_t(size); i++) {
       if (absl::Status status = descriptor::Field::Compact(src, dest, true); !status.ok())

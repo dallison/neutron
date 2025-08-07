@@ -18,22 +18,22 @@ absl::Status Field::SerializeToBuffer(neutron::serdes::Buffer& buffer, bool comp
 }
 
 absl::Status Field::WriteToBuffer(neutron::serdes::Buffer& buffer) const {
-  if (absl::Status status = buffer.Write(this->index); !status.ok()) return status;
-  if (absl::Status status = buffer.Write(this->name); !status.ok()) return status;
-  if (absl::Status status = buffer.Write(this->type); !status.ok()) return status;
-  if (absl::Status status = buffer.Write(this->array_size); !status.ok()) return status;
-  if (absl::Status status = buffer.Write(this->msg_package); !status.ok()) return status;
-  if (absl::Status status = buffer.Write(this->msg_name); !status.ok()) return status;
+  if (absl::Status status = Write(buffer, this->index); !status.ok()) return status;
+  if (absl::Status status = Write(buffer, this->name); !status.ok()) return status;
+  if (absl::Status status = Write(buffer, this->type); !status.ok()) return status;
+  if (absl::Status status = Write(buffer, this->array_size); !status.ok()) return status;
+  if (absl::Status status = Write(buffer, this->msg_package); !status.ok()) return status;
+  if (absl::Status status = Write(buffer, this->msg_name); !status.ok()) return status;
   return absl::OkStatus();
 }
 
 absl::Status Field::WriteCompactToBuffer(neutron::serdes::Buffer& buffer, bool internal) const {
-  if (absl::Status status = buffer.WriteCompact(this->index); !status.ok()) return status;
-  if (absl::Status status = buffer.WriteCompact(this->name); !status.ok()) return status;
-  if (absl::Status status = buffer.WriteCompact(this->type); !status.ok()) return status;
-  if (absl::Status status = buffer.WriteCompact(this->array_size); !status.ok()) return status;
-  if (absl::Status status = buffer.WriteCompact(this->msg_package); !status.ok()) return status;
-  if (absl::Status status = buffer.WriteCompact(this->msg_name); !status.ok()) return status;
+  if (absl::Status status = WriteCompact(buffer, this->index); !status.ok()) return status;
+  if (absl::Status status = WriteCompact(buffer, this->name); !status.ok()) return status;
+  if (absl::Status status = WriteCompact(buffer, this->type); !status.ok()) return status;
+  if (absl::Status status = WriteCompact(buffer, this->array_size); !status.ok()) return status;
+  if (absl::Status status = WriteCompact(buffer, this->msg_package); !status.ok()) return status;
+  if (absl::Status status = WriteCompact(buffer, this->msg_name); !status.ok()) return status;
   if (!internal) {
      return buffer.FlushZeroes();
   }
@@ -48,22 +48,22 @@ absl::Status Field::DeserializeFromBuffer(neutron::serdes::Buffer& buffer, bool 
 }
 
 absl::Status Field::ReadFromBuffer(neutron::serdes::Buffer& buffer) {
-  if (absl::Status status = buffer.Read(this->index); !status.ok()) return status;
-  if (absl::Status status = buffer.Read(this->name); !status.ok()) return status;
-  if (absl::Status status = buffer.Read(this->type); !status.ok()) return status;
-  if (absl::Status status = buffer.Read(this->array_size); !status.ok()) return status;
-  if (absl::Status status = buffer.Read(this->msg_package); !status.ok()) return status;
-  if (absl::Status status = buffer.Read(this->msg_name); !status.ok()) return status;
+  if (absl::Status status = Read(buffer, this->index); !status.ok()) return status;
+  if (absl::Status status = Read(buffer, this->name); !status.ok()) return status;
+  if (absl::Status status = Read(buffer, this->type); !status.ok()) return status;
+  if (absl::Status status = Read(buffer, this->array_size); !status.ok()) return status;
+  if (absl::Status status = Read(buffer, this->msg_package); !status.ok()) return status;
+  if (absl::Status status = Read(buffer, this->msg_name); !status.ok()) return status;
   return absl::OkStatus();
 }
 
 absl::Status Field::ReadCompactFromBuffer(neutron::serdes::Buffer& buffer) {
-  if (absl::Status status = buffer.ReadCompact(this->index); !status.ok()) return status;
-  if (absl::Status status = buffer.ReadCompact(this->name); !status.ok()) return status;
-  if (absl::Status status = buffer.ReadCompact(this->type); !status.ok()) return status;
-  if (absl::Status status = buffer.ReadCompact(this->array_size); !status.ok()) return status;
-  if (absl::Status status = buffer.ReadCompact(this->msg_package); !status.ok()) return status;
-  if (absl::Status status = buffer.ReadCompact(this->msg_name); !status.ok()) return status;
+  if (absl::Status status = ReadCompact(buffer, this->index); !status.ok()) return status;
+  if (absl::Status status = ReadCompact(buffer, this->name); !status.ok()) return status;
+  if (absl::Status status = ReadCompact(buffer, this->type); !status.ok()) return status;
+  if (absl::Status status = ReadCompact(buffer, this->array_size); !status.ok()) return status;
+  if (absl::Status status = ReadCompact(buffer, this->msg_package); !status.ok()) return status;
+  if (absl::Status status = ReadCompact(buffer, this->msg_name); !status.ok()) return status;
   return absl::OkStatus();
 }
 
@@ -79,12 +79,12 @@ size_t Field::SerializedSize() const {
 }
 
 void Field::CompactSerializedSize(neutron::serdes::SizeAccumulator& acc) const {
-  acc.Accumulate(this->index);
-  acc.Accumulate(this->name);
-  acc.Accumulate(this->type);
-  acc.Accumulate(this->array_size);
-  acc.Accumulate(this->msg_package);
-  acc.Accumulate(this->msg_name);
+  Accumulate(acc, this->index);
+  Accumulate(acc, this->name);
+  Accumulate(acc, this->type);
+  Accumulate(acc, this->array_size);
+  Accumulate(acc, this->msg_package);
+  Accumulate(acc, this->msg_name);
 }
 
 size_t Field::CompactSerializedSize() const {
@@ -95,22 +95,22 @@ size_t Field::CompactSerializedSize() const {
 }
 
 absl::Status Field::Expand(const neutron::serdes::Buffer& src, neutron::serdes::Buffer& dest) {
-  if (absl::Status status = src.Expand<int16_t>(dest); !status.ok()) return status;
-  if (absl::Status status = src.Expand<std::string>(dest); !status.ok()) return status;
-  if (absl::Status status = src.Expand<uint8_t>(dest); !status.ok()) return status;
-  if (absl::Status status = src.Expand<int16_t>(dest); !status.ok()) return status;
-  if (absl::Status status = src.Expand<std::string>(dest); !status.ok()) return status;
-  if (absl::Status status = src.Expand<std::string>(dest); !status.ok()) return status;
+  if (absl::Status status = ExpandField(src, dest, int16_t{}); !status.ok()) return status;
+  if (absl::Status status = ExpandField(src, dest, std::string{}); !status.ok()) return status;
+  if (absl::Status status = ExpandField(src, dest, uint8_t{}); !status.ok()) return status;
+  if (absl::Status status = ExpandField(src, dest, int16_t{}); !status.ok()) return status;
+  if (absl::Status status = ExpandField(src, dest, std::string{}); !status.ok()) return status;
+  if (absl::Status status = ExpandField(src, dest, std::string{}); !status.ok()) return status;
   return absl::OkStatus();
 }
 
 absl::Status Field::Compact(const neutron::serdes::Buffer& src, neutron::serdes::Buffer& dest, bool internal) {
-  if (absl::Status status = src.Compact<int16_t>(dest); !status.ok()) return status;
-  if (absl::Status status = src.Compact<std::string>(dest); !status.ok()) return status;
-  if (absl::Status status = src.Compact<uint8_t>(dest); !status.ok()) return status;
-  if (absl::Status status = src.Compact<int16_t>(dest); !status.ok()) return status;
-  if (absl::Status status = src.Compact<std::string>(dest); !status.ok()) return status;
-  if (absl::Status status = src.Compact<std::string>(dest); !status.ok()) return status;
+  if (absl::Status status = CompactField(src, dest, int16_t{}); !status.ok()) return status;
+  if (absl::Status status = CompactField(src, dest, std::string{}); !status.ok()) return status;
+  if (absl::Status status = CompactField(src, dest, uint8_t{}); !status.ok()) return status;
+  if (absl::Status status = CompactField(src, dest, int16_t{}); !status.ok()) return status;
+  if (absl::Status status = CompactField(src, dest, std::string{}); !status.ok()) return status;
+  if (absl::Status status = CompactField(src, dest, std::string{}); !status.ok()) return status;
   if (!internal) {
     return dest.FlushZeroes();
   }

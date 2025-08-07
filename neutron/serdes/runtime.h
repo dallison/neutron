@@ -114,84 +114,7 @@ template <size_t N> inline size_t Leb128Size(const std::array<uint8_t, N> &v) {
   return N;
 }
 
-class SizeAccumulator {
-public:
-  template <typename T> void Accumulate(const T &v) {
-    if (v == 0) {
-      if (num_zeroes_ == kMaxZeroes) {
-        size_ += 2;
-        num_zeroes_ = 1;
-      } else {
-        num_zeroes_++;
-      }
-    } else {
-      if (num_zeroes_ > 0) {
-        if (num_zeroes_ == 1) {
-          size_++;
-        } else {
-          size_ += 2;
-        }
-        num_zeroes_ = 0;
-      }
-      size_ += Leb128Size(v);
-    }
-  }
-
-  template <> void Accumulate(const float &v) {
-    const uint32_t *p = reinterpret_cast<const uint32_t *>(&v);
-    Accumulate(*p);
-  }
-
-  template <> void Accumulate(const double &v) {
-    const uint64_t *p = reinterpret_cast<const uint64_t *>(&v);
-    Accumulate(*p);
-  }
-
-  template <> void Accumulate(const std::string &s) {
-    Accumulate(s.size());
-    size_ += s.size();
-  }
-
-  template <> void Accumulate(const Time &t) {
-    Accumulate(t.secs);
-    Accumulate(t.nsecs);
-  }
-
-  template <> void Accumulate(const Duration &d) {
-    Accumulate(d.secs);
-    Accumulate(d.nsecs);
-  }
-
-  template <typename T> void Accumulate(const std::vector<T> &v) {
-    Accumulate(v.size());
-    for (auto &e : v) {
-      Accumulate(e);
-    }
-  }
-
-  template <> void Accumulate(const std::vector<uint8_t> &v) {
-    if (v.empty()) {
-      // Empty vector has a zero length and no body.  No need to flush
-      // the zeroes.
-      Accumulate(uint8_t(0));
-      return;
-    }
-    Close();
-    Accumulate(v.size());
-    size_ += v.size();
-  }
-
-  template <typename T, size_t N> void Accumulate(const std::array<T, N> &v) {
-    for (auto &e : v) {
-      Accumulate(e);
-    }
-  }
-
-  template <size_t N> void Accumulate(const std::array<uint8_t, N> &v) {
-    Close(); // Flush any pending zeroes.
-    size_ += N;
-  }
-
+struct SizeAccumulator {
   void Close() {
     if (num_zeroes_ > 0) {
       if (num_zeroes_ == 1) {
@@ -205,10 +128,85 @@ public:
 
   size_t Size() const { return size_; }
 
-private:
   size_t size_ = 0;
   int num_zeroes_ = 0;
 };
+
+  template <typename T> inline void Accumulate(SizeAccumulator& acc, const T &v) {
+    if (v == 0) {
+      if (acc.num_zeroes_ == kMaxZeroes) {
+        acc.size_ += 2;
+        acc.num_zeroes_ = 1;
+      } else {
+        acc.num_zeroes_++;
+      }
+    } else {
+      if (acc.num_zeroes_ > 0) {
+        if (acc.num_zeroes_ == 1) {
+          acc.size_++;
+        } else {
+          acc.size_ += 2;
+        }
+        acc.num_zeroes_ = 0;
+      }
+      acc.size_ += Leb128Size(v);
+    }
+  }
+
+  template <> inline void Accumulate(SizeAccumulator& acc, const float &v) {
+    const uint32_t *p = reinterpret_cast<const uint32_t *>(&v);
+    Accumulate(acc, *p);
+  }
+
+  template <> inline void Accumulate(SizeAccumulator& acc, const double &v) {
+    const uint64_t *p = reinterpret_cast<const uint64_t *>(&v);
+    Accumulate(acc, *p);
+  }
+
+  template <> inline void Accumulate(SizeAccumulator& acc, const std::string &s) {
+    Accumulate(acc, s.size());
+    acc.size_ += s.size();
+  }
+
+  template <> inline void Accumulate(SizeAccumulator& acc, const Time &t) {
+    Accumulate(acc, t.secs);
+    Accumulate(acc, t.nsecs);
+  }
+
+  template <> inline void Accumulate(SizeAccumulator& acc, const Duration &d) {
+    Accumulate(acc, d.secs);
+    Accumulate(acc, d.nsecs);
+  }
+
+  template <typename T> inline void Accumulate(SizeAccumulator& acc, const std::vector<T> &v) {
+    Accumulate(acc, v.size());
+    for (auto &e : v) {
+      Accumulate(acc, e);
+    }
+  }
+
+  template <> inline void Accumulate(SizeAccumulator& acc, const std::vector<uint8_t> &v) {
+    if (v.empty()) {
+      // Empty vector has a zero length and no body.  No need to flush
+      // the zeroes.
+      Accumulate(acc, uint8_t(0));
+      return;
+    }
+    acc.Close();
+    Accumulate(acc, v.size());
+    acc.size_ += v.size();
+  }
+
+  template <typename T, size_t N> inline void Accumulate(SizeAccumulator& acc, const std::array<T, N> &v) {
+    for (auto &e : v) {
+      Accumulate(acc, e);
+    }
+  }
+
+  template <size_t N> inline void Accumulate(SizeAccumulator& acc, const std::array<uint8_t, N> &v) {
+    acc.Close(); // Flush any pending zeroes.
+    acc.size_ += N;
+  }
 
 // Provides a statically sized or dynamic buffer used for serialization
 // of messages.
@@ -269,676 +267,6 @@ public:
     return absl::OkStatus();
   }
 
-  // Alignment is not guaranteed for any copies so to comply with
-  // norms we use memcpy.  Although all modern CPUs allow non-aligned
-  // word reads and writes they can come with a performance degradation.
-  // It won't make any difference anyway since the biggest performance
-  // issue with serialization is large data sets, like camera images.
-  template <typename T> absl::Status Write(const T &v) {
-    if (absl::Status status = HasSpaceFor(sizeof(T)); !status.ok()) {
-      return status;
-    }
-    memcpy(addr_, &v, sizeof(T));
-    addr_ += sizeof(T);
-    return absl::OkStatus();
-  }
-
-  template <typename T> absl::Status Read(T &v) const {
-    if (absl::Status status = Check(sizeof(T)); !status.ok()) {
-      return status;
-    }
-    memcpy(&v, addr_, sizeof(T));
-    addr_ += sizeof(T);
-    return absl::OkStatus();
-  }
-
-  template <typename T> absl::Status WriteCompact(const T &v) {
-
-    if (std::is_unsigned<T>::value) {
-      if (absl::Status status = WriteUnsignedLeb128(v); !status.ok()) {
-        return status;
-      }
-    } else {
-      if (absl::Status status = WriteSignedLeb128(v); !status.ok()) {
-        return status;
-      }
-    }
-    return absl::OkStatus();
-  }
-
-  template <typename T> absl::Status ReadCompact(T &v) const {
-    if constexpr (std::is_unsigned<T>::value) {
-      return ReadUnsignedLeb128(v);
-    } else {
-      return ReadSignedLeb128(v);
-    }
-  }
-
-  template <typename T> absl::Status Expand(Buffer &dest) const {
-    if (absl::Status status = dest.HasSpaceFor(sizeof(T)); !status.ok()) {
-      return status;
-    }
-    T v;
-    if constexpr (std::is_unsigned<T>::value) {
-      if (absl::Status status = ReadUnsignedLeb128(v); !status.ok()) {
-        return status;
-      }
-    } else {
-      if (absl::Status status = ReadSignedLeb128(v); !status.ok()) {
-        return status;
-      }
-    }
-    memcpy(dest.addr_, &v, sizeof(v));
-    dest.addr_ += sizeof(T);
-    return absl::OkStatus();
-  }
-
-  template <typename T> absl::Status Compact(Buffer &dest) const {
-    // Check that we have a value to compact in the source buffer.
-    if (absl::Status status = Check(sizeof(T)); !status.ok()) {
-      return status;
-    }
-
-    T v;
-    memcpy(&v, addr_, sizeof(v));
-    if constexpr (std::is_unsigned<T>::value) {
-      if (absl::Status status = dest.WriteUnsignedLeb128(v); !status.ok()) {
-        return status;
-      }
-    } else {
-      if (absl::Status status = dest.WriteSignedLeb128(v); !status.ok()) {
-        return status;
-      }
-    }
-    addr_ += sizeof(T);
-    return absl::OkStatus();
-  }
-
-  absl::Status WriteCompact(const float &v) {
-    const uint32_t *x = reinterpret_cast<const uint32_t *>(&v);
-    return WriteCompact(*x);
-  }
-
-  absl::Status ReadCompact(float &v) const {
-    uint32_t x = 0;
-    if (absl::Status status = ReadCompact(x); !status.ok()) {
-      return status;
-    }
-    v = *reinterpret_cast<float *>(&x);
-    return absl::OkStatus();
-  }
-
-  absl::Status WriteCompact(const double &v) {
-    const uint64_t *x = reinterpret_cast<const uint64_t *>(&v);
-    return WriteCompact(*x);
-  }
-
-  absl::Status ReadCompact(double &v) const {
-    uint64_t x = 0;
-    if (absl::Status status = ReadCompact(x); !status.ok()) {
-      return status;
-    }
-    v = *reinterpret_cast<double *>(&x);
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status Expand<float>(Buffer &dest) const {
-    uint32_t v = 0;
-    if (absl::Status status = ReadCompact(v); !status.ok()) {
-      return status;
-    }
-    return dest.Write(v);
-  }
-
-  template <> absl::Status Compact<float>(Buffer &dest) const {
-    uint32_t v;
-    memcpy(&v, addr_, sizeof(v));
-    addr_ += sizeof(float);
-    return dest.WriteCompact(v);
-  }
-
-  template <> absl::Status Expand<double>(Buffer &dest) const {
-    uint64_t v = 0;
-    if (absl::Status status = ReadCompact(v); !status.ok()) {
-      return status;
-    }
-    return dest.Write(v);
-  }
-
-  template <> absl::Status Compact<double>(Buffer &dest) const {
-    uint64_t v;
-    memcpy(&v, addr_, sizeof(v));
-    addr_ += sizeof(double);
-    return dest.WriteCompact(v);
-  }
-
-  template <> absl::Status Write(const std::string &v) {
-    if (absl::Status status = HasSpaceFor(4 + v.size()); !status.ok()) {
-      return status;
-    }
-
-    uint32_t size = static_cast<uint32_t>(v.size());
-    memcpy(addr_, &size, sizeof(size));
-    memcpy(addr_ + 4, v.data(), v.size());
-    addr_ += 4 + v.size();
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status Read(std::string &v) const {
-    if (absl::Status status = Check(4); !status.ok()) {
-      return status;
-    }
-    uint32_t size = 0;
-    memcpy(&size, addr_, sizeof(size));
-    if (absl::Status status = Check(size_t(size)); !status.ok()) {
-      return status;
-    }
-    v.resize(size);
-    memcpy(v.data(), addr_ + 4, size);
-    addr_ += 4 + v.size();
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status WriteCompact(const std::string &v) {
-    if (absl::Status status = WriteUnsignedLeb128(v.size()); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = HasSpaceFor(v.size()); !status.ok()) {
-      return status;
-    }
-    memcpy(addr_, v.data(), v.size());
-    addr_ += v.size();
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status ReadCompact(std::string &v) const {
-    uint32_t size = 0;
-    if (absl::Status status = ReadUnsignedLeb128(size); !status.ok()) {
-      return status;
-    }
-
-    if (absl::Status status = Check(size_t(size)); !status.ok()) {
-      return status;
-    }
-    v.resize(size);
-    memcpy(v.data(), addr_, size);
-    addr_ += size;
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status Expand<std::string>(Buffer &dest) const {
-    uint32_t size = 0;
-    if (absl::Status status = ReadUnsignedLeb128(size); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = dest.HasSpaceFor(4 + size); !status.ok()) {
-      return status;
-    }
-    memcpy(dest.addr_, &size, sizeof(size));
-    memcpy(dest.addr_ + 4, addr_, size);
-    dest.addr_ += 4 + size;
-    addr_ += size;
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status Compact<std::string>(Buffer &dest) const {
-    uint32_t size;
-    memcpy(&size, addr_, sizeof(size));
-    if (absl::Status status = Check(4 + size); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = dest.WriteUnsignedLeb128(size); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = dest.HasSpaceFor(size); !status.ok()) {
-      return status;
-    }
-    memcpy(dest.addr_, addr_ + 4, size);
-    addr_ += 4 + size;
-    dest.addr_ += size;
-    return absl::OkStatus();
-  }
-
-  template <typename T> absl::Status Write(const std::vector<T> &vec) {
-    if (absl::Status status = HasSpaceFor(4); !status.ok()) {
-      return status;
-    }
-    uint32_t size = static_cast<uint32_t>(vec.size());
-    memcpy(addr_, &size, sizeof(size));
-    addr_ += 4;
-    for (auto &v : vec) {
-      if (absl::Status status = Write(v); !status.ok()) {
-        return status;
-      }
-    }
-    return absl::OkStatus();
-  }
-
-  template <typename T> absl::Status Read(std::vector<T> &vec) const {
-    if (absl::Status status = Check(4); !status.ok()) {
-      return status;
-    }
-    uint32_t size = 0;
-    memcpy(&size, addr_, sizeof(size));
-    addr_ += 4;
-    vec.resize(size);
-    for (uint32_t i = 0; i < size; i++) {
-      if (absl::Status status = Read(vec[i]); !status.ok()) {
-        return status;
-      }
-    }
-    return absl::OkStatus();
-  }
-
-  template <typename T> absl::Status WriteCompact(const std::vector<T> &vec) {
-    if (absl::Status status = WriteUnsignedLeb128(vec.size()); !status.ok()) {
-      return status;
-    }
-    for (auto &v : vec) {
-      if (absl::Status status = WriteCompact(v); !status.ok()) {
-        return status;
-      }
-    }
-    return absl::OkStatus();
-  }
-
-  // Specialization vector of uint8_t so we can use memcpy instead of processing
-  // the body byte by byte.
-  template <> absl::Status WriteCompact(const std::vector<uint8_t> &vec) {
-    if (vec.empty()) {
-      // Empty vector has a zero length and no body.  No need to flush
-      // the zeroes.
-      if (absl::Status status = WriteUnsignedLeb128(0); !status.ok()) {
-        return status;
-      }
-      return absl::OkStatus();
-    }
-    if (absl::Status status = FlushZeroes(); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = WriteUnsignedLeb128(vec.size()); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = HasSpaceFor(vec.size()); !status.ok()) {
-      return status;
-    }
-    memcpy(addr_, vec.data(), vec.size());
-    addr_ += vec.size();
-    return absl::OkStatus();
-  }
-
-  template <typename T> absl::Status ReadCompact(std::vector<T> &vec) const {
-    uint32_t size = 0;
-    if (absl::Status status = ReadUnsignedLeb128(size); !status.ok()) {
-      return status;
-    }
-
-    if (absl::Status status = Check(size_t(size)); !status.ok()) {
-      return status;
-    }
-
-    vec.resize(size);
-    for (uint32_t i = 0; i < size; i++) {
-      if (absl::Status status = ReadCompact(vec[i]); !status.ok()) {
-        return status;
-      }
-    }
-    return absl::OkStatus();
-  }
-
-  // uint8_t specialization for memcpy.
-  template <> absl::Status ReadCompact(std::vector<uint8_t> &vec) const {
-    uint32_t size = 0;
-    if (absl::Status status = ReadUnsignedLeb128(size); !status.ok()) {
-      return status;
-    }
-
-    if (absl::Status status = Check(size_t(size)); !status.ok()) {
-      return status;
-    }
-
-    vec.resize(size);
-    memcpy(vec.data(), addr_, size);
-    addr_ += size;
-    return absl::OkStatus();
-  }
-
-  template <typename T>
-  absl::Status Expand(const std::vector<T> &, Buffer &dest) const {
-    uint32_t size = 0;
-    if (absl::Status status = ReadUnsignedLeb128(size); !status.ok()) {
-      return status;
-    }
-
-    if (absl::Status status = dest.Check(size_t(size)); !status.ok()) {
-      return status;
-    }
-    memcpy(dest.addr_, &size, sizeof(size));
-    dest.addr_ += 4;
-    for (uint32_t i = 0; i < size; i++) {
-      if (absl::Status status = Expand<T>(dest); !status.ok()) {
-        return status;
-      }
-    }
-    return absl::OkStatus();
-  }
-
-  template <>
-  absl::Status Expand(const std::vector<uint8_t> &, Buffer &dest) const {
-    uint32_t size = 0;
-    if (absl::Status status = ReadUnsignedLeb128(size); !status.ok()) {
-      return status;
-    }
-
-    if (absl::Status status = dest.Check(size_t(size)); !status.ok()) {
-      return status;
-    }
-    memcpy(dest.addr_, &size, sizeof(size));
-    dest.addr_ += 4;
-    if (absl::Status status = dest.HasSpaceFor(size); !status.ok()) {
-      return status;
-    }
-    memcpy(dest.addr_, addr_, size);
-    addr_ += size;
-    dest.addr_ += size;
-    return absl::OkStatus();
-  }
-
-  template <typename T>
-  absl::Status Compact(const std::vector<T> &, Buffer &dest) const {
-    if (absl::Status status = Check(4); !status.ok()) {
-      return status;
-    }
-    uint32_t size;
-    memcpy(&size, addr_, sizeof(size));
-    if (absl::Status status = dest.WriteUnsignedLeb128(size); !status.ok()) {
-      return status;
-    }
-
-    addr_ += 4;
-    for (uint32_t i = 0; i < size; i++) {
-      if (absl::Status status = Compact<T>(dest); !status.ok()) {
-        return status;
-      }
-    }
-    return absl::OkStatus();
-  }
-
-  template <>
-  absl::Status Compact(const std::vector<uint8_t> &, Buffer &dest) const {
-    if (absl::Status status = Check(4); !status.ok()) {
-      return status;
-    }
-    uint32_t size;
-    memcpy(&size, addr_, sizeof(size));
-    if (size == 0) {
-      // Empty vector has a zero length and no body.  No need to flush
-      // the zeroes.
-      if (absl::Status status = dest.WriteUnsignedLeb128(0); !status.ok()) {
-        return status;
-      }
-      return absl::OkStatus();
-    }
-    if (absl::Status status = dest.FlushZeroes(); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = dest.WriteUnsignedLeb128(size); !status.ok()) {
-      return status;
-    }
-
-    addr_ += 4;
-    if (absl::Status status = dest.HasSpaceFor(size); !status.ok()) {
-      return status;
-    }
-    memcpy(dest.addr_, addr_, size);
-    addr_ += size;
-    dest.addr_ += size;
-    return absl::OkStatus();
-  }
-
-  template <typename T, size_t N>
-  absl::Status Write(const std::array<T, N> &vec) {
-    for (auto &v : vec) {
-      if (absl::Status status = Write(v); !status.ok()) {
-        return status;
-      }
-    }
-    return absl::OkStatus();
-  }
-
-  template <size_t N> absl::Status Write(const std::array<uint8_t, N> &vec) {
-    if (absl::Status status = HasSpaceFor(N); !status.ok()) {
-      return status;
-    }
-    memcpy(addr_, vec.data(), N);
-    addr_ += N;
-    return absl::OkStatus();
-  }
-
-  template <typename T, size_t N>
-  absl::Status Read(std::array<T, N> &vec) const {
-    for (int i = 0; i < N; i++) {
-      if (absl::Status status = Read(vec[i]); !status.ok()) {
-        return status;
-      }
-    }
-    return absl::OkStatus();
-  }
-
-  template <size_t N> absl::Status Read(std::array<uint8_t, N> &vec) const {
-    if (absl::Status status = Check(N); !status.ok()) {
-      return status;
-    }
-    memcpy(vec.data(), addr_, N);
-    addr_ += N;
-    return absl::OkStatus();
-  }
-
-  template <typename T, size_t N>
-  absl::Status WriteCompact(const std::array<T, N> &vec) {
-    for (auto &v : vec) {
-      if (absl::Status status = WriteCompact(v); !status.ok()) {
-        return status;
-      }
-    }
-    return absl::OkStatus();
-  }
-
-  template <size_t N>
-  absl::Status WriteCompact(const std::array<uint8_t, N> &vec) {
-    if (absl::Status status = FlushZeroes(); !status.ok()) {
-      return status;
-    }
-    // Not compacted since want this to be a memcpy.
-    return Write(vec);
-  }
-
-  template <typename T, size_t N>
-  absl::Status ReadCompact(std::array<T, N> &vec) const {
-    for (int i = 0; i < N; i++) {
-      if (absl::Status status = ReadCompact(vec[i]); !status.ok()) {
-        return status;
-      }
-    }
-    return absl::OkStatus();
-  }
-
-  template <size_t N>
-  absl::Status ReadCompact(std::array<uint8_t, N> &vec) const {
-    return Read(vec);
-  }
-
-  template <typename T, size_t N>
-  absl::Status Expand(const std::array<T, N> &, Buffer &dest) const {
-    for (int i = 0; i < N; i++) {
-      if (absl::Status status = Expand<T>(dest); !status.ok()) {
-        return status;
-      }
-    }
-    return absl::OkStatus();
-  }
-
-  template <size_t N>
-  absl::Status Expand(const std::array<uint8_t, N> &, Buffer &dest) const {
-    if (absl::Status status = Check(N); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = dest.HasSpaceFor(N); !status.ok()) {
-      return status;
-    }
-    memcpy(dest.addr_, addr_, N);
-    addr_ += N;
-    dest.addr_ += N;
-    return absl::OkStatus();
-  }
-
-  template <typename T, size_t N>
-  absl::Status Compact(const std::array<T, N> &, Buffer &dest) const {
-    for (int i = 0; i < N; i++) {
-      if (absl::Status status = Compact<T>(dest); !status.ok()) {
-        return status;
-      }
-    }
-    return absl::OkStatus();
-  }
-
-  template <size_t N>
-  absl::Status Compact(const std::array<uint8_t, N> &, Buffer &dest) const {
-    if (absl::Status status = dest.FlushZeroes(); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = dest.HasSpaceFor(N); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = Check(N); !status.ok()) {
-      return status;
-    }
-    memcpy(dest.addr_, addr_, N);
-    addr_ += N;
-    dest.addr_ += N;
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status Write(const Time &t) {
-    if (absl::Status status = Write(t.secs); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = Write(t.nsecs); !status.ok()) {
-      return status;
-    }
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status Read(Time &t) const {
-    if (absl::Status status = Read(t.secs); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = Read(t.nsecs); !status.ok()) {
-      return status;
-    }
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status WriteCompact(const Time &t) {
-    if (absl::Status status = WriteCompact(t.secs); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = WriteCompact(t.nsecs); !status.ok()) {
-      return status;
-    }
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status ReadCompact(Time &t) const {
-    if (absl::Status status = ReadCompact(t.secs); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = ReadCompact(t.nsecs); !status.ok()) {
-      return status;
-    }
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status Expand<Time>(Buffer &dest) const {
-    if (absl::Status status = Expand<uint32_t>(dest); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = Expand<uint32_t>(dest); !status.ok()) {
-      return status;
-    }
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status Compact<Time>(Buffer &dest) const {
-    if (absl::Status status = Compact<uint32_t>(dest); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = Compact<uint32_t>(dest); !status.ok()) {
-      return status;
-    }
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status Write(const Duration &d) {
-    if (absl::Status status = Write(d.secs); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = Write(d.nsecs); !status.ok()) {
-      return status;
-    }
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status Read(Duration &d) const {
-    if (absl::Status status = Read(d.secs); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = Read(d.nsecs); !status.ok()) {
-      return status;
-    }
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status WriteCompact(const Duration &d) {
-    if (absl::Status status = WriteCompact(d.secs); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = WriteCompact(d.nsecs); !status.ok()) {
-      return status;
-    }
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status ReadCompact(Duration &d) const {
-    if (absl::Status status = ReadCompact(d.secs); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = ReadCompact(d.nsecs); !status.ok()) {
-      return status;
-    }
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status Expand<Duration>(Buffer &dest) const {
-    if (absl::Status status = Expand<uint32_t>(dest); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = Expand<uint32_t>(dest); !status.ok()) {
-      return status;
-    }
-    return absl::OkStatus();
-  }
-
-  template <> absl::Status Compact<Duration>(Buffer &dest) const {
-    if (absl::Status status = Compact<uint32_t>(dest); !status.ok()) {
-      return status;
-    }
-    if (absl::Status status = Compact<uint32_t>(dest); !status.ok()) {
-      return status;
-    }
-    return absl::OkStatus();
-  }
-
   // These are public because we need it for vector expansion.
   template <typename T> absl::Status ReadUnsignedLeb128(T &v) const {
     int shift = 0;
@@ -989,7 +317,8 @@ public:
     return absl::OkStatus();
   }
 
-private:
+  char*& Addr() const { return addr_; }
+
   absl::Status HasSpaceFor(size_t n) {
     char *next = addr_ + n;
     // Off-by-one complexity here.  The end is one past the end of the buffer.
@@ -1132,6 +461,7 @@ private:
     return absl::OkStatus();
   }
 
+ private:
   bool owned_ = false;           // Memory is owned by this buffer.
   char *start_ = nullptr;        // Start of memory.
   size_t size_ = 0;              // Size of memory.
@@ -1139,5 +469,675 @@ private:
   char *end_ = nullptr;          // End of buffer.
   mutable int num_zeroes_ = 0; // Number of zero bytes to write in compact mode.
 };
+
+  // Alignment is not guaranteed for any copies so to comply with
+  // norms we use memcpy.  Although all modern CPUs allow non-aligned
+  // word reads and writes they can come with a performance degradation.
+  // It won't make any difference anyway since the biggest performance
+  // issue with serialization is large data sets, like camera images.
+  template <typename T> inline absl::Status Write(Buffer& b, const T &v) {
+    if (absl::Status status = b.HasSpaceFor(sizeof(T)); !status.ok()) {
+      return status;
+    }
+    memcpy(b.Addr(), &v, sizeof(T));
+    b.Addr() += sizeof(T);
+    return absl::OkStatus();
+  }
+
+  template <typename T> inline absl::Status Read(const Buffer& b, T &v) {
+    if (absl::Status status = b.Check(sizeof(T)); !status.ok()) {
+      return status;
+    }
+    memcpy(&v, b.Addr(), sizeof(T));
+    b.Addr() += sizeof(T);
+    return absl::OkStatus();
+  }
+
+  template <typename T> inline absl::Status WriteCompact(Buffer& b, const T &v) {
+
+    if (std::is_unsigned<T>::value) {
+      if (absl::Status status = b.WriteUnsignedLeb128(v); !status.ok()) {
+        return status;
+      }
+    } else {
+      if (absl::Status status = b.WriteSignedLeb128(v); !status.ok()) {
+        return status;
+      }
+    }
+    return absl::OkStatus();
+  }
+
+  template <typename T> inline absl::Status ReadCompact(const Buffer& b, T &v) {
+    if constexpr (std::is_unsigned<T>::value) {
+      return b.ReadUnsignedLeb128(v);
+    } else {
+      return b.ReadSignedLeb128(v);
+    }
+  }
+
+  template <typename T> inline absl::Status ExpandField(const Buffer& b, Buffer &dest, const T& = {}) {
+    if (absl::Status status = dest.HasSpaceFor(sizeof(T)); !status.ok()) {
+      return status;
+    }
+    T v;
+    if constexpr (std::is_unsigned<T>::value) {
+      if (absl::Status status = b.ReadUnsignedLeb128(v); !status.ok()) {
+        return status;
+      }
+    } else {
+      if (absl::Status status = b.ReadSignedLeb128(v); !status.ok()) {
+        return status;
+      }
+    }
+    memcpy(dest.Addr(), &v, sizeof(v));
+    dest.Addr() += sizeof(T);
+    return absl::OkStatus();
+  }
+
+  template <typename T> inline absl::Status CompactField(const Buffer& b, Buffer &dest, const T& = {}) {
+    // Check that we have a value to compact in the source buffer.
+    if (absl::Status status = b.Check(sizeof(T)); !status.ok()) {
+      return status;
+    }
+
+    T v;
+    memcpy(&v, b.Addr(), sizeof(v));
+    if constexpr (std::is_unsigned<T>::value) {
+      if (absl::Status status = dest.WriteUnsignedLeb128(v); !status.ok()) {
+        return status;
+      }
+    } else {
+      if (absl::Status status = dest.WriteSignedLeb128(v); !status.ok()) {
+        return status;
+      }
+    }
+    b.Addr() += sizeof(T);
+    return absl::OkStatus();
+  }
+
+  inline absl::Status WriteCompact(Buffer& b, const float &v) {
+    const uint32_t *x = reinterpret_cast<const uint32_t *>(&v);
+    return WriteCompact(b, *x);
+  }
+
+  inline absl::Status ReadCompact(const Buffer& b, float &v) {
+    uint32_t x = 0;
+    if (absl::Status status = ReadCompact(b, x); !status.ok()) {
+      return status;
+    }
+    v = *reinterpret_cast<float *>(&x);
+    return absl::OkStatus();
+  }
+
+  inline absl::Status WriteCompact(Buffer& b, const double &v) {
+    const uint64_t *x = reinterpret_cast<const uint64_t *>(&v);
+    return WriteCompact(b, *x);
+  }
+
+  inline absl::Status ReadCompact(const Buffer& b, double &v) {
+    uint64_t x = 0;
+    if (absl::Status status = ReadCompact(b, x); !status.ok()) {
+      return status;
+    }
+    v = *reinterpret_cast<double *>(&x);
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status ExpandField(const Buffer& b, Buffer &dest, const float&) {
+    uint32_t v = 0;
+    if (absl::Status status = ReadCompact(b, v); !status.ok()) {
+      return status;
+    }
+    return Write(dest, v);
+  }
+
+  template <> inline absl::Status CompactField(const Buffer& b, Buffer &dest, const float&) {
+    uint32_t v;
+    memcpy(&v, b.Addr(), sizeof(v));
+    b.Addr() += sizeof(float);
+    return WriteCompact(dest, v);
+  }
+
+  template <> inline absl::Status ExpandField(const Buffer& b, Buffer &dest, const double&) {
+    uint64_t v = 0;
+    if (absl::Status status = ReadCompact(b, v); !status.ok()) {
+      return status;
+    }
+    return Write(dest, v);
+  }
+
+  template <> inline absl::Status CompactField(const Buffer& b, Buffer &dest, const double&) {
+    uint64_t v;
+    memcpy(&v, b.Addr(), sizeof(v));
+    b.Addr() += sizeof(double);
+    return WriteCompact(dest, v);
+  }
+
+  template <> inline absl::Status Write(Buffer& b, const std::string &v) {
+    if (absl::Status status = b.HasSpaceFor(4 + v.size()); !status.ok()) {
+      return status;
+    }
+
+    uint32_t size = static_cast<uint32_t>(v.size());
+    memcpy(b.Addr(), &size, sizeof(size));
+    memcpy(b.Addr() + 4, v.data(), v.size());
+    b.Addr() += 4 + v.size();
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status Read(const Buffer& b, std::string &v) {
+    if (absl::Status status = b.Check(4); !status.ok()) {
+      return status;
+    }
+    uint32_t size = 0;
+    memcpy(&size, b.Addr(), sizeof(size));
+    if (absl::Status status = b.Check(size_t(size)); !status.ok()) {
+      return status;
+    }
+    v.resize(size);
+    memcpy(v.data(), b.Addr() + 4, size);
+    b.Addr() += 4 + v.size();
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status WriteCompact(Buffer& b, const std::string &v) {
+    if (absl::Status status = b.WriteUnsignedLeb128(v.size()); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = b.HasSpaceFor(v.size()); !status.ok()) {
+      return status;
+    }
+    memcpy(b.Addr(), v.data(), v.size());
+    b.Addr() += v.size();
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status ReadCompact(const Buffer& b, std::string &v) {
+    uint32_t size = 0;
+    if (absl::Status status = b.ReadUnsignedLeb128(size); !status.ok()) {
+      return status;
+    }
+
+    if (absl::Status status = b.Check(size_t(size)); !status.ok()) {
+      return status;
+    }
+    v.resize(size);
+    memcpy(v.data(), b.Addr(), size);
+    b.Addr() += size;
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status ExpandField(const Buffer& b, Buffer &dest, const std::string&) {
+    uint32_t size = 0;
+    if (absl::Status status = b.ReadUnsignedLeb128(size); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = dest.HasSpaceFor(4 + size); !status.ok()) {
+      return status;
+    }
+    memcpy(dest.Addr(), &size, sizeof(size));
+    memcpy(dest.Addr() + 4, b.Addr(), size);
+    dest.Addr() += 4 + size;
+    b.Addr() += size;
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status CompactField(const Buffer& b, Buffer &dest, const std::string&) {
+    uint32_t size;
+    memcpy(&size, b.Addr(), sizeof(size));
+    if (absl::Status status = b.Check(4 + size); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = dest.WriteUnsignedLeb128(size); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = dest.HasSpaceFor(size); !status.ok()) {
+      return status;
+    }
+    memcpy(dest.Addr(), b.Addr() + 4, size);
+    b.Addr() += 4 + size;
+    dest.Addr() += size;
+    return absl::OkStatus();
+  }
+
+  template <typename T> inline absl::Status Write(Buffer& b, const std::vector<T> &vec) {
+    if (absl::Status status = b.HasSpaceFor(4); !status.ok()) {
+      return status;
+    }
+    uint32_t size = static_cast<uint32_t>(vec.size());
+    memcpy(b.Addr(), &size, sizeof(size));
+    b.Addr() += 4;
+    for (auto &v : vec) {
+      if (absl::Status status = Write(b, v); !status.ok()) {
+        return status;
+      }
+    }
+    return absl::OkStatus();
+  }
+
+  template <typename T> inline absl::Status Read(const Buffer& b, std::vector<T> &vec) {
+    if (absl::Status status = b.Check(4); !status.ok()) {
+      return status;
+    }
+    uint32_t size = 0;
+    memcpy(&size, b.Addr(), sizeof(size));
+    b.Addr() += 4;
+    vec.resize(size);
+    for (uint32_t i = 0; i < size; i++) {
+      if (absl::Status status = Read(b, vec[i]); !status.ok()) {
+        return status;
+      }
+    }
+    return absl::OkStatus();
+  }
+
+  template <typename T> inline absl::Status WriteCompact(Buffer& b, const std::vector<T> &vec) {
+    if (absl::Status status = b.WriteUnsignedLeb128(vec.size()); !status.ok()) {
+      return status;
+    }
+    for (auto &v : vec) {
+      if (absl::Status status = WriteCompact(b, v); !status.ok()) {
+        return status;
+      }
+    }
+    return absl::OkStatus();
+  }
+
+  // Specialization vector of uint8_t so we can use memcpy instead of processing
+  // the body byte by byte.
+  template <> inline absl::Status WriteCompact(Buffer& b, const std::vector<uint8_t> &vec) {
+    if (vec.empty()) {
+      // Empty vector has a zero length and no body.  No need to flush
+      // the zeroes.
+      if (absl::Status status = b.WriteUnsignedLeb128(0); !status.ok()) {
+        return status;
+      }
+      return absl::OkStatus();
+    }
+    if (absl::Status status = b.FlushZeroes(); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = b.WriteUnsignedLeb128(vec.size()); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = b.HasSpaceFor(vec.size()); !status.ok()) {
+      return status;
+    }
+    memcpy(b.Addr(), vec.data(), vec.size());
+    b.Addr() += vec.size();
+    return absl::OkStatus();
+  }
+
+  template <typename T> inline absl::Status ReadCompact(const Buffer& b, std::vector<T> &vec) {
+    uint32_t size = 0;
+    if (absl::Status status = b.ReadUnsignedLeb128(size); !status.ok()) {
+      return status;
+    }
+
+    if (absl::Status status = b.Check(size_t(size)); !status.ok()) {
+      return status;
+    }
+
+    vec.resize(size);
+    for (uint32_t i = 0; i < size; i++) {
+      if (absl::Status status = ReadCompact(b, vec[i]); !status.ok()) {
+        return status;
+      }
+    }
+    return absl::OkStatus();
+  }
+
+  // uint8_t specialization for memcpy.
+  template <> inline absl::Status ReadCompact(const Buffer& b, std::vector<uint8_t> &vec) {
+    uint32_t size = 0;
+    if (absl::Status status = b.ReadUnsignedLeb128(size); !status.ok()) {
+      return status;
+    }
+
+    if (absl::Status status = b.Check(size_t(size)); !status.ok()) {
+      return status;
+    }
+
+    vec.resize(size);
+    memcpy(vec.data(), b.Addr(), size);
+    b.Addr() += size;
+    return absl::OkStatus();
+  }
+
+  template <typename T>
+  inline absl::Status ExpandField(const Buffer& b, const std::vector<T> &, Buffer &dest) {
+    uint32_t size = 0;
+    if (absl::Status status = b.ReadUnsignedLeb128(size); !status.ok()) {
+      return status;
+    }
+
+    if (absl::Status status = dest.Check(size_t(size)); !status.ok()) {
+      return status;
+    }
+    memcpy(dest.Addr(), &size, sizeof(size));
+    dest.Addr() += 4;
+    for (uint32_t i = 0; i < size; i++) {
+      if (absl::Status status = ExpandField(b, dest, T{}); !status.ok()) {
+        return status;
+      }
+    }
+    return absl::OkStatus();
+  }
+
+  template <>
+  inline absl::Status ExpandField(const Buffer& b, const std::vector<uint8_t> &, Buffer &dest) {
+    uint32_t size = 0;
+    if (absl::Status status = b.ReadUnsignedLeb128(size); !status.ok()) {
+      return status;
+    }
+
+    if (absl::Status status = dest.Check(size_t(size)); !status.ok()) {
+      return status;
+    }
+    memcpy(dest.Addr(), &size, sizeof(size));
+    dest.Addr() += 4;
+    if (absl::Status status = dest.HasSpaceFor(size); !status.ok()) {
+      return status;
+    }
+    memcpy(dest.Addr(), b.Addr(), size);
+    b.Addr() += size;
+    dest.Addr() += size;
+    return absl::OkStatus();
+  }
+
+  template <typename T>
+  inline absl::Status CompactField(const Buffer& b, const std::vector<T> &, Buffer &dest) {
+    if (absl::Status status = b.Check(4); !status.ok()) {
+      return status;
+    }
+    uint32_t size;
+    memcpy(&size, b.Addr(), sizeof(size));
+    if (absl::Status status = dest.WriteUnsignedLeb128(size); !status.ok()) {
+      return status;
+    }
+
+    b.Addr() += 4;
+    for (uint32_t i = 0; i < size; i++) {
+      if (absl::Status status = CompactField(b, dest, T{}); !status.ok()) {
+        return status;
+      }
+    }
+    return absl::OkStatus();
+  }
+
+  template <>
+  inline absl::Status CompactField(const Buffer& b, const std::vector<uint8_t> &, Buffer &dest) {
+    if (absl::Status status = b.Check(4); !status.ok()) {
+      return status;
+    }
+    uint32_t size;
+    memcpy(&size, b.Addr(), sizeof(size));
+    if (size == 0) {
+      // Empty vector has a zero length and no body.  No need to flush
+      // the zeroes.
+      if (absl::Status status = dest.WriteUnsignedLeb128(0); !status.ok()) {
+        return status;
+      }
+      return absl::OkStatus();
+    }
+    if (absl::Status status = dest.FlushZeroes(); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = dest.WriteUnsignedLeb128(size); !status.ok()) {
+      return status;
+    }
+
+    b.Addr() += 4;
+    if (absl::Status status = dest.HasSpaceFor(size); !status.ok()) {
+      return status;
+    }
+    memcpy(dest.Addr(), b.Addr(), size);
+    b.Addr() += size;
+    dest.Addr() += size;
+    return absl::OkStatus();
+  }
+
+  template <typename T, size_t N>
+  inline absl::Status Write(Buffer& b, const std::array<T, N> &vec) {
+    for (auto &v : vec) {
+      if (absl::Status status = Write(b, v); !status.ok()) {
+        return status;
+      }
+    }
+    return absl::OkStatus();
+  }
+
+  template <size_t N> inline absl::Status Write(Buffer& b, const std::array<uint8_t, N> &vec) {
+    if (absl::Status status = b.HasSpaceFor(N); !status.ok()) {
+      return status;
+    }
+    memcpy(b.Addr(), vec.data(), N);
+    b.Addr() += N;
+    return absl::OkStatus();
+  }
+
+  template <typename T, size_t N>
+  inline absl::Status Read(const Buffer& b, std::array<T, N> &vec) {
+    for (int i = 0; i < N; i++) {
+      if (absl::Status status = Read(b, vec[i]); !status.ok()) {
+        return status;
+      }
+    }
+    return absl::OkStatus();
+  }
+
+  template <size_t N> inline absl::Status Read(const Buffer& b, std::array<uint8_t, N> &vec) {
+    if (absl::Status status = b.Check(N); !status.ok()) {
+      return status;
+    }
+    memcpy(vec.data(), b.Addr(), N);
+    b.Addr() += N;
+    return absl::OkStatus();
+  }
+
+  template <typename T, size_t N>
+  inline absl::Status WriteCompact(Buffer& b, const std::array<T, N> &vec) {
+    for (auto &v : vec) {
+      if (absl::Status status = WriteCompact(b, v); !status.ok()) {
+        return status;
+      }
+    }
+    return absl::OkStatus();
+  }
+
+  template <size_t N>
+  inline absl::Status WriteCompact(Buffer& b, const std::array<uint8_t, N> &vec) {
+    if (absl::Status status = b.FlushZeroes(); !status.ok()) {
+      return status;
+    }
+    // Not compacted since want this to be a memcpy.
+    return Write(b, vec);
+  }
+
+  template <typename T, size_t N>
+  inline absl::Status ReadCompact(const Buffer& b, std::array<T, N> &vec) {
+    for (int i = 0; i < N; i++) {
+      if (absl::Status status = ReadCompact(b, vec[i]); !status.ok()) {
+        return status;
+      }
+    }
+    return absl::OkStatus();
+  }
+
+  template <size_t N>
+  inline absl::Status ReadCompact(const Buffer& b, std::array<uint8_t, N> &vec) {
+    return Read(b, vec);
+  }
+
+  template <typename T, size_t N>
+  inline absl::Status ExpandField(const Buffer& b, const std::array<T, N> &, Buffer &dest) {
+    for (int i = 0; i < N; i++) {
+      if (absl::Status status = ExpandField(b, dest, T{}); !status.ok()) {
+        return status;
+      }
+    }
+    return absl::OkStatus();
+  }
+
+  template <size_t N>
+  inline absl::Status ExpandField(const Buffer& b, const std::array<uint8_t, N> &, Buffer &dest) {
+    if (absl::Status status = b.Check(N); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = dest.HasSpaceFor(N); !status.ok()) {
+      return status;
+    }
+    memcpy(dest.Addr(), b.Addr(), N);
+    b.Addr() += N;
+    dest.Addr() += N;
+    return absl::OkStatus();
+  }
+
+  template <typename T, size_t N>
+  inline absl::Status CompactField(const Buffer& b, const std::array<T, N> &, Buffer &dest) {
+    for (int i = 0; i < N; i++) {
+      if (absl::Status status = CompactField(b, dest, T{}); !status.ok()) {
+        return status;
+      }
+    }
+    return absl::OkStatus();
+  }
+
+  template <size_t N>
+  inline absl::Status CompactField(const Buffer& b, const std::array<uint8_t, N> &, Buffer &dest) {
+    if (absl::Status status = dest.FlushZeroes(); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = dest.HasSpaceFor(N); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = b.Check(N); !status.ok()) {
+      return status;
+    }
+    memcpy(dest.Addr(), b.Addr(), N);
+    b.Addr() += N;
+    dest.Addr() += N;
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status Write(Buffer& b, const Time &t) {
+    if (absl::Status status = Write(b, t.secs); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = Write(b, t.nsecs); !status.ok()) {
+      return status;
+    }
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status Read(const Buffer& b, Time &t) {
+    if (absl::Status status = Read(b, t.secs); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = Read(b, t.nsecs); !status.ok()) {
+      return status;
+    }
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status WriteCompact(Buffer& b, const Time &t) {
+    if (absl::Status status = WriteCompact(b, t.secs); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = WriteCompact(b, t.nsecs); !status.ok()) {
+      return status;
+    }
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status ReadCompact(const Buffer& b, Time &t) {
+    if (absl::Status status = ReadCompact(b, t.secs); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = ReadCompact(b, t.nsecs); !status.ok()) {
+      return status;
+    }
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status ExpandField(const Buffer& b, Buffer &dest, const Time&) {
+    if (absl::Status status = ExpandField(b, dest, uint32_t{}); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = ExpandField(b, dest, uint32_t{}); !status.ok()) {
+      return status;
+    }
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status CompactField(const Buffer& b, Buffer &dest, const Time&) {
+    if (absl::Status status = CompactField(b, dest, uint32_t{}); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = CompactField(b, dest, uint32_t{}); !status.ok()) {
+      return status;
+    }
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status Write(Buffer& b, const Duration &d) {
+    if (absl::Status status = Write(b, d.secs); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = Write(b, d.nsecs); !status.ok()) {
+      return status;
+    }
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status Read(const Buffer& b, Duration &d) {
+    if (absl::Status status = Read(b, d.secs); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = Read(b, d.nsecs); !status.ok()) {
+      return status;
+    }
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status WriteCompact(Buffer& b, const Duration &d) {
+    if (absl::Status status = WriteCompact(b, d.secs); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = WriteCompact(b, d.nsecs); !status.ok()) {
+      return status;
+    }
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status ReadCompact(const Buffer& b, Duration &d) {
+    if (absl::Status status = ReadCompact(b, d.secs); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = ReadCompact(b, d.nsecs); !status.ok()) {
+      return status;
+    }
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status ExpandField(const Buffer& b, Buffer &dest, const Duration&) {
+    if (absl::Status status = ExpandField(b, dest, uint32_t{}); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = ExpandField(b, dest, uint32_t{}); !status.ok()) {
+      return status;
+    }
+    return absl::OkStatus();
+  }
+
+  template <> inline absl::Status CompactField(const Buffer& b, Buffer &dest, const Duration&) {
+    if (absl::Status status = CompactField(b, dest, uint32_t{}); !status.ok()) {
+      return status;
+    }
+    if (absl::Status status = CompactField(b, dest, uint32_t{}); !status.ok()) {
+      return status;
+    }
+    return absl::OkStatus();
+  }
 
 } // namespace neutron::serdes

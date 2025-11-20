@@ -11,10 +11,13 @@ def _neutron_serdes_action(
         other_srcs,
         outputs,
         add_namespace,
-        lang):
+        lang,
+        all):
     inputs = depset(direct = srcs, transitive = [depset(imports + other_srcs)])
     prefix = "serdes" if lang == "c++" else "c_serdes"
     neutron_args = ["--ros", "--out={}/{}/{}".format(out_dir, package_name, prefix), "--runtime_path=", "--msg_path={}".format(package_name), "--lang=" + lang]
+    if all:
+        neutron_args.append("--all")
     if add_namespace:
         neutron_args.append("--add_namespace=" + add_namespace)
     if imports:
@@ -48,6 +51,25 @@ def _neutron_serdes_impl(ctx):
 
     srcs = ctx.files.srcs
     output_files = []
+    if ctx.attr.dirs:
+        for dir in ctx.attr.dirs:
+            for file in dir.files.to_list():
+                print(file)
+                d = ctx.actions.declare_directory(file.path + ".cc")
+                output_files.append(d)
+                _neutron_serdes_action(
+                    ctx,
+                    [file],
+                    out_dir,
+                    ctx.attr.package_name,
+                    imports,
+                    srcs,
+                    [d],
+                    ctx.attr.add_namespace,
+                    ctx.attr.lang,
+                    True,
+            )
+
     for file in srcs:
         outputs = []
 
@@ -77,6 +99,7 @@ def _neutron_serdes_impl(ctx):
             outputs,
             ctx.attr.add_namespace,
             ctx.attr.lang,
+            False,
         )
 
     return [DefaultInfo(files = depset(output_files + srcs)), MessageInfo(messages = srcs + imports)]
@@ -89,6 +112,7 @@ _neutron_serdes_gen = rule(
             cfg = "exec",
         ),
         "srcs": attr.label_list(allow_files = [".msg"]),
+        "dirs": attr.label_list(allow_files = True),
         "deps": attr.label_list(
         ),
         "package_name": attr.string(),
@@ -142,6 +166,7 @@ def _neutron_impl(ctx):
 
     srcs = ctx.files.srcs
     output_files = []
+ 
     for file in srcs:
         outputs = []
 
@@ -205,7 +230,7 @@ _split_files = rule(
     implementation = _split_files_impl,
 )
 
-def neutron_serdes_library(name, srcs = [], deps = [], runtime = "@neutron//neutron:serdes_runtime", add_namespace = "", lang = "c++"):
+def neutron_serdes_library(name, srcs = [], dirs = [], deps = [], runtime = "@neutron//neutron:serdes_runtime", add_namespace = "", lang = "c++"):
     """
     Generate a cc_libary for ROS messages specified in srcs.
 
@@ -225,6 +250,7 @@ def neutron_serdes_library(name, srcs = [], deps = [], runtime = "@neutron//neut
     _neutron_serdes_gen(
         name = neutron,
         srcs = srcs,
+        dirs = dirs,
         deps = deps + neutron_deps,
         package_name = native.package_name(),
         add_namespace = add_namespace,

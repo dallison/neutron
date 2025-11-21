@@ -34,6 +34,9 @@ absl::Status PackageScanner::ParseAllMessagesFrom(std::filesystem::path path) {
   // The root points to the directory of the package.  Inside there will
   // be a directory called 'msg' (ROS convention for some reason)
   // and in there are the .msg files.
+  if (!std::filesystem::is_directory(path)) {
+    return absl::OkStatus();
+  }
   for (auto &dir : std::filesystem::directory_iterator(path)) {
     if (std::filesystem::is_directory(dir)) {
       // For a directory called "msg", parse all the files with the suffix

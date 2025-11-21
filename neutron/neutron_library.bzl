@@ -13,7 +13,11 @@ def _neutron_serdes_action(
         add_namespace,
         lang,
         all):
+    print("srcs: ", srcs)
+    print("outputs: ", outputs)
+    print("out_dir: ", out_dir)
     inputs = depset(direct = srcs, transitive = [depset(imports + other_srcs)])
+    print("inputs: ", inputs.to_list())
     prefix = "serdes" if lang == "c++" else "c_serdes"
     neutron_args = ["--ros", "--out={}/{}/{}".format(out_dir, package_name, prefix), "--runtime_path=", "--msg_path={}".format(package_name), "--lang=" + lang]
     if all:
@@ -52,23 +56,26 @@ def _neutron_serdes_impl(ctx):
     srcs = ctx.files.srcs
     output_files = []
     if ctx.attr.dirs:
+        all_files = []
         for dir in ctx.attr.dirs:
             for file in dir.files.to_list():
                 print(file)
                 d = ctx.actions.declare_directory(file.path + ".cc")
                 output_files.append(d)
-                _neutron_serdes_action(
-                    ctx,
-                    [file],
-                    out_dir,
-                    ctx.attr.package_name,
-                    imports,
-                    srcs,
-                    [d],
-                    ctx.attr.add_namespace,
-                    ctx.attr.lang,
-                    True,
-            )
+                all_files.append(file)
+
+        _neutron_serdes_action(
+            ctx,
+            all_files,
+            out_dir,
+            ctx.attr.package_name,
+            imports,
+            srcs,
+            output_files,
+            ctx.attr.add_namespace,
+            ctx.attr.lang,
+            not file.path.endswith(".msg"),
+    )
 
     for file in srcs:
         outputs = []

@@ -110,19 +110,35 @@ public:
         relative_binary_offset_(relative_binary_offset) {}
 
   T &operator[](int index) {
+    static T empty{};
+    empty = T();
+    if (index < 0 || static_cast<size_t>(index) >= size()) {
+      return empty;
+    }
     T *base = GetBuffer()->template ToAddress<T>(BaseOffset());
     return base[index];
   }
 
   T operator[](int index) const {
+    if (index < 0 || static_cast<size_t>(index) >= size()) {
+      return T();
+    }
+    if (Message::GetReadonlySize(this, source_offset_) != nullptr) {
+      const T *base =
+          Message::ToAddress<const T>(this, source_offset_, BaseOffset());
+      if (base == nullptr) {
+        return T();
+      }
+      return base[index];
+    }
     T *base = GetBuffer()->template ToAddress<T>(BaseOffset());
     return base[index];
   }
 
   T front() { return (*this)[0]; }
   const T front() const { return (*this)[0]; }
-  T back() { return (*this)[size() - 1]; }
-  const T back() const { return (*this)[size() - 1]; }
+  T back() { return (*this)[static_cast<int>(size()) - 1]; }
+  const T back() const { return (*this)[static_cast<int>(size()) - 1]; }
 
   std::vector<T> Get() const {
     std::vector<T> v;
@@ -153,7 +169,17 @@ public:
 
   void clear() { Header()->num_elements = 0; }
 
-  size_t size() const { return Header()->num_elements; }
+  size_t size() const {
+    const toolbelt::VectorHeader *hdr = Header();
+    if (hdr == nullptr) {
+      return 0;
+    }
+    if (Message::GetReadonlySize(this, source_offset_) != nullptr) {
+      return Message::ClampElementCount(this, source_offset_, hdr->data,
+                                        hdr->num_elements, sizeof(T));
+    }
+    return hdr->num_elements;
+  }
   T *data() const { return GetBuffer()->template ToAddress<T>(BaseOffset()); }
 
   bool empty() const { return size() == 0; }
@@ -197,12 +223,15 @@ private:
   toolbelt::VectorHeader *Header() const {
     return GetBuffer()->template ToAddress<toolbelt::VectorHeader>(
         Message::GetMessageBinaryStart(this, source_offset_) +
-        relative_binary_offset_);
+            relative_binary_offset_);
   }
 
-  toolbelt::BufferOffset BaseOffset() const { return Header()->data; }
+  toolbelt::BufferOffset BaseOffset() const {
+    toolbelt::VectorHeader *hdr = Header();
+    return hdr != nullptr ? hdr->data : 0;
+  }
 
-  size_t NumElements() const { return Header()->num_elements; }
+  size_t NumElements() const { return size(); }
 
   toolbelt::PayloadBuffer *GetBuffer() const {
     return Message::GetBuffer(this, source_offset_);
@@ -230,19 +259,35 @@ public:
   using T = typename std::underlying_type<Enum>::type;
 
   Enum &operator[](int index) {
+    static Enum empty = static_cast<Enum>(0);
+    empty = static_cast<Enum>(0);
+    if (index < 0 || static_cast<size_t>(index) >= size()) {
+      return empty;
+    }
     T *base = GetBuffer()->template ToAddress<T>(BaseOffset());
     return *reinterpret_cast<Enum *>(&base[index]);
   }
 
-  const Enum &operator[](int index) const {
+  Enum operator[](int index) const {
+    if (index < 0 || static_cast<size_t>(index) >= size()) {
+      return static_cast<Enum>(0);
+    }
+    if (Message::GetReadonlySize(this, source_offset_) != nullptr) {
+      const T *base =
+          Message::ToAddress<const T>(this, source_offset_, BaseOffset());
+      if (base == nullptr) {
+        return static_cast<Enum>(0);
+      }
+      return static_cast<Enum>(base[index]);
+    }
     const T *base = GetBuffer()->template ToAddress<const T>(BaseOffset());
-    return *reinterpret_cast<const Enum *>(&base[index]);
+    return static_cast<Enum>(base[index]);
   }
 
   Enum front() { return (*this)[0]; }
   const Enum front() const { return (*this)[0]; }
-  Enum back() { return (*this)[size() - 1]; }
-  const Enum back() const { return (*this)[size() - 1]; }
+  Enum back() { return (*this)[static_cast<int>(size()) - 1]; }
+  const Enum back() const { return (*this)[static_cast<int>(size()) - 1]; }
 
   const std::vector<Enum> Get() const {
     size_t n = size();
@@ -274,14 +319,30 @@ public:
 
   void clear() { Header()->num_elements = 0; }
 
-  size_t size() const { return Header()->num_elements; }
-  Enum *data() const { GetBuffer()->template ToAddress<Enum>(BaseOffset()); }
+  size_t size() const {
+    const toolbelt::VectorHeader *hdr = Header();
+    if (hdr == nullptr) {
+      return 0;
+    }
+    if (Message::GetReadonlySize(this, source_offset_) != nullptr) {
+      return Message::ClampElementCount(this, source_offset_, hdr->data,
+                                        hdr->num_elements, sizeof(T));
+    }
+    return hdr->num_elements;
+  }
+  Enum *data() const {
+    return reinterpret_cast<Enum *>(
+        GetBuffer()->template ToAddress<T>(BaseOffset()));
+  }
   bool empty() const { return size() == 0; }
 
   size_t capacity() const {
     toolbelt::VectorHeader *hdr = Header();
-    toolbelt::BufferOffset *addr =
-        GetBuffer()->template ToAddress<toolbelt::BufferOffset>(hdr->data);
+    if (hdr == nullptr) {
+      return 0;
+    }
+    toolbelt::BufferOffset *addr = Message::ToAddress<toolbelt::BufferOffset>(
+        this, source_offset_, hdr->data);
     if (addr == nullptr) {
       return 0;
     }
@@ -317,12 +378,15 @@ private:
   toolbelt::VectorHeader *Header() const {
     return GetBuffer()->template ToAddress<toolbelt::VectorHeader>(
         Message::GetMessageBinaryStart(this, source_offset_) +
-        relative_binary_offset_);
+            relative_binary_offset_);
   }
 
-  toolbelt::BufferOffset BaseOffset() const { return Header()->data; }
+  toolbelt::BufferOffset BaseOffset() const {
+    toolbelt::VectorHeader *hdr = Header();
+    return hdr != nullptr ? hdr->data : 0;
+  }
 
-  size_t NumElements() const { return Header()->num_elements; }
+  size_t NumElements() const { return size(); }
 
   toolbelt::PayloadBuffer *GetBuffer() const {
     return Message::GetBuffer(this, source_offset_);
@@ -351,18 +415,30 @@ public:
     // Populate the msgs vector with MessageField objects referring to the
     // binary messages.
     toolbelt::VectorHeader *hdr = Header();
+    if (hdr == nullptr) {
+      return;
+    }
+    auto ro_size = Message::GetReadonlySize(this, source_offset_);
+    size_t count = hdr->num_elements;
+    if (ro_size != nullptr) {
+      count = Message::ClampElementCount(
+          this, source_offset_, hdr->data, hdr->num_elements,
+          sizeof(toolbelt::BufferOffset));
+    }
     toolbelt::BufferOffset *data =
         GetBuffer()->template ToAddress<toolbelt::BufferOffset>(hdr->data);
-    for (uint32_t i = 0; i < hdr->num_elements; i++) {
+    if (data == nullptr) {
+      return;
+    }
+    for (size_t i = 0; i < count; i++) {
       if (data[i] == 0) {
-        // If the vector says there's a message at this index but
-        // the data is 0 it shows corruption in the binary message.
-        // TODO: How do we deal with this?
-        // abort for now
-        std::cerr << "Invalid message vector entry at index " << i << std::endl;
-        abort();
+        if (ro_size == nullptr) {
+          std::cerr << "Invalid message vector entry at index " << i << std::endl;
+          abort();
+        }
+        continue;
       }
-      NonEmbeddedMessageField<T> field(GetSharedBuffer(), data[i]);
+      NonEmbeddedMessageField<T> field(GetSharedBuffer(), data[i], ro_size);
       msgs_.push_back(std::move(field));
     }
   }
@@ -430,8 +506,21 @@ public:
 
   void clear() { Header()->num_elements = 0; }
 
-  size_t size() const { return Header()->num_elements; }
-  T *data() { GetBuffer()->template ToAddress<T>(BaseOffset()); }
+  size_t size() const {
+    if (Message::GetReadonlySize(this, source_offset_) != nullptr) {
+      const toolbelt::VectorHeader *hdr = Header();
+      if (hdr == nullptr) {
+        return msgs_.size();
+      }
+      return Message::ClampElementCount(
+          this, source_offset_, hdr->data, hdr->num_elements,
+          sizeof(toolbelt::BufferOffset));
+    }
+    return Header()->num_elements;
+  }
+  T *data() {
+    return Message::ToAddress<T>(this, source_offset_, BaseOffset());
+  }
   bool empty() const { return size() == 0; }
 
   toolbelt::BufferOffset BinaryEndOffset() const {
@@ -466,12 +555,15 @@ private:
   toolbelt::VectorHeader *Header() const {
     return GetBuffer()->template ToAddress<toolbelt::VectorHeader>(
         Message::GetMessageBinaryStart(this, source_offset_) +
-        relative_binary_offset_);
+            relative_binary_offset_);
   }
 
-  toolbelt::BufferOffset BaseOffset() const { return Header()->data; }
+  toolbelt::BufferOffset BaseOffset() const {
+    toolbelt::VectorHeader *hdr = Header();
+    return hdr != nullptr ? hdr->data : 0;
+  }
 
-  size_t NumElements() const { return Header()->num_elements; }
+  size_t NumElements() const { return size(); }
 
   toolbelt::PayloadBuffer *GetBuffer() const {
     return Message::GetBuffer(this, source_offset_);
@@ -516,19 +608,31 @@ public:
       : source_offset_(source_offset),
         relative_binary_offset_(relative_binary_offset) {
     toolbelt::VectorHeader *hdr = Header();
+    if (hdr == nullptr) {
+      return;
+    }
+    auto ro_size = Message::GetReadonlySize(this, source_offset_);
+    size_t count = hdr->num_elements;
+    if (ro_size != nullptr) {
+      count = Message::ClampElementCount(
+          this, source_offset_, hdr->data, hdr->num_elements,
+          sizeof(toolbelt::BufferOffset));
+    }
     toolbelt::BufferOffset *data =
         GetBuffer()->ToAddress<toolbelt::BufferOffset>(hdr->data);
-    for (uint32_t i = 0; i < hdr->num_elements; i++) {
+    if (data == nullptr) {
+      return;
+    }
+    for (size_t i = 0; i < count; i++) {
       if (data[i] == 0) {
-        // If the vector says there's a string at this index but
-        // the data is 0 it shows corruption in the binary message.
-        // TODO: How do we deal with this?
-        // abort for now
-        std::cerr << "Invalid string vector entry at index " << i << std::endl;
-        abort();
+        if (ro_size == nullptr) {
+          std::cerr << "Invalid string vector entry at index " << i << std::endl;
+          abort();
+        }
+        continue;
       }
-      NonEmbeddedStringField field(
-          Message::GetSharedBuffer(this, source_offset), data[i]);
+      NonEmbeddedStringField field(Message::GetSharedBuffer(this, source_offset_),
+                                   data[i], ro_size);
       strings_.push_back(std::move(field));
     }
   }
@@ -635,7 +739,7 @@ private:
   toolbelt::VectorHeader *Header() const {
     return GetBuffer()->template ToAddress<toolbelt::VectorHeader>(
         Message::GetMessageBinaryStart(this, source_offset_) +
-        relative_binary_offset_);
+            relative_binary_offset_);
   }
   toolbelt::PayloadBuffer *GetBuffer() const {
     return Message::GetBuffer(this, source_offset_);

@@ -25,8 +25,7 @@ class Buffer;
         : source_offset_(boff), relative_binary_offset_(offset) {}            \
                                                                               \
     operator type() const {                                                   \
-      return GetBuffer()->Get<type>(GetMessageBinaryStart() +                 \
-                                    relative_binary_offset_);                 \
+      return Get();                                                           \
     }                                                                         \
                                                                               \
     cname##Field &operator=(type v) {                                         \
@@ -35,6 +34,15 @@ class Buffer;
     }                                                                         \
                                                                               \
     type Get() const {                                                        \
+      if (Message::GetReadonlySize(this, source_offset_) != nullptr) {        \
+        const type *_neutron_addr = Message::ToAddress<const type>(           \
+            this, source_offset_,                                             \
+            GetMessageBinaryStart() + relative_binary_offset_);               \
+        if (_neutron_addr == nullptr) {                                       \
+          return type();                                                      \
+        }                                                                     \
+        return *_neutron_addr;                                                 \
+      }                                                                       \
       return GetBuffer()->Get<type>(GetMessageBinaryStart() +                 \
                                     relative_binary_offset_);                 \
     }                                                                         \
@@ -88,10 +96,7 @@ class StringField {
       : source_offset_(source_offset),
         relative_binary_offset_(relative_binary_offset) {}
 
-  operator std::string_view() const {
-    return GetBuffer()->GetStringView(GetMessageBinaryStart() +
-                                      relative_binary_offset_);
-  }
+  operator std::string_view() const { return Get(); }
 
   StringField &operator=(const std::string &s) {
     toolbelt::PayloadBuffer::SetString(GetBufferAddr(), s,
@@ -112,6 +117,11 @@ class StringField {
   }
 
   std::string_view Get() const {
+    if (Message::GetReadonlySize(this, source_offset_) != nullptr) {
+      return Message::GetStringView(this, source_offset_,
+                                    GetMessageBinaryStart() +
+                                        relative_binary_offset_);
+    }
     return GetBuffer()->GetStringView(GetMessageBinaryStart() +
                                       relative_binary_offset_);
   }
@@ -133,11 +143,21 @@ class StringField {
   bool operator!=(const StringField &other) const { return !(*this == other); }
 
   size_t size() const {
+    if (Message::GetReadonlySize(this, source_offset_) != nullptr) {
+      return Message::StringSize(this, source_offset_,
+                                 GetMessageBinaryStart() +
+                                     relative_binary_offset_);
+    }
     return GetBuffer()->StringSize(GetMessageBinaryStart() +
                                    relative_binary_offset_);
   }
 
   const char *data() const {
+    if (Message::GetReadonlySize(this, source_offset_) != nullptr) {
+      return Message::StringData(this, source_offset_,
+                                   GetMessageBinaryStart() +
+                                       relative_binary_offset_);
+    }
     return GetBuffer()->StringData(GetMessageBinaryStart() +
                                    relative_binary_offset_);
   }
@@ -173,10 +193,14 @@ class NonEmbeddedStringField {
   explicit NonEmbeddedStringField(std::shared_ptr<toolbelt::PayloadBuffer *> buffer,
                                   uint32_t relative_binary_offset)
       : buffer_(buffer), relative_binary_offset_(relative_binary_offset) {}
+  explicit NonEmbeddedStringField(std::shared_ptr<toolbelt::PayloadBuffer *> buffer,
+                                  uint32_t relative_binary_offset,
+                                  std::shared_ptr<const size_t> readonly_size)
+      : buffer_(buffer),
+        relative_binary_offset_(relative_binary_offset),
+        readonly_size_(std::move(readonly_size)) {}
 
-  operator std::string_view() const {
-    return GetBuffer()->GetStringView(relative_binary_offset_);
-  }
+  operator std::string_view() const { return Get(); }
 
   NonEmbeddedStringField &operator=(const std::string &s) {
     toolbelt::PayloadBuffer::SetString(GetBufferAddr(), s, relative_binary_offset_);
@@ -189,7 +213,13 @@ class NonEmbeddedStringField {
   toolbelt::BufferOffset BinaryOffset() const { return relative_binary_offset_; }
 
   std::string_view Get() const {
-    return GetBuffer()->GetStringView(relative_binary_offset_);
+    toolbelt::PayloadBuffer *pb = GetBuffer();
+    if (pb == nullptr) {
+      return {};
+    }
+    const size_t buf_size =
+        readonly_size_ != nullptr ? *readonly_size_ : 0;
+    return pb->GetStringView(relative_binary_offset_, buf_size);
   }
 
   void Set(const std::string &s) {
@@ -204,11 +234,23 @@ class NonEmbeddedStringField {
   }
 
   size_t size() const {
-    return GetBuffer()->StringSize(relative_binary_offset_);
+    toolbelt::PayloadBuffer *pb = GetBuffer();
+    if (pb == nullptr) {
+      return 0;
+    }
+    const size_t buf_size =
+        readonly_size_ != nullptr ? *readonly_size_ : 0;
+    return pb->StringSize(relative_binary_offset_, buf_size);
   }
 
   const char *data() const {
-    return GetBuffer()->StringData(relative_binary_offset_);
+    toolbelt::PayloadBuffer *pb = GetBuffer();
+    if (pb == nullptr) {
+      return nullptr;
+    }
+    const size_t buf_size =
+        readonly_size_ != nullptr ? *readonly_size_ : 0;
+    return pb->StringData(relative_binary_offset_, buf_size);
   }
   bool empty() const { return size() == 0; }
 
@@ -223,6 +265,7 @@ class NonEmbeddedStringField {
   toolbelt::PayloadBuffer **GetBufferAddr() const { return buffer_.get(); }
 
   std::shared_ptr<toolbelt::PayloadBuffer *> buffer_;
+  std::shared_ptr<const size_t> readonly_size_;
   toolbelt::BufferOffset
       relative_binary_offset_;  // Offset into toolbelt::PayloadBuffer of toolbelt::StringHeader
 };
@@ -235,16 +278,9 @@ class EnumField {
   explicit EnumField(uint32_t boff, uint32_t offset)
       : source_offset_(boff), relative_binary_offset_(offset) {}
 
-  operator Enum() const {
-    return static_cast<Enum>(
-        GetBuffer()->template Get<typename std::underlying_type<Enum>::type>(
-            GetMessageBinaryStart() + relative_binary_offset_));
-  }
+  operator Enum() const { return Get(); }
 
-  operator T() const {
-    return GetBuffer()->template Get<typename std::underlying_type<Enum>::type>(
-        GetMessageBinaryStart() + relative_binary_offset_);
-  }
+  operator T() const { return GetUnderlying(); }
 
   EnumField &operator=(Enum e) {
     GetBuffer()->Set(GetMessageBinaryStart() + relative_binary_offset_,
@@ -252,14 +288,19 @@ class EnumField {
     return *this;
   }
 
-  Enum Get() const {
-    return static_cast<Enum>(
-        GetBuffer()->template Get<typename std::underlying_type<Enum>::type>(
-            GetMessageBinaryStart() + relative_binary_offset_));
-  }
+  Enum Get() const { return static_cast<Enum>(GetUnderlying()); }
 
   T GetUnderlying() const {
-    return GetBuffer()->template Get<typename std::underlying_type<Enum>::type>(
+    if (Message::GetReadonlySize(this, source_offset_) != nullptr) {
+      const T *_neutron_addr = Message::ToAddress<const T>(
+          this, source_offset_,
+          GetMessageBinaryStart() + relative_binary_offset_);
+      if (_neutron_addr == nullptr) {
+        return T();
+      }
+      return *_neutron_addr;
+    }
+    return GetBuffer()->template Get<T>(
         GetMessageBinaryStart() + relative_binary_offset_);
   }
 
@@ -310,7 +351,9 @@ class MessageField {
                toolbelt::BufferOffset source_offset, toolbelt::BufferOffset relative_binary_offset)
       : relative_binary_offset_(relative_binary_offset),
         msg_(buffer, Message::GetMessageBinaryStart(this, source_offset) +
-                         relative_binary_offset) {}
+                         relative_binary_offset) {
+    msg_.readonly_size = Message::GetReadonlySize(this, source_offset);
+  }
 
   operator MessageType &() { return msg_; }
   MessageType &operator*() { return msg_; }
@@ -358,6 +401,12 @@ class NonEmbeddedMessageField {
   NonEmbeddedMessageField(std::shared_ptr<toolbelt::PayloadBuffer *> buffer,
                           toolbelt::BufferOffset absolute_binary_offset)
       : msg_(buffer, absolute_binary_offset) {}
+  NonEmbeddedMessageField(std::shared_ptr<toolbelt::PayloadBuffer *> buffer,
+                          toolbelt::BufferOffset absolute_binary_offset,
+                          std::shared_ptr<const size_t> readonly_size)
+      : msg_(buffer, absolute_binary_offset) {
+    msg_.readonly_size = std::move(readonly_size);
+  }
 
   operator MessageType &() { return msg_; }
   MessageType &operator*() { return msg_; }

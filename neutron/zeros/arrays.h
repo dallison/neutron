@@ -106,12 +106,23 @@ public:
         relative_binary_offset_(relative_binary_offset) {}
 
   T &operator[](int index) {
+    if (index < 0 || index >= N) {
+      static T empty{};
+      empty = T();
+      return empty;
+    }
     T *base = GetBuffer()->template ToAddress<T>(BaseOffset());
     return base[index];
   }
 
   T operator[](int index) const {
-    T *base = GetBuffer()->template ToAddress<T>(BaseOffset());
+    if (index < 0 || index >= N) {
+      return T();
+    }
+    const T *base = Message::ToAddress<const T>(this, source_offset_, BaseOffset());
+    if (base == nullptr) {
+      return T();
+    }
     return base[index];
   }
 
@@ -141,7 +152,9 @@ public:
 #undef CTYPE
 
   size_t size() const { return N; }
-  T *data() const { return GetBuffer()->template ToAddress<T>(BaseOffset()); }
+  T *data() const {
+    return Message::ToAddress<T>(this, source_offset_, BaseOffset());
+  }
   bool empty() const { return N == 0; }
   size_t max_size() const { return N; }
 
@@ -198,13 +211,29 @@ public:
         relative_binary_offset_(relative_binary_offset) {}
 
   Enum &operator[](int index) {
+    static Enum empty = static_cast<Enum>(0);
+    empty = static_cast<Enum>(0);
+    if (index < 0 || index >= N) {
+      return empty;
+    }
     T *base = GetBuffer()->template ToAddress<T>(BaseOffset());
     return *reinterpret_cast<Enum *>(&base[index]);
   }
 
-  const Enum &operator[](int index) const {
+  Enum operator[](int index) const {
+    if (index < 0 || index >= N) {
+      return static_cast<Enum>(0);
+    }
+    if (Message::GetReadonlySize(this, source_offset_) != nullptr) {
+      const T *base =
+          Message::ToAddress<const T>(this, source_offset_, BaseOffset());
+      if (base == nullptr) {
+        return static_cast<Enum>(0);
+      }
+      return static_cast<Enum>(base[index]);
+    }
     const T *base = GetBuffer()->template ToAddress<const T>(BaseOffset());
-    return *reinterpret_cast<const Enum *>(&base[index]);
+    return static_cast<Enum>(base[index]);
   }
 
   Enum front() { return (*this)[0]; }
@@ -227,7 +256,10 @@ public:
 #undef CTYPE
 
   size_t size() const { return N; }
-  Enum *data() const { GetBuffer()->template ToAddress<Enum>(BaseOffset()); }
+  Enum *data() const {
+    return reinterpret_cast<Enum *>(
+        Message::ToAddress<T>(this, source_offset_, BaseOffset()));
+  }
   bool empty() const { return N == 0; }
   size_t max_size() const { return N; }
 

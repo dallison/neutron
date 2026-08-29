@@ -970,11 +970,21 @@ absl::Status Generator::GenerateCreators(const Message &msg, std::ostream &os) {
         "address with a size.\n";
   os << "[[maybe_unused]] static " << msg.Name()
      << " CreateReadonly(const void *addr, size_t size) {\n"
-        "  ::toolbelt::PayloadBuffer *pb ="
-        "reinterpret_cast<::toolbelt::PayloadBuffer "
-        "*>(const_cast<void*>(addr));\n"
-     << "  return " << msg.Name()
-     << "(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);\n"
+        "  auto buffer = std::make_shared<toolbelt::PayloadBuffer *>("
+        "reinterpret_cast<toolbelt::PayloadBuffer *>("
+        "const_cast<void *>(addr)));\n"
+        "  auto ro_size = std::make_shared<const size_t>(size);\n"
+        "  toolbelt::BufferOffset offset = 0;\n"
+        "  if (addr != nullptr && size >= sizeof(toolbelt::PayloadBuffer)) {\n"
+        "    toolbelt::PayloadBuffer *pb = *buffer;\n"
+        "    if (pb->IsValidMagic() && pb->message != 0 && "
+        "pb->message < size) {\n"
+        "      offset = pb->message;\n"
+        "    }\n"
+        "  }\n"
+     << "  " << msg.Name() << " msg(buffer, offset);\n"
+        "  msg.readonly_size = ro_size;\n"
+        "  return msg;\n"
         "}\n\n";
 
   os << "// Create a message in a dynamically resized buffer allocated from "

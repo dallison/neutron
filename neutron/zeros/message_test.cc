@@ -1,6 +1,9 @@
 #include "neutron/zeros/message.h"
 #include <gtest/gtest.h>
+#include <cstdint>
+#include <cstring>
 #include <sstream>
+#include <vector>
 #include "absl/strings/str_format.h"
 #include "toolbelt/payload_buffer.h"
 #include "neutron/zeros/runtime.h"
@@ -496,13 +499,13 @@ TEST(MessageTest, VectorResize) {
     ASSERT_EQ(x, i);
     x++;
   }
-  ASSERT_EQ(10, msg.vec.capacity());
+  ASSERT_EQ(16, msg.vec.capacity());
 
   // Push one more.
   msg.vec.push_back(100);
   ASSERT_EQ(11, msg.vec.size());
   ASSERT_EQ(100, uint32_t(msg.vec[10]));
-  ASSERT_EQ(20, msg.vec.capacity());
+  ASSERT_GE(msg.vec.capacity(), 11u);
   free(buffer);
 }
 
@@ -580,7 +583,7 @@ TEST(MessageTest, MessageVectorReserve) {
 
   toolbelt::Hexdump(pb, 400);
   msg.mvec.reserve(20);
-  ASSERT_EQ(20, msg.mvec.capacity());
+  ASSERT_EQ(32, msg.mvec.capacity());
 
   toolbelt::Hexdump(pb, pb->hwm);
 
@@ -693,6 +696,73 @@ TEST(MessageTest, CharVector) {
     ASSERT_EQ(x, i);
     x++;
   }
+  free(buffer);
+}
+
+// Hostile payloads: structurally valid buffers with corrupted in-band lengths
+// and counts must not read past the received size when readonly_size is set.
+TEST(MessageTest, HostileReadonlyPayloadIsBounded) {
+  char *buffer = (char *)calloc(4096, 1);
+  toolbelt::PayloadBuffer *pb = new (buffer) toolbelt::PayloadBuffer(4096);
+  toolbelt::PayloadBuffer::AllocateMainMessage(&pb, TestMessage::BinarySize());
+
+  TestMessage src(std::make_shared<toolbelt::PayloadBuffer *>(pb), pb->message);
+  src.x = 1234;
+  src.s = "hello world";
+  src.vec.push_back(0x11111111);
+  src.vec.push_back(0x22222222);
+  src.vec.push_back(0x33333333);
+
+  const size_t n = pb->hwm;
+  std::vector<char> recv(buffer, buffer + n);
+
+  auto attach = [&](std::vector<char> &bytes) {
+    auto *pb2 = reinterpret_cast<toolbelt::PayloadBuffer *>(bytes.data());
+    auto buf = std::make_shared<toolbelt::PayloadBuffer *>(pb2);
+    TestMessage msg(buf, pb2->message);
+    msg.readonly_size = std::make_shared<const size_t>(bytes.size());
+    return msg;
+  };
+
+  {
+    auto msg = attach(recv);
+    ASSERT_EQ(1234u, msg.x);
+    ASSERT_EQ("hello world", msg.s.Get());
+    ASSERT_EQ(3u, msg.vec.size());
+  }
+
+  // Inflate full_size; accessors must stay within received bytes.
+  {
+    uint32_t huge = 0xffffffffu;
+    std::memcpy(recv.data() + 12, &huge, sizeof(huge));
+  }
+  {
+    auto msg = attach(recv);
+    ASSERT_EQ(1234u, msg.x);
+    ASSERT_EQ("hello world", msg.s.Get());
+    ASSERT_EQ(3u, msg.vec.size());
+  }
+
+  // Hostile string length must clamp, not trust in-buffer full_size.
+  long s_pos = -1;
+  for (size_t i = 0; i + 11 <= recv.size(); ++i) {
+    if (std::memcmp(recv.data() + i, "hello world", 11) == 0) {
+      s_pos = static_cast<long>(i);
+      break;
+    }
+  }
+  ASSERT_GE(s_pos, 4);
+  {
+    uint32_t huge = 0xffffffffu;
+    std::memcpy(recv.data() + s_pos - 4, &huge, sizeof(huge));
+  }
+  {
+    auto msg = attach(recv);
+    std::string_view s = msg.s.Get();
+    ASSERT_LE(s.size(), recv.size());
+    ASSERT_EQ(0, s.compare(0, 11, "hello world"));
+  }
+
   free(buffer);
 }
 

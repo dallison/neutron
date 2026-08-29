@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -49,6 +50,14 @@ struct FieldIterator {
     return FieldIterator(field, field->BaseOffset() - i * sizeof(T));
   }
   T &operator*() const {
+    static std::remove_const_t<T> empty{};
+    if (Message::GetReadonlySize(field, field->source_offset_) != nullptr) {
+      T *addr = Message::ToAddress<T>(field, field->source_offset_, offset);
+      if (addr == nullptr) {
+        return empty;
+      }
+      return *addr;
+    }
     T *addr = field->GetBuffer()->template ToAddress<T>(offset);
     return *addr;
   }
@@ -101,6 +110,10 @@ struct StringFieldIterator {
                                field->BaseOffset() - i * sizeof(toolbelt::BufferOffset));
   }
   std::string_view operator*() const {
+    if (Message::GetReadonlySize(field, field->source_offset_) != nullptr) {
+      return Message::GetStringView(field, field->source_offset_,
+                                    field->BaseOffset() + offset);
+    }
     return field->GetBuffer()->GetStringView(field->BaseOffset() + offset);
   }
 
@@ -141,25 +154,33 @@ struct EnumFieldIterator {
     if (reverse) {
       return EnumFieldIterator(
           field,
-          field->BaseOffset() - i * sizeof(std::underlying_type<T>::type),
+          field->BaseOffset() - i * sizeof(std::underlying_type_t<T>),
           true);
     }
     return EnumFieldIterator(
-        field, field->BaseOffset() + i * sizeof(std::underlying_type<T>::type));
+        field, field->BaseOffset() + i * sizeof(std::underlying_type_t<T>));
   }
   EnumFieldIterator operator-(size_t i) {
     if (reverse) {
       return EnumFieldIterator(
           field,
-          field->BaseOffset() + i * sizeof(std::underlying_type<T>::type),
+          field->BaseOffset() + i * sizeof(std::underlying_type_t<T>),
           true);
     }
     return EnumFieldIterator(
-        field, field->BaseOffset() - i * sizeof(std::underlying_type<T>::type));
+        field, field->BaseOffset() - i * sizeof(std::underlying_type_t<T>));
   }
 
   T &operator*() const {
-    using U = typename std::underlying_type<T>::type;
+    using U = std::underlying_type_t<T>;
+    static T empty = static_cast<T>(0);
+    if (Message::GetReadonlySize(field, field->source_offset_) != nullptr) {
+      U *addr = Message::ToAddress<U>(field, field->source_offset_, offset);
+      if (addr == nullptr) {
+        return empty;
+      }
+      return *reinterpret_cast<T *>(addr);
+    }
     U *addr = field->GetBuffer()->template ToAddress<U>(offset);
     return *reinterpret_cast<T *>(addr);
   }

@@ -141,7 +141,7 @@ TEST(Runtime, AllZeroToSerdes) {
   all.ai8[0] = 20;
   all.aui8[1] = 21;
   all.ai16[1] = 22;
-  all.aui16[4] = 23;
+  all.aui16[3] = 23;
   all.ai32[5] = 24;
   all.aui32[6] = 25;
   all.ai64[7] = 26;
@@ -237,7 +237,7 @@ TEST(Runtime, AllZeroToSerdes) {
   ASSERT_EQ(sall.ai8[0], 20);
   ASSERT_EQ(sall.aui8[1], 21);
   ASSERT_EQ(sall.ai16[1], 22);
-  ASSERT_EQ(sall.aui16[4], 23);
+  ASSERT_EQ(sall.aui16[3], 23);
   ASSERT_EQ(sall.ai32[5], 24);
   ASSERT_EQ(sall.aui32[6], 25);
   ASSERT_EQ(sall.ai64[7], 26);
